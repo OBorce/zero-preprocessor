@@ -19,8 +19,8 @@ class Preprocessor {
    */
   template <int A, int B>
   constexpr void check() {
-    using first = typename std::tuple_element<A, Parsers>::type;
-    using second = typename std::tuple_element<B, Parsers>::type;
+    using first = std::tuple_element_t<A, Parsers>;
+    using second = std::tuple_element_t<B, Parsers>;
 
     static_assert(first::id != second::id, "Parsers have the same ID");
 
@@ -47,7 +47,7 @@ class Preprocessor {
    */
   template <int ID, int N = 0>
   static constexpr int find_parser_with_id() {
-    using to_check = typename std::tuple_element<N, Parsers>::type;
+    using to_check = std::tuple_element_t<N, Parsers>;
 
     if constexpr (to_check::id == ID) {
       return N;
@@ -56,7 +56,7 @@ class Preprocessor {
     }
 
     return -1;
-  };
+  }
 
   /*
    * Return the parser's index for a given ID, Not Found compiler error
@@ -68,7 +68,7 @@ class Preprocessor {
     static_assert(idx != -1, "Parser not found");
 
     return idx;
-  };
+  }
 
   // Data members
   Parsers parsers;
@@ -84,17 +84,19 @@ class Preprocessor {
   template <int ID>
   constexpr bool has_parser_with_id() {
     return find_parser_with_id<ID>() != -1;
-  };
+  }
+
+  template <int ID>
+  using parser =
+      std::tuple_element_t<get_parsers_idx_with_error<ID>(), Parsers>;
 
   /*
-   * Get a reference to the parser with given ID
-   * TODO: maybe return a const reference?
+   * Get a const reference to the parser with given PARSER_ID
    */
-  template <int ID>
-  auto get_parser()
-      -> decltype(std::get<get_parsers_idx_with_error<ID>()>(parsers)) {
-    constexpr int n = find_parser_with_id<ID>();
-    return std::get<n>(parsers);
+  template <int PARSER_ID>
+  auto get_parser() -> parser<PARSER_ID> const& {
+    constexpr int idx = find_parser_with_id<PARSER_ID>();
+    return std::get<idx>(parsers);
   }
 };
 
@@ -107,7 +109,7 @@ class B {
  public:
   B(Parent& p) : parent{p} {}
 
-  int foo() { return 1; }
+  int foo() const { return 1; }
 
   constexpr static int id = 1;
 };
@@ -119,7 +121,7 @@ class C {
  public:
   C(Parent& p) : parent{p} {}
 
-  int baz() { return 1; }
+  int baz() const { return 1; }
 
   constexpr static int id = 2;
 };
@@ -130,9 +132,9 @@ int main() {
   Preprocessor a(l, l2);
 
   // B<int> because id does not depend on the template
-  auto b = a.get_parser<B<int>::id>();
-  auto c = a.get_parser<C<int>::id>();
-  // auto d = a.get_parser<3>(); // does not compile
+  auto& b = a.get_parser<B<int>::id>();
+  auto& c = a.get_parser<C<int>::id>();
+  // auto& d = a.get_parser<3>(); // does not compile
   b.foo();
   c.baz();
 
