@@ -2,11 +2,12 @@
 #include <tuple>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
-template <typename... Functions>
+template <typename Source, typename... Functions>
 class Preprocessor {
   // Deduce the type of our parsers
-  using me = Preprocessor<Functions...>;
+  using me = Preprocessor<Source, Functions...>;
   using my_ref = me&;
   using Parsers = std::tuple<std::invoke_result_t<Functions, my_ref>...>;
 
@@ -71,10 +72,14 @@ class Preprocessor {
   }
 
   // Data members
+  std::vector<Source> sources;
   Parsers parsers;
 
  public:
-  Preprocessor(Functions... funs) : parsers{funs(*this)...} { check_unique(); }
+  Preprocessor(std::vector<Source>&& sources, Functions... funs)
+      : sources{std::move(sources)}, parsers{funs(*this)...} {
+    check_unique();
+  }
 
   // Methods
 
@@ -129,7 +134,8 @@ class C {
 int main() {
   auto l = [](auto& p) { return B{p}; };
   auto l2 = [](auto& p) { return C{p}; };
-  Preprocessor a(l, l2);
+  std::vector<int> sources = {1, 2, 3};
+  Preprocessor a(std::move(sources), l, l2);
 
   // B<int> because id does not depend on the template
   auto& b = a.get_parser<B<int>::id>();
