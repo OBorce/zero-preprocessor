@@ -4,6 +4,8 @@
 #include <utility>
 #include <vector>
 
+#include <std_parser.h>
+
 template <typename Source, typename... Functions>
 class Preprocessor {
   // Deduce the type of our parsers
@@ -143,6 +145,10 @@ int main() {
   // auto& d = a.get_parser<3>(); // does not compile
   b.foo();
   c.baz();
+
+  std::string s = "int foo(int b, int c) {";
+  std_parser::StdParser p;
+  p.parse(s);
 
   return 0;
 }
