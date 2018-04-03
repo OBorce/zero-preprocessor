@@ -133,6 +133,7 @@ class C {
   constexpr static int id = 2;
 };
 
+// example
 int main() {
   auto l = [](auto& p) { return B{p}; };
   auto l2 = [](auto& p) { return C{p}; };

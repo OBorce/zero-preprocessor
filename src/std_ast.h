@@ -28,24 +28,6 @@ struct class_or_struct {
   std::string name;
 };
 
-struct Class {
-  class_type type;
-  std::string name;
-  enum class Modifier { PUBLIC, PROTECTED, PRIVATE } state;
-
-
-  Class(class_or_struct&& cs) : type{cs.type}, name{std::move(cs.name)} {
-    switch (type) {
-      case class_type::CLASS:
-        state = Modifier::PRIVATE;
-        break;
-      case class_type::STRUCT:
-        state = Modifier::PUBLIC;
-        break;
-    }
-  }
-};
-
 struct Function {
   Type return_type;
   std::string name;
@@ -57,6 +39,85 @@ struct Function {
         parameters{std::move(fun.parameters)} {}
 };
 
+struct Class {
+  class_type type;
+  std::string name;
+  enum class Modifier { PUBLIC, PROTECTED, PRIVATE } state;
+
+  std::map<std::string, Class> classes;
+  std::unordered_map<std::string, Function> public_methods;
+  std::unordered_map<std::string, Function> protected_methods;
+  std::unordered_map<std::string, Function> private_methods;
+
+  std::unordered_map<std::string, var> public_members;
+  std::unordered_map<std::string, var> protected_members;
+  std::unordered_map<std::string, var> private_members;
+
+  Class(class_or_struct&& cs) : type{cs.type}, name{std::move(cs.name)} {
+    switch (type) {
+      case class_type::CLASS:
+        state = Modifier::PRIVATE;
+        break;
+      case class_type::STRUCT:
+        state = Modifier::PUBLIC;
+        break;
+    }
+  }
+
+  void add_class(Class&& class_or_struct) {
+    auto name = class_or_struct.name;
+    classes.emplace(name, std::move(class_or_struct));
+  }
+
+  void add_function(Function&& fun) {
+    auto name = fun.name;
+    switch (state) {
+      case Modifier::PUBLIC:
+        public_methods.emplace(name, std::move(fun));
+        break;
+      case Modifier::PROTECTED:
+        protected_methods.emplace(name, std::move(fun));
+        break;
+      case Modifier::PRIVATE:
+        private_methods.emplace(name, std::move(fun));
+        break;
+    }
+  }
+
+  void add_variable(var&& var) {
+    auto name = var.name;
+    switch (state) {
+      case Modifier::PUBLIC:
+        public_members.emplace(name, std::move(var));
+        break;
+      case Modifier::PROTECTED:
+        protected_members.emplace(name, std::move(var));
+        break;
+      case Modifier::PRIVATE:
+        private_members.emplace(name, std::move(var));
+        break;
+    }
+  }
+};
+
+class Scope {
+  std::unordered_map<std::string, Class> classes;
+  std::unordered_map<std::string, var> variables;
+
+ public:
+  void add_class(Class&& class_or_struct) {
+    auto name = class_or_struct.name;
+    classes.emplace(name, std::move(class_or_struct));
+  }
+
+  void add_variable(var&& var) {
+    auto name = var.name;
+    variables.emplace(name, std::move(var));
+  }
+
+  auto get_class(const std::string& name) const { return classes.at(name); }
+};
+
 class Namespace {
   std::string name;
   std::unordered_map<std::string, Class> classes;
@@ -66,18 +127,22 @@ class Namespace {
 
  public:
   Namespace(const std::string& name) : name{name} {}
+  Namespace(std::string&& name) : name{std::move(name)} {}
 
   void add_class(Class&& class_or_struct) {
     auto name = class_or_struct.name;
     classes.emplace(name, std::move(class_or_struct));
   }
 
-  void add_function(function_signiture&& fun) {
+  void add_function(Function&& fun) {
     auto name = fun.name;
     functions.emplace(name, std::move(fun));
   }
 
-  void add_variable(var& var) { variables.emplace(var.name, var); }
+  void add_variable(var&& var) {
+    auto name = var.name;
+    variables.emplace(name, std::move(var));
+  }
 
   void add_namespace(Namespace&& n) {
     auto name = n.name;

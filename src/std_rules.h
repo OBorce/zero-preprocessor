@@ -52,6 +52,10 @@ auto const statement_end_def = optionaly_space >> ';';
 x3::rule<class name, std::string> const name = "name";
 auto const name_def = ((alpha | char_('_')) >> *(alpha | digit | char_('_')));
 
+//TODO: add nested namespaces c++17
+x3::rule<class namespace_begin, std::string> const namespace_begin = "namespace_begin";
+auto const namespace_begin_def = lit("namespace") >> some_space >> name >> scope_begin;
+
 x3::rule<class type, std::vector<std::string>> const type = "type";
 auto const type_def = name >> *(lit("::") >> name);
 
@@ -134,12 +138,12 @@ x3::rule<class class_or_struct, ast::class_or_struct> const class_or_struct =
 auto const class_or_struct_def = class_type >> some_space >> name;
 
 BOOST_SPIRIT_DEFINE(some_space, optionaly_space, arg_separator, arg_operator,
-                    scope_begin, scope_end, statement_end, name, type, digits,
-                    integral, floating, number, string_literal, char_literal,
-                    argument, function_call, expression, paren_expression,
-                    init_list, arg_init_list, optionaly_params, param,
-                    param_optionaly_default, var, function_signiture,
-                    class_or_struct);
-}  // namespace rules
+                    scope_begin, scope_end, namespace_begin, statement_end,
+                    name, type, digits, integral, floating, number,
+                    string_literal, char_literal, argument, function_call,
+                    expression, paren_expression, init_list, arg_init_list,
+                    optionaly_params, param, param_optionaly_default, var,
+                    function_signiture, class_or_struct);
+}  // namespace std_parser::rules
 
 #endif  //! STD_RULES_H
