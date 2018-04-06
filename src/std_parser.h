@@ -2,6 +2,7 @@
 #define STD_PARSER_H
 
 #include <optional>
+#include <stdexcept>
 #include <variant>
 
 #include <std_rules.h>
@@ -20,8 +21,7 @@ overloaded(Ts...)->overloaded<Ts...>;
 class StdParser {
   using Scopable = std::variant<rules::ast::Namespace, rules::ast::Scope,
                                 rules::ast::Class, rules::ast::Function>;
-  rules::ast::Namespace global_namespace{""};
-  std::vector<Scopable> nestings;
+  std::vector<Scopable> nestings = {rules::ast::Namespace{""}};
 
   // parser methods
 
@@ -51,22 +51,23 @@ class StdParser {
     auto se = [&](auto& ctx) {
       auto&& c = std::move(current);
       nestings.pop_back();
-      if (nestings.empty()) {
-        global_namespace.add_namespace(std::move(c));
-      } else {
-        auto& v = nestings.back();
-        std::visit(
-            overloaded{
-                [&](rules::ast::Namespace& arg) {
-                  arg.add_namespace(std::move(c));
-                },
-                [](auto) {
-                  /* NOTE: Can't have a namespace inside a class, function or a
-                   * local scope*/
-                },
-            },
-            v);
+      if (nestings.size() == 1) {
+        // NOTE: more closing brackets than opened
+        throw std::runtime_error("extraneous closing brace ('}')");
       }
+
+      auto& v = nestings.back();
+      std::visit(
+          overloaded{
+              [&](rules::ast::Namespace& arg) {
+                arg.add_namespace(std::move(c));
+              },
+              [](auto) {
+                /* NOTE: Can't have a namespace inside a class, function or a
+                 * local scope*/
+              },
+          },
+          v);
     };
 
     namespace x3 = boost::spirit::x3;
@@ -107,22 +108,16 @@ class StdParser {
     auto se = [&](auto& ctx) {
       auto&& c = std::move(current);
       nestings.pop_back();
-      if (nestings.empty()) {
-        global_namespace.add_class(std::move(c));
-      } else {
-        auto& v = nestings.back();
-        std::visit(
-            overloaded{
-                [&](rules::ast::Namespace& arg) {
-                  arg.add_class(std::move(c));
-                },
-                [&](rules::ast::Class& arg) { arg.add_class(std::move(c)); },
-                [](auto) {
-                  /* TODO: local classes inside functions or local scopes*/
-                },
-            },
-            v);
-      }
+      auto& v = nestings.back();
+      std::visit(
+          overloaded{
+              [&](rules::ast::Namespace& arg) { arg.add_class(std::move(c)); },
+              [&](rules::ast::Class& arg) { arg.add_class(std::move(c)); },
+              [](auto) {
+                /* TODO: local classes inside functions or local scopes*/
+              },
+          },
+          v);
     };
 
     namespace x3 = boost::spirit::x3;
@@ -156,35 +151,32 @@ class StdParser {
     auto se = [&](auto& ctx) {
       auto&& c = std::move(current);
       nestings.pop_back();
-      if (nestings.empty()) {
-        global_namespace.add_function(std::move(c));
-      } else {
-        auto& v = nestings.back();
-        std::visit(
-            overloaded{
-                [&](rules::ast::Namespace& arg) {
-                  arg.add_function(std::move(c));
-                },
-                [&](rules::ast::Class& arg) { arg.add_function(std::move(c)); },
-                [](auto) {
-                  /* NOTE: Can't have a function inside a function or local
-                   * scope*/
-                },
-            },
-            v);
-      }
+      auto& v = nestings.back();
+      std::visit(
+          overloaded{
+              [&](rules::ast::Namespace& arg) {
+                arg.add_function(std::move(c));
+              },
+              [&](rules::ast::Class& arg) { arg.add_function(std::move(c)); },
+              [](auto) {
+                /* NOTE: Can't have a function inside a function or local
+                 * scope*/
+              },
+          },
+          v);
     };
 
     namespace x3 = boost::spirit::x3;
-    bool parsed = x3::parse(
-        begin, end,
-        // rules begin
-        rules::optionaly_space >>
-            ((rules::class_or_struct >> rules::scope_begin)[cs] |
-             (rules::class_or_struct >> rules::statement_end) |
-             rules::scope_begin[sb] | rules::scope_end[se] | rules::var)
-        // rules end
-    );
+    bool parsed =
+        x3::parse(begin, end,
+                  // rules begin
+                  rules::optionaly_space >>
+                      ((rules::class_or_struct >> rules::scope_begin)[cs] |
+                       (rules::class_or_struct >> rules::statement_end) |
+                       rules::scope_begin[sb] | rules::scope_end[se] |
+                       rules::statement | rules::var)
+                  // rules end
+        );
 
     return parsed ? std::optional{begin} : std::nullopt;
   }
@@ -204,45 +196,44 @@ class StdParser {
     auto se = [&](auto& ctx) {
       // auto&& c = std::move(current);
       nestings.pop_back();
-      if (nestings.empty()) {
-        // NOTE: can't have local scopes inside global namespace
-      } else {
-        auto& v = nestings.back();
-        std::visit(
-            overloaded{
-                [&](rules::ast::Function& arg) {
-                  // TODO: keep local scope inside function?
-                },
-                [](auto) {
-                  /* NOTE: Can't have a function inside a function or local
-                   * scope*/
-                },
-            },
-            v);
-      }
+      auto& v = nestings.back();
+      std::visit(
+          overloaded{
+              [&](rules::ast::Function& arg) {
+                // TODO: keep local scope inside function?
+              },
+              [](auto) {
+                /* NOTE: Can't have a function inside a function or local
+                 * scope*/
+              },
+          },
+          v);
     };
 
     namespace x3 = boost::spirit::x3;
-    bool parsed = x3::parse(
-        begin, end,
-        // rules begin
-        rules::optionaly_space >>
-            ((rules::class_or_struct >> rules::scope_begin)[cs] |
-             (rules::class_or_struct >> rules::statement_end) |
-             rules::scope_begin[sb] | rules::scope_end[se] | rules::var)
-        // rules end
-    );
+    bool parsed =
+        x3::parse(begin, end,
+                  // rules begin
+                  rules::optionaly_space >>
+                      ((rules::class_or_struct >> rules::scope_begin)[cs] |
+                       (rules::class_or_struct >> rules::statement_end) |
+                       rules::scope_begin[sb] | rules::scope_end[se] |
+                       rules::statement | rules::var)
+                  // rules end
+        );
 
     return parsed ? std::optional{begin} : std::nullopt;
   }
 
  public:
+  /**
+   * Parse a single statement from the source
+   *
+   * Returns an `optional<iterator>` if successfully parsed a statement pointing
+   * to the end of the parsed statement in the source, else empty
+   */
   template <class Source>
   auto parse(Source& source) {
-    if (nestings.empty()) {
-      return parse_inside_namespace(source, global_namespace);
-    }
-
     auto& current_nesting = nestings.back();
     return std::visit(
         overloaded{
@@ -261,6 +252,8 @@ class StdParser {
         },
         current_nesting);
   }
+
+  Scopable const& get_current_nesting() { return nestings.back(); }
 };
 }  // namespace std_parser
 

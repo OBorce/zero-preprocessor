@@ -1,7 +1,6 @@
 #ifndef STD_RULES_H
 #define STD_RULES_H
 
-#include <iostream>
 #include <string>
 
 #include <std_ast.h>
@@ -17,7 +16,7 @@ using boost::spirit::x3::digit;
 using boost::spirit::x3::eol;
 using boost::spirit::x3::lit;
 
-struct class_type_ : x3::symbols<ast::class_type> {
+static struct class_type_ : x3::symbols<ast::class_type> {
   class_type_() {
     add("class", ast::class_type::CLASS)("struct", ast::class_type::STRUCT);
   }
@@ -52,9 +51,11 @@ auto const statement_end_def = optionaly_space >> ';';
 x3::rule<class name, std::string> const name = "name";
 auto const name_def = ((alpha | char_('_')) >> *(alpha | digit | char_('_')));
 
-//TODO: add nested namespaces c++17
-x3::rule<class namespace_begin, std::string> const namespace_begin = "namespace_begin";
-auto const namespace_begin_def = lit("namespace") >> some_space >> name >> scope_begin;
+// TODO: add nested namespaces c++17
+x3::rule<class namespace_begin, std::string> const namespace_begin =
+    "namespace_begin";
+auto const namespace_begin_def =
+    lit("namespace") >> some_space >> name >> scope_begin;
 
 x3::rule<class type, std::vector<std::string>> const type = "type";
 auto const type_def = name >> *(lit("::") >> name);
@@ -104,6 +105,9 @@ auto const init_list_def = '{' >> optionaly_space >>
 
 auto const arg_init_list_def = type >> optionaly_space >> init_list;
 
+x3::rule<class statement> const statement = "statement";
+auto const statement_def = optionaly_space >> expression >> statement_end;
+
 // TODO: add optional template after type
 x3::rule<class param, ast::var> const param = "param";
 auto const param_def = type >> some_space >> name;
@@ -142,8 +146,8 @@ BOOST_SPIRIT_DEFINE(some_space, optionaly_space, arg_separator, arg_operator,
                     name, type, digits, integral, floating, number,
                     string_literal, char_literal, argument, function_call,
                     expression, paren_expression, init_list, arg_init_list,
-                    optionaly_params, param, param_optionaly_default, var,
-                    function_signiture, class_or_struct);
+                    optionaly_params, statement, param, param_optionaly_default,
+                    var, function_signiture, class_or_struct);
 }  // namespace std_parser::rules
 
 #endif  //! STD_RULES_H

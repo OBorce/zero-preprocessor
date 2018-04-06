@@ -149,9 +149,9 @@ class Namespace {
     nested_namespaces.emplace(name, std::move(n));
   }
 
-  auto get_class(const std::string& name) const { return classes.at(name); }
+  auto const& get_class(const std::string& name) const { return classes.at(name); }
 
-  auto get_namespace(const std::string& name) const {
+  auto const& get_namespace(const std::string& name) const {
     return nested_namespaces.at(name);
   }
 };

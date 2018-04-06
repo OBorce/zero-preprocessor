@@ -12,6 +12,10 @@ class Source {
   size_t advance_to = 0;
 
  public:
+  // Constructor
+  Source(std::string_view source): source{source} {}
+
+
   // Methods
 
   const std::string_view read_line() {

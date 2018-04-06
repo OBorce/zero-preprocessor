@@ -3,7 +3,7 @@
 
 #include <std_rules.h>
 
-#include "catch.hpp"
+#include <catch.hpp>
 
 using std::string_literals::operator""s;
 using namespace std_parser;
