@@ -226,6 +226,9 @@ class StdParser {
   }
 
  public:
+
+  // TODO: when supported in std=c++2a change to fixed length string
+  constexpr static int id = 1;
   /**
    * Parse a single statement from the source
    *

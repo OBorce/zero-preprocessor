@@ -1,42 +1,15 @@
-#include "foo.h"
+#include <iostream>
+#include <string>
 
-class Bar {
-    FRIENDS_OF_TYPE(Bar);
-
-    FIELD Foo foo; // compound types just work
-
-    FIELD std::string str = "normal";
-
-    ATTRIBUTES(tag::special, CALLBACK(Bar::some_callback))
-    FIELD std::string tagged_str = "tagged!";
-
-    static void some_callback(Bar& src) { cout << "  [callback] Bar::tagged_str changed!" << endl; }
+struct Bar {
+  int bazz;
+  std::string name;
 };
 
 int main() {
-    Bar obj;
-    auto original_state = serialize(obj);
+  std::cout << "hello from example\n";
+  Bar obj;
 
-    cout << endl << "[info] initial state of object:" << endl;
-    print(obj);
-
-    cout << endl << "[info] about to try to set a specific value of object:" << endl;
-
-    map<string, any> new_data;
-    new_data.insert({"tagged_str", string(">>> NEW STRING VALUE !!! <<<")});
-    deserialize(new_data, obj);
-
-    cout << endl << "[info] after setting the value of a specific field:" << endl;
-    print(obj);
-
-    cout << endl << "[info] about to set the original state of the object:" << endl;
-
-    deserialize(original_state, obj);
-
-    cout << endl << "[info] after deserialization with original state:" << endl;
-    print(obj);
-
-    system("pause");
+  // TODO: try some reflection when we can
+  return 0;
 }
-
-#include <gen/main.cpp.inl>

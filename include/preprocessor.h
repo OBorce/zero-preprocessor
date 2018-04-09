@@ -1,10 +1,10 @@
 #include <functional>
+#include <iterator>
+#include <optional>
 #include <tuple>
 #include <type_traits>
 #include <utility>
 #include <vector>
-
-#include <std_parser.h>
 
 template <typename Source, typename... Functions>
 class Preprocessor {
@@ -73,6 +73,41 @@ class Preprocessor {
     return idx;
   }
 
+  /**
+   * process the source with the ID-th parser
+   *
+   * Return the cursor to the end of the successfully parsed source
+   * if has output else try to parse the source using the next parser
+   *
+   * Throws runtime_error if none of the parsers can parse the source
+   */
+  template <int ID>
+  auto process(Source& source) {
+    auto out = std::get<ID>(parsers).parse(source);
+    if (out) {
+      return *out;
+    }
+
+    if constexpr (ID + 1 < number_of_parsers) {
+      return process<ID + 1>(source);
+    }
+
+    // TODO: show part of the unparsable source
+    throw std::runtime_error("source can't be parsed by none of the parsers");
+  }
+
+  void process_source(Source& source) {
+    while (!source.is_finished()) {
+      auto processed_to = process<0>(source);
+      size_t processed_chars = std::distance(source.begin(), processed_to);
+      if (processed_chars == 0) {
+        throw std::runtime_error("error in one of the parsers");
+      }
+
+      source.advance_for(processed_chars);
+    }
+  }
+
   // Data members
   std::vector<Source> sources;
   Parsers parsers;
@@ -84,6 +119,12 @@ class Preprocessor {
   }
 
   // Methods
+
+  void process() {
+    for (auto& source : sources) {
+      process_source(source);
+    }
+  }
 
   /*
    * Check if a parser with given ID is present
@@ -106,50 +147,3 @@ class Preprocessor {
     return std::get<idx>(parsers);
   }
 };
-
-// TODO: remove below
-
-template <typename Parent>
-class B {
-  Parent& parent;
-
- public:
-  B(Parent& p) : parent{p} {}
-
-  int foo() const { return 1; }
-
-  constexpr static int id = 1;
-};
-
-template <typename Parent>
-class C {
-  Parent& parent;
-
- public:
-  C(Parent& p) : parent{p} {}
-
-  int baz() const { return 1; }
-
-  constexpr static int id = 2;
-};
-
-// example
-int main() {
-  auto l = [](auto& p) { return B{p}; };
-  auto l2 = [](auto& p) { return C{p}; };
-  std::vector<int> sources = {1, 2, 3};
-  Preprocessor a(std::move(sources), l, l2);
-
-  // B<int> because id does not depend on the template
-  auto& b = a.get_parser<B<int>::id>();
-  auto& c = a.get_parser<C<int>::id>();
-  // auto& d = a.get_parser<3>(); // does not compile
-  b.foo();
-  c.baz();
-
-  std::string s = "int foo(int b, int c) {";
-  std_parser::StdParser p;
-  p.parse(s);
-
-  return 0;
-}
