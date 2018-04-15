@@ -19,6 +19,16 @@ void check_out_dir(fs::path out) {
   }
 }
 
+std::string get_input_content(std::string_view in) {
+  // Try to preprocess a file
+  std::ifstream in_file(in.data());
+
+  // TODO: for now load the entire file, make it better later
+  // see TODO for source.h class
+  return std::string((std::istreambuf_iterator<char>(in_file)),
+                     (std::istreambuf_iterator<char>()));
+}
+
 int main(int argc, char* argv[]) {
   if (argc != 3) {
     return 1;
@@ -26,23 +36,21 @@ int main(int argc, char* argv[]) {
 
   check_out_dir({argv[2]});
 
-  // TODO: for now just copy the files as they are
-  {
-    std::ifstream in_file(argv[1]);
-    std::ofstream out_file(argv[2], std::ios::out);
-
-    std::string line;
-    while (std::getline(in_file, line)) {
-      out_file << line << '\n';
-    }
-  }
+  // TODO: make the Source work with files or iterators
+  std::string content = get_input_content(argv[1]);
+  std::vector<Source> sources = {{std::move(content)}};
 
   auto l = [](auto& p) { return std_parser::StdParser{}; };
-  // TODO: make the Source work with files or iterators
-  std::vector<Source> sources = {};
   Preprocessor preprocessor(std::move(sources), l);
 
-  preprocessor.process();
+  std::ofstream out_file(argv[2], std::ios::out);
+  // TODO: need to provide a writer for the processed content
+  auto writer = [&out_file](auto& src) {
+    for (auto& elem : src) {
+      out_file << elem;
+    }
+  };
+  preprocessor.process(writer);
 
   std::cout << "DONE" << std::endl;
 

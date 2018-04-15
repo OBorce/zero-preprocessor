@@ -5,6 +5,7 @@
 #include <stdexcept>
 #include <variant>
 
+#include <result.h>
 #include <std_rules.h>
 
 namespace std_parser {
@@ -17,6 +18,14 @@ struct overloaded : Ts... {
 
 template <class... Ts>
 overloaded(Ts...)->overloaded<Ts...>;
+
+// FIXME: this only works for char
+// TODO: change this to a span in 2a
+template <typename Iter>
+std::string_view make_range(Iter begin, Iter end) {
+  std::size_t size = std::distance(begin, end);
+  return {std::addressof(*begin), size};
+}
 
 class StdParser {
   using Scopable = std::variant<rules::ast::Namespace, rules::ast::Scope,
@@ -80,11 +89,13 @@ class StdParser {
                        (rules::function_signiture >> rules::scope_begin)[fun] |
                        (rules::function_signiture >> rules::statement_end) |
                        rules::namespace_begin[sb] | rules::scope_end[se] |
-                       rules::var[var])
+                       rules::include | rules::comment | rules::var[var])
                   // rules end
         );
 
-    return parsed ? std::optional{begin} : std::nullopt;
+    return parsed
+               ? std::optional{Result{begin, make_range(source.begin(), begin)}}
+               : std::nullopt;
   }
 
   template <class Source>
@@ -129,11 +140,14 @@ class StdParser {
                        (rules::class_or_struct >> rules::statement_end) |
                        (rules::function_signiture >> rules::scope_begin)[fun] |
                        (rules::function_signiture >> rules::statement_end) |
-                       rules::scope_end[se] | rules::var[var])
+                       rules::scope_end[se] | rules::include | rules::comment |
+                       rules::var[var])
                   // rules end
         );
 
-    return parsed ? std::optional{begin} : std::nullopt;
+    return parsed
+               ? std::optional{Result{begin, make_range(source.begin(), begin)}}
+               : std::nullopt;
   }
 
   template <class Source>
@@ -174,11 +188,14 @@ class StdParser {
                       ((rules::class_or_struct >> rules::scope_begin)[cs] |
                        (rules::class_or_struct >> rules::statement_end) |
                        rules::scope_begin[sb] | rules::scope_end[se] |
-                       rules::statement | rules::var)
+                       rules::statement | rules::include | rules::comment |
+                       rules::var | rules::return_statement)
                   // rules end
         );
 
-    return parsed ? std::optional{begin} : std::nullopt;
+    return parsed
+               ? std::optional{Result{begin, make_range(source.begin(), begin)}}
+               : std::nullopt;
   }
 
   template <class Source>
@@ -211,22 +228,23 @@ class StdParser {
     };
 
     namespace x3 = boost::spirit::x3;
-    bool parsed =
-        x3::parse(begin, end,
-                  // rules begin
-                  rules::optionaly_space >>
-                      ((rules::class_or_struct >> rules::scope_begin)[cs] |
-                       (rules::class_or_struct >> rules::statement_end) |
-                       rules::scope_begin[sb] | rules::scope_end[se] |
-                       rules::statement | rules::var)
-                  // rules end
-        );
+    bool parsed = x3::parse(
+        begin, end,
+        // rules begin
+        rules::optionaly_space >>
+            ((rules::class_or_struct >> rules::scope_begin)[cs] |
+             (rules::class_or_struct >> rules::statement_end) |
+             rules::scope_begin[sb] | rules::scope_end[se] | rules::statement |
+             rules::include | rules::comment | rules::var)
+        // rules end
+    );
 
-    return parsed ? std::optional{begin} : std::nullopt;
+    return parsed
+               ? std::optional{Result{begin, make_range(source.begin(), begin)}}
+               : std::nullopt;
   }
 
  public:
-
   // TODO: when supported in std=c++2a change to fixed length string
   constexpr static int id = 1;
   /**

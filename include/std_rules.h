@@ -28,14 +28,26 @@ auto const some_space_def = +(eol | ' ' | '\t');
 x3::rule<class optionaly_space> const optionaly_space = "optionaly_space";
 auto const optionaly_space_def = *(eol | ' ' | '\t');
 
+x3::rule<class include, std::string> const include = "include";
+auto const include_def = optionaly_space >> '#' >> *(lit(' ') | '\t') >>
+                         lit("include") >> optionaly_space >>
+                         (('<' >> *(char_ - '>') >> '>') |
+                          ('"' >> *(char_ - '"') >> '"'));
+
+x3::rule<class comment> const comment = "comment";
+auto const comment_def = optionaly_space >> (("//" >> *(char_ - eol)) |
+                                             ("*/" >> *(char_ - "*/") >> "*/"));
+
 x3::rule<class arg_separator> const arg_separator = "arg_separator";
 auto const arg_separator_def = optionaly_space >> ',' >> optionaly_space;
 
 x3::rule<class arg_operator> const arg_operator = "arg_operator";
 auto const arg_operator_def = optionaly_space >>
-                              (lit("++") | '+' | "--" | '-' | '*' | '/' | '%' |
-                               ">>" | '>' | "<<" | '<' | "&&" | '&' | "||" |
-                               '|' | '~') >>
+                              (lit("++") | "+=" | '+' | "--" | "-=" | '-' |
+                               "*=" | '*' | "/=" | '/' | "%=" | '%' | ">>=" |
+                               ">>" | ">=" | '>' | "<<=" | "<<" | "<=" | '<' |
+                               "&&" | "&=" | '&' | "||" | "|=" | '|' | "~=" |
+                               '~' | "^=" | '^' | "!=" | '!' | "==" | '=') >>
                               optionaly_space;
 
 x3::rule<class scope_begin> const scope_begin = "scope_begin";
@@ -90,7 +102,9 @@ x3::rule<class paren_expression> const paren_expression = "paren_expression";
 x3::rule<class init_list> const init_list = "init_list";
 x3::rule<class arg_init_list> const arg_init_list = "arg_init_list";
 
-auto const argument_def = arg_init_list | function_call | name | number |
+// TODO: type here denotes a variable name
+// change it to variable_type that also covers ::var
+auto const argument_def = arg_init_list | function_call | type | number |
                           char_literal | string_literal | paren_expression;
 auto const function_call_def = type >> optionaly_space >> '(' >>
                                optionaly_space >>
@@ -107,6 +121,9 @@ auto const arg_init_list_def = type >> optionaly_space >> init_list;
 
 x3::rule<class statement> const statement = "statement";
 auto const statement_def = optionaly_space >> expression >> statement_end;
+
+x3::rule<class return_statement> const return_statement = "return_statement";
+auto const return_statement_def = "return" >> some_space >> statement;
 
 // TODO: add optional template after type
 x3::rule<class param, ast::var> const param = "param";
@@ -141,13 +158,14 @@ x3::rule<class class_or_struct, ast::class_or_struct> const class_or_struct =
     "class_or_struct";
 auto const class_or_struct_def = class_type >> some_space >> name;
 
-BOOST_SPIRIT_DEFINE(some_space, optionaly_space, arg_separator, arg_operator,
-                    scope_begin, scope_end, namespace_begin, statement_end,
-                    name, type, digits, integral, floating, number,
-                    string_literal, char_literal, argument, function_call,
-                    expression, paren_expression, init_list, arg_init_list,
-                    optionaly_params, statement, param, param_optionaly_default,
-                    var, function_signiture, class_or_struct);
+BOOST_SPIRIT_DEFINE(some_space, optionaly_space, include, comment,
+                    arg_separator, arg_operator, scope_begin, scope_end,
+                    namespace_begin, statement_end, name, type, digits,
+                    integral, floating, number, string_literal, char_literal,
+                    argument, function_call, expression, paren_expression,
+                    init_list, arg_init_list, optionaly_params, statement,
+                    return_statement, param, param_optionaly_default, var,
+                    function_signiture, class_or_struct);
 }  // namespace std_parser::rules
 
 #endif  //! STD_RULES_H

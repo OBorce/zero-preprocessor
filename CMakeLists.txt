@@ -35,5 +35,6 @@ endfunction()
 
 # Our main
 add_executable(main ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
+target_compile_features(main INTERFACE cxx_std_17)
 target_include_directories(main PRIVATE ${PROJECT_SOURCE_DIR}/include)
 target_link_libraries(main PRIVATE Boost::boost -lstdc++fs)

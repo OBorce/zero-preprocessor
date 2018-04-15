@@ -114,3 +114,17 @@ TEST_CASE("Parse valid function_signitures", "[function_signiture]") {
                  CanParse(rules::function_signiture, "function_signiture"));
   }
 }
+
+TEST_CASE("Parse valid statements", "[statements]") {
+  std::array valid_function_signitures{"a += 1;"s,
+                                       "a = 2 + 3;"s,
+                                       "a -= std::min(2, b);"s,
+                                       "std::foo(a + b, c);"s,
+                                       "std::cout << 2;"s,
+                                       "std::cout << asd << 2 << std::endl;"s};
+
+  for (auto& valid_function_signiture : valid_function_signitures) {
+    REQUIRE_THAT(valid_function_signiture,
+                 CanParse(rules::statement, "statement"));
+  }
+}
