@@ -10,11 +10,11 @@
 namespace std_parser::rules {
 namespace x3 = boost::spirit::x3;
 
-using boost::spirit::x3::alpha;
-using boost::spirit::x3::char_;
-using boost::spirit::x3::digit;
-using boost::spirit::x3::eol;
-using boost::spirit::x3::lit;
+using x3::alpha;
+using x3::char_;
+using x3::digit;
+using x3::eol;
+using x3::lit;
 
 static struct class_type_ : x3::symbols<ast::class_type> {
   class_type_() {
@@ -69,8 +69,18 @@ x3::rule<class namespace_begin, std::string> const namespace_begin =
 auto const namespace_begin_def =
     lit("namespace") >> some_space >> name >> scope_begin;
 
-x3::rule<class type, std::vector<std::string>> const type = "type";
-auto const type_def = name >> *(lit("::") >> name);
+x3::rule<class type_, ast::Type_> const type_ = "type_";
+auto const type__def = name >> *(lit("::") >> name);
+
+x3::rule<class type, ast::Type> const type = "type";
+
+x3::rule<class template_values, std::vector<ast::Type>> const template_values =
+    "template_values";
+
+auto const template_values_def =
+    '<' >> optionaly_space >> type % arg_separator >> '>';
+auto const type_def = (type_) >>
+                      -(optionaly_space >> x3::omit[template_values]);
 
 x3::rule<class digits> const digits = "digits";
 auto const digits_def = -lit('-') >> optionaly_space >> +digit >>
@@ -96,6 +106,8 @@ x3::rule<class char_literal> const char_literal = "char_literal";
 auto const char_literal_def = lit('\'') >> (char_ - '\'') >> '\'';
 
 x3::rule<class argument> const argument = "argument";
+x3::rule<class optionaly_arguments> const optionaly_arguments =
+    "optionaly_arguments";
 x3::rule<class function_call> const function_call = "function_call";
 x3::rule<class expression> const expression = "expression";
 x3::rule<class paren_expression> const paren_expression = "paren_expression";
@@ -103,19 +115,21 @@ x3::rule<class init_list> const init_list = "init_list";
 x3::rule<class arg_init_list> const arg_init_list = "arg_init_list";
 
 // TODO: type here denotes a variable name
-// change it to variable_type that also covers ::var
+// change it to variable_type that also covers ::var and templated variables
 auto const argument_def = arg_init_list | function_call | type | number |
                           char_literal | string_literal | paren_expression;
+
+auto const optionaly_arguments_def =
+    -((expression | init_list) % arg_separator);
+
 auto const function_call_def = type >> optionaly_space >> '(' >>
-                               optionaly_space >>
-                               -(expression % arg_separator) >> optionaly_space
-                               >> ')';
+                               optionaly_space >> optionaly_arguments >>
+                               optionaly_space >> ')';
 auto const expression_def = argument % arg_operator;
 auto const paren_expression_def =
     '(' >> optionaly_space >> expression >> optionaly_space >> ')';
-auto const init_list_def = '{' >> optionaly_space >>
-                           (expression % arg_separator) >> optionaly_space >>
-                           '}';
+auto const init_list_def =
+    '{' >> optionaly_space >> optionaly_arguments >> optionaly_space >> '}';
 
 auto const arg_init_list_def = type >> optionaly_space >> init_list;
 
@@ -154,16 +168,18 @@ auto const function_signiture_def = type >> some_space >> name >>
                                     optionaly_params >> ')';
 
 // TODO: add optianly templates before class or struct
+// TODO: name of class can be namespace::name
 x3::rule<class class_or_struct, ast::class_or_struct> const class_or_struct =
     "class_or_struct";
 auto const class_or_struct_def = class_type >> some_space >> name;
 
 BOOST_SPIRIT_DEFINE(some_space, optionaly_space, include, comment,
                     arg_separator, arg_operator, scope_begin, scope_end,
-                    namespace_begin, statement_end, name, type, digits,
-                    integral, floating, number, string_literal, char_literal,
-                    argument, function_call, expression, paren_expression,
-                    init_list, arg_init_list, optionaly_params, statement,
+                    namespace_begin, statement_end, name, type_, type,
+                    template_values, digits, integral, floating, number,
+                    string_literal, char_literal, argument, optionaly_arguments,
+                    function_call, expression, paren_expression, init_list,
+                    arg_init_list, optionaly_params, statement,
                     return_statement, param, param_optionaly_default, var,
                     function_signiture, class_or_struct);
 }  // namespace std_parser::rules

@@ -6,6 +6,7 @@ namespace fs = std::experimental::filesystem;
 
 #include <preprocessor.h>
 #include <source.h>
+#include <static_reflection.h>
 #include <std_parser.h>
 
 /**
@@ -40,8 +41,11 @@ int main(int argc, char* argv[]) {
   std::string content = get_input_content(argv[1]);
   std::vector<Source> sources = {{std::move(content)}};
 
-  auto l = [](auto& p) { return std_parser::StdParser{}; };
-  Preprocessor preprocessor(std::move(sources), l);
+  auto static_ref = [](auto& p) {
+    return static_reflection::StaticReflexParser{p};
+  };
+  auto std_parser = [](auto& p) { return std_parser::StdParser{}; };
+  Preprocessor preprocessor(std::move(sources), static_ref, std_parser);
 
   std::ofstream out_file(argv[2], std::ios::out);
   // TODO: need to provide a writer for the processed content

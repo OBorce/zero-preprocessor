@@ -183,10 +183,10 @@ class Preprocessor {
       std::tuple_element_t<get_parsers_idx_with_error<ID>(), Parsers>;
 
   /*
-   * Get a constant reference to the parser with given PARSER_ID
+   * Get a reference to the parser with given PARSER_ID
    */
   template <int PARSER_ID>
-  auto get_parser() -> parser<PARSER_ID> const& {
+  auto get_parser() -> parser<PARSER_ID> & {
     constexpr int idx = find_parser_with_id<PARSER_ID>();
     return std::get<idx>(parsers);
   }

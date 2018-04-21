@@ -5,22 +5,14 @@
 #include <stdexcept>
 #include <variant>
 
+#include <overloaded.h>
 #include <result.h>
 #include <std_rules.h>
 
 namespace std_parser {
 
-// Abusing some lambdas for pattern matching
-template <class... Ts>
-struct overloaded : Ts... {
-  using Ts::operator()...;
-};
-
-template <class... Ts>
-overloaded(Ts...)->overloaded<Ts...>;
-
 // FIXME: this only works for char
-// TODO: change this to a span in 2a
+// TODO: change this to a span<T> in 2a
 template <typename Iter>
 std::string_view make_range(Iter begin, Iter end) {
   std::size_t size = std::distance(begin, end);
@@ -116,20 +108,7 @@ class StdParser {
       current.add_variable(std::move(rez));
     };
 
-    auto se = [&](auto& ctx) {
-      auto&& c = std::move(current);
-      nestings.pop_back();
-      auto& v = nestings.back();
-      std::visit(
-          overloaded{
-              [&](rules::ast::Namespace& arg) { arg.add_class(std::move(c)); },
-              [&](rules::ast::Class& arg) { arg.add_class(std::move(c)); },
-              [](auto) {
-                /* TODO: local classes inside functions or local scopes*/
-              },
-          },
-          v);
-    };
+    auto se = [&](auto& ctx) { this->close_current_class(); };
 
     namespace x3 = boost::spirit::x3;
     bool parsed =
@@ -274,7 +253,23 @@ class StdParser {
         current_nesting);
   }
 
-  Scopable const& get_current_nesting() { return nestings.back(); }
+  void close_current_class() {
+    auto&& c = std::move(std::get<rules::ast::Class>(nestings.back()));
+
+    nestings.pop_back();
+    auto& v = nestings.back();
+    std::visit(
+        overloaded{
+            [&](rules::ast::Namespace& arg) { arg.add_class(std::move(c)); },
+            [&](rules::ast::Class& arg) { arg.add_class(std::move(c)); },
+            [](auto) {
+              /* TODO: local classes inside functions or local scopes*/
+            },
+        },
+        v);
+  }
+
+  Scopable& get_current_nesting() { return nestings.back(); }
 };
 }  // namespace std_parser
 

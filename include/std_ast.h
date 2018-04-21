@@ -9,7 +9,17 @@
 #include <boost/fusion/include/adapt_struct.hpp>
 
 namespace std_parser::rules::ast {
-using Type = std::vector<std::string>;
+using Type_ = std::vector<std::string>;
+
+struct Type {
+  Type_ name;
+};
+
+struct Ints {
+  std::vector<int> ints;
+  char c;
+};
+
 struct var {
   Type type;
   std::string name;
@@ -149,7 +159,8 @@ class Namespace {
     nested_namespaces.emplace(name, std::move(n));
   }
 
-  auto const& get_class(const std::string& name) const { return classes.at(name); }
+  auto const& get_class(const std::string& name) const { return
+classes.at(name); }
 
   auto const& get_namespace(const std::string& name) const {
     return nested_namespaces.at(name);
@@ -157,9 +168,10 @@ class Namespace {
 };
 }  // namespace std_parser::rules::ast
 
+BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::Type, name)
+BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::Ints, ints, c)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::var, type, name)
-BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::function_signiture,
-                          return_type, name, parameters)
+BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::function_signiture, return_type, name, parameters)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::class_or_struct, type, name)
 
 #endif  //! STD_AST_H

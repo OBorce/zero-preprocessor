@@ -1,5 +1,6 @@
 #include <array>
 #include <string>
+#include <iostream>
 
 #include <std_rules.h>
 
@@ -23,7 +24,9 @@ class CanParse : public Catch::MatcherBase<std::string> {
 
     auto begin = str.begin();
     auto end = str.end();
-    bool r = x3::parse(begin, end, rule);
+    auto w = [this](auto& ctx) { std::cout << rule_name << " " << std::endl; };
+
+    bool r = x3::parse(begin, end, rule[w]);
     return r && begin == end;
   }
 
@@ -92,6 +95,11 @@ TEST_CASE("Parse valid expression", "[expression]") {
 TEST_CASE("Parse valid variables", "[var]") {
   std::array valid_vars{"int a;"s,
                         "std::string s{\"hello\"};"s,
+                        "std::vector<int> v;"s,
+                        "std::vector<int> v {};"s,
+                        "std::vector<int> v {1, 2, 3};"s,
+                        "std::pair<int, float> v {1, 2.0f};"s,
+                        "std::pair<int, std::vector<char>> v {1, {}};"s,
                         "rules::ast::val v = 2;"s,
                         "rules::ast::val v = {2, foo(a)};"s,
                         "nsd::asd::varr v23 {2, 3, baz(1, 3)};"s,
@@ -99,19 +107,6 @@ TEST_CASE("Parse valid variables", "[var]") {
 
   for (auto& valid_var : valid_vars) {
     REQUIRE_THAT(valid_var, CanParse(rules::var, "variable"));
-  }
-}
-
-TEST_CASE("Parse valid function_signitures", "[function_signiture]") {
-  std::array valid_function_signitures{
-      "int a()"s, "std::string s(int i)"s,
-      "rules::ast::val some_name(std::string s, int a)"s,
-      "auto def_arg(int a = 2, long l = 3l)"s,
-      "some_Type function_a2(std::asd::ddd d)"s};
-
-  for (auto& valid_function_signiture : valid_function_signitures) {
-    REQUIRE_THAT(valid_function_signiture,
-                 CanParse(rules::function_signiture, "function_signiture"));
   }
 }
 
@@ -126,5 +121,18 @@ TEST_CASE("Parse valid statements", "[statements]") {
   for (auto& valid_function_signiture : valid_function_signitures) {
     REQUIRE_THAT(valid_function_signiture,
                  CanParse(rules::statement, "statement"));
+  }
+}
+
+TEST_CASE("Parse valid function_signitures", "[function_signiture]") {
+  std::array valid_function_signitures{
+      "int a()"s, "std::string s(int i)"s,
+      "rules::ast::val some_name(std::string s, int a)"s,
+      "auto def_arg(int a = 2, long l = 3l)"s,
+      "some_Type function_a2(std::asd::ddd d)"s};
+
+  for (auto& valid_function_signiture : valid_function_signitures) {
+    REQUIRE_THAT(valid_function_signiture,
+                 CanParse(rules::function_signiture, "function_signiture"));
   }
 }

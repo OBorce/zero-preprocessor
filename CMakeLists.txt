@@ -19,8 +19,10 @@ add_executable(tests ${TEST_SOURCES})
 target_include_directories(tests PRIVATE ${PROJECT_SOURCE_DIR}/include)
 find_package(Boost)
 target_link_libraries(tests PRIVATE Catch Boost::boost)
+enable_testing()
+add_test(NAME test COMMAND tests)
 
-function(preprocess target)
+function(preprocess target preprocessor_dir)
   get_target_property(sources ${target} SOURCES)
   foreach(src IN LISTS sources)
     # TODO: throw exception for absolute path or relative path to a lower directory
@@ -31,10 +33,11 @@ function(preprocess target)
       DEPENDS ${CMAKE_SOURCE_DIR}/${src} main
       )
   endforeach()
+  target_include_directories(${target} PRIVATE ${preprocessor_dir}/parsers/static_reflection/out_include)
 endfunction()
 
 # Our main
 add_executable(main ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
 target_compile_features(main INTERFACE cxx_std_17)
-target_include_directories(main PRIVATE ${PROJECT_SOURCE_DIR}/include)
+target_include_directories(main PRIVATE ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR}/parsers/static_reflection)
 target_link_libraries(main PRIVATE Boost::boost -lstdc++fs)
