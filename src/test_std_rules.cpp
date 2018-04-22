@@ -1,6 +1,6 @@
 #include <array>
-#include <string>
 #include <iostream>
+#include <string>
 
 #include <std_rules.h>
 
@@ -100,6 +100,7 @@ TEST_CASE("Parse valid variables", "[var]") {
                         "std::vector<int> v {1, 2, 3};"s,
                         "std::pair<int, float> v {1, 2.0f};"s,
                         "std::pair<int, std::vector<char>> v {1, {}};"s,
+                        "std::array<int, 4> a;"s,
                         "rules::ast::val v = 2;"s,
                         "rules::ast::val v = {2, foo(a)};"s,
                         "nsd::asd::varr v23 {2, 3, baz(1, 3)};"s,
@@ -111,16 +112,15 @@ TEST_CASE("Parse valid variables", "[var]") {
 }
 
 TEST_CASE("Parse valid statements", "[statements]") {
-  std::array valid_function_signitures{"a += 1;"s,
-                                       "a = 2 + 3;"s,
-                                       "a -= std::min(2, b);"s,
-                                       "std::foo(a + b, c);"s,
-                                       "std::cout << 2;"s,
-                                       "std::cout << asd << 2 << std::endl;"s};
+  std::array valid_statements{"a += 1;"s,
+                              "a = 2 + 3;"s,
+                              "a -= std::min(2, b);"s,
+                              "std::foo(a + b, c);"s,
+                              "std::cout << 2;"s,
+                              "std::cout << asd << 2 << std::endl;"s};
 
-  for (auto& valid_function_signiture : valid_function_signitures) {
-    REQUIRE_THAT(valid_function_signiture,
-                 CanParse(rules::statement, "statement"));
+  for (auto& valid_statement : valid_statements) {
+    REQUIRE_THAT(valid_statement, CanParse(rules::statement, "statement"));
   }
 }
 
@@ -129,10 +129,29 @@ TEST_CASE("Parse valid function_signitures", "[function_signiture]") {
       "int a()"s, "std::string s(int i)"s,
       "rules::ast::val some_name(std::string s, int a)"s,
       "auto def_arg(int a = 2, long l = 3l)"s,
+      "template<typename T> auto def_arg(T a = 2, long l = 3l)"s,
+      "template<typename T, int N = 0> auto def_arg(T a = 2, long l = 3l)"s,
       "some_Type function_a2(std::asd::ddd d)"s};
 
   for (auto& valid_function_signiture : valid_function_signitures) {
     REQUIRE_THAT(valid_function_signiture,
                  CanParse(rules::function_signiture, "function_signiture"));
+  }
+}
+
+TEST_CASE("Parse valid class", "[class]") {
+  std::array valid_classes{"class A"s,
+                           "struct point"s,
+                           "template <typename T> class Test"s,
+                           "template <typename T, class B> class Test"s,
+                           "template <int N, class B> class Test"s,
+                           "template <std::size_t N, class B> class Test"s,
+                           "template <std::size_t N = 2, class B = int> class Test"s,
+                           "template <std::size_t N = 2, class B = std::size_t> class Test"s,
+  };
+
+  for (auto& valid_class : valid_classes) {
+    REQUIRE_THAT(valid_class,
+                 CanParse(rules::class_or_struct, "class or struct"));
   }
 }

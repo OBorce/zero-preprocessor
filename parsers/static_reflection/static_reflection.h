@@ -41,7 +41,7 @@ class StaticReflexParser {
       out += '&';
       out += c.name;
       out += "::";
-      out += kv.first;
+      out += kv.name;
       out += ',';
     }
 
@@ -68,6 +68,7 @@ class StaticReflexParser {
 
   template <typename Source>
   auto parse_end_of_class(Source& source) {
+    auto& std_parser = parent.template get_parser<1>();
     auto begin = source.begin();
     auto end = source.end();
 

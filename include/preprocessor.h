@@ -92,6 +92,9 @@ class Preprocessor {
    */
   template <int ID, typename Writer>
   auto process(Source& source, Writer& writer) {
+    std::size_t remaining = std::distance(source.begin(), source.end());
+    std::size_t size = std::min(20ul, remaining);
+    std::string_view content = {&*source.begin(), size};
     auto out = std::get<ID>(parsers).parse(source);
     if (out) {
       writer((*out).result);
@@ -102,10 +105,7 @@ class Preprocessor {
       return process<ID + 1>(source, writer);
     }
 
-    std::size_t remaining = std::distance(source.begin(), source.end());
-    std::size_t size = std::min(20ul, remaining);
     std::string error_msg = "source can't be parsed by none of the parsers: ";
-    std::string_view content = {&*source.begin(), size};
     error_msg += content;
     throw std::runtime_error(error_msg);
   }

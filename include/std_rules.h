@@ -35,11 +35,17 @@ auto const include_def = optionaly_space >> '#' >> *(lit(' ') | '\t') >>
                           ('"' >> *(char_ - '"') >> '"'));
 
 x3::rule<class comment> const comment = "comment";
-auto const comment_def = optionaly_space >> (("//" >> *(char_ - eol)) |
-                                             ("*/" >> *(char_ - "*/") >> "*/"));
+auto const comment_def = optionaly_space >>
+                         (("//" >> *(char_ - eol)) |
+                          ("/*" >> *(x3::repeat(2)[char_] - "*/") >> "*/"));
 
 x3::rule<class arg_separator> const arg_separator = "arg_separator";
 auto const arg_separator_def = optionaly_space >> ',' >> optionaly_space;
+
+x3::rule<class var_operator> const var_operator = "var_operator";
+auto const var_operator_def =
+    (lit('.') >> -(optionaly_space >> '*')) |
+    ('-' >> optionaly_space >> '>' >> -(optionaly_space >> '*'));
 
 x3::rule<class arg_operator> const arg_operator = "arg_operator";
 auto const arg_operator_def = optionaly_space >>
@@ -47,7 +53,10 @@ auto const arg_operator_def = optionaly_space >>
                                "*=" | '*' | "/=" | '/' | "%=" | '%' | ">>=" |
                                ">>" | ">=" | '>' | "<<=" | "<<" | "<=" | '<' |
                                "&&" | "&=" | '&' | "||" | "|=" | '|' | "~=" |
-                               '~' | "^=" | '^' | "!=" | '!' | "==" | '=') >>
+                               '~' | "^=" | '^' | "!=" | '!' | "==" |
+                               '='
+                               // TODO: this make 1.*foo() or a->23 valid
+                               | var_operator) >>
                               optionaly_space;
 
 x3::rule<class scope_begin> const scope_begin = "scope_begin";
@@ -68,19 +77,6 @@ x3::rule<class namespace_begin, std::string> const namespace_begin =
     "namespace_begin";
 auto const namespace_begin_def =
     lit("namespace") >> some_space >> name >> scope_begin;
-
-x3::rule<class type_, ast::Type_> const type_ = "type_";
-auto const type__def = name >> *(lit("::") >> name);
-
-x3::rule<class type, ast::Type> const type = "type";
-
-x3::rule<class template_values, std::vector<ast::Type>> const template_values =
-    "template_values";
-
-auto const template_values_def =
-    '<' >> optionaly_space >> type % arg_separator >> '>';
-auto const type_def = (type_) >>
-                      -(optionaly_space >> x3::omit[template_values]);
 
 x3::rule<class digits> const digits = "digits";
 auto const digits_def = -lit('-') >> optionaly_space >> +digit >>
@@ -104,6 +100,19 @@ auto const string_literal_def = lit('"') >> *(char_ - '"') >> '"';
 
 x3::rule<class char_literal> const char_literal = "char_literal";
 auto const char_literal_def = lit('\'') >> (char_ - '\'') >> '\'';
+
+x3::rule<class type_, ast::Type_> const type_ = "type_";
+auto const type__def = name >> *(lit("::") >> name);
+
+x3::rule<class type, ast::Type> const type = "type";
+
+x3::rule<class template_values, ast::TemplateTypes> const template_values =
+    "template_values";
+
+auto const template_values_def = '<' >> optionaly_space >>
+                                 ((type | digits) % arg_separator) >> '>';
+
+auto const type_def = (type_) >> -(optionaly_space >> template_values);
 
 x3::rule<class argument> const argument = "argument";
 x3::rule<class optionaly_arguments> const optionaly_arguments =
@@ -156,32 +165,45 @@ auto const var_def = param >> optionaly_space >>
                        (-('=' >> optionaly_space) >> init_list)) >>
                      optionaly_space >> ';';
 
-x3::rule<class optionaly_params, std::vector<ast::var>> const optionaly_params =
+x3::rule<class optionaly_params, ast::params> const optionaly_params =
     "optionaly_params";
 auto const optionaly_params_def = -(param_optionaly_default % arg_separator);
 
-// TODO: add optianly templates before return type
+// TODO: need variadic templates
+x3::rule<class template_parameter, std::string> const template_parameter =
+    "template_parameter";
+auto const template_parameter_def =
+    x3::omit[(lit("typename") | "class" | type)] >> some_space >> name >>
+    -(optionaly_space >> '=' >> optionaly_space >> x3::omit[(type | number)]);
+
+x3::rule<class template_parameters> const template_parameters =
+    "template_parameters";
+auto const template_parameters_def =
+    lit("template") >> optionaly_space >> '<' >> optionaly_space >>
+    template_parameter % arg_separator >> optionaly_space >> '>';
+
 x3::rule<class function_signiture, ast::function_signiture> const
     function_signiture = "function_signiture";
-auto const function_signiture_def = type >> some_space >> name >>
-                                    optionaly_space >> '(' >> optionaly_space >>
-                                    optionaly_params >> ')';
+auto const function_signiture_def =
+    -(template_parameters >> optionaly_space) >> type >> some_space >> name >>
+    optionaly_space >> '(' >> optionaly_space >> optionaly_params >> ')';
 
-// TODO: add optianly templates before class or struct
 // TODO: name of class can be namespace::name
 x3::rule<class class_or_struct, ast::class_or_struct> const class_or_struct =
     "class_or_struct";
-auto const class_or_struct_def = class_type >> some_space >> name;
+auto const class_or_struct_def = -(template_parameters >> optionaly_space) >>
+                                 class_type >> some_space >> name;
 
 BOOST_SPIRIT_DEFINE(some_space, optionaly_space, include, comment,
-                    arg_separator, arg_operator, scope_begin, scope_end,
-                    namespace_begin, statement_end, name, type_, type,
-                    template_values, digits, integral, floating, number,
+                    arg_separator, arg_operator, var_operator, scope_begin,
+                    scope_end, namespace_begin, statement_end, name, type_,
+                    type, template_values, digits, integral, floating, number,
                     string_literal, char_literal, argument, optionaly_arguments,
                     function_call, expression, paren_expression, init_list,
                     arg_init_list, optionaly_params, statement,
                     return_statement, param, param_optionaly_default, var,
-                    function_signiture, class_or_struct);
+                    template_parameter, template_parameters, function_signiture,
+                    class_or_struct);
 }  // namespace std_parser::rules
 
 #endif  //! STD_RULES_H

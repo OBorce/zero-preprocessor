@@ -11,13 +11,15 @@
 namespace std_parser::rules::ast {
 using Type_ = std::vector<std::string>;
 
-struct Type {
-  Type_ name;
+struct Type;
+
+struct TemplateTypes {
+  std::vector<Type> template_types;
 };
 
-struct Ints {
-  std::vector<int> ints;
-  char c;
+struct Type {
+  Type_ name;
+  TemplateTypes template_types;
 };
 
 struct var {
@@ -25,10 +27,14 @@ struct var {
   std::string name;
 };
 
+struct params {
+  std::vector<var> parameters;
+};
+
 struct function_signiture {
   Type return_type;
   std::string name;
-  std::vector<var> parameters;
+  params parameters;
 };
 
 enum class class_type { CLASS, STRUCT };
@@ -41,7 +47,7 @@ struct class_or_struct {
 struct Function {
   Type return_type;
   std::string name;
-  std::vector<var> parameters;
+  params parameters;
 
   Function(function_signiture&& fun)
       : return_type{std::move(fun.return_type)},
@@ -59,9 +65,9 @@ struct Class {
   std::unordered_map<std::string, Function> protected_methods;
   std::unordered_map<std::string, Function> private_methods;
 
-  std::unordered_map<std::string, var> public_members;
-  std::unordered_map<std::string, var> protected_members;
-  std::unordered_map<std::string, var> private_members;
+  std::vector<var> public_members;
+  std::vector<var> protected_members;
+  std::vector<var> private_members;
 
   Class(class_or_struct&& cs) : type{cs.type}, name{std::move(cs.name)} {
     switch (type) {
@@ -95,16 +101,15 @@ struct Class {
   }
 
   void add_variable(var&& var) {
-    auto name = var.name;
     switch (state) {
       case Modifier::PUBLIC:
-        public_members.emplace(name, std::move(var));
+        public_members.emplace_back(std::move(var));
         break;
       case Modifier::PROTECTED:
-        protected_members.emplace(name, std::move(var));
+        protected_members.emplace_back(std::move(var));
         break;
       case Modifier::PRIVATE:
-        private_members.emplace(name, std::move(var));
+        private_members.emplace_back(std::move(var));
         break;
     }
   }
@@ -159,8 +164,9 @@ class Namespace {
     nested_namespaces.emplace(name, std::move(n));
   }
 
-  auto const& get_class(const std::string& name) const { return
-classes.at(name); }
+  auto const& get_class(const std::string& name) const {
+    return classes.at(name);
+  }
 
   auto const& get_namespace(const std::string& name) const {
     return nested_namespaces.at(name);
@@ -168,10 +174,12 @@ classes.at(name); }
 };
 }  // namespace std_parser::rules::ast
 
-BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::Type, name)
-BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::Ints, ints, c)
+BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::TemplateTypes, template_types)
+BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::Type, name, template_types)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::var, type, name)
-BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::function_signiture, return_type, name, parameters)
+BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::params, parameters)
+BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::function_signiture,
+                          return_type, name, parameters)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::class_or_struct, type, name)
 
 #endif  //! STD_AST_H

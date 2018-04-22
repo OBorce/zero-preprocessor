@@ -99,10 +99,12 @@ class StdParser {
       auto& rez = _attr(ctx);
       nestings.emplace_back(std::move(rez));
     };
+    // TODO: what to do with template types
     auto fun = [this](auto& ctx) {
       auto& rez = _attr(ctx);
       nestings.emplace_back(std::move(rez));
     };
+    // TODO: what to do with template types
     auto var = [&current](auto& ctx) {
       auto& rez = _attr(ctx);
       current.add_variable(std::move(rez));
@@ -254,10 +256,8 @@ class StdParser {
   }
 
   void close_current_class() {
-    auto&& c = std::move(std::get<rules::ast::Class>(nestings.back()));
-
-    nestings.pop_back();
-    auto& v = nestings.back();
+    auto& c = std::get<rules::ast::Class>(nestings.back());
+    auto& v = nestings[nestings.size() - 2];
     std::visit(
         overloaded{
             [&](rules::ast::Namespace& arg) { arg.add_class(std::move(c)); },
@@ -267,6 +267,7 @@ class StdParser {
             },
         },
         v);
+    nestings.pop_back();
   }
 
   Scopable& get_current_nesting() { return nestings.back(); }
