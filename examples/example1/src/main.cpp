@@ -3,16 +3,20 @@
 
 #include <reflect.h>
 
-
-/* template <typename T>
-struct compare_data_members {
+template <typename T> struct compare_data_members {
   const T& a;
   const T& b;
   bool& result;
+};
 
+/*
   template <typename MetaDataMember>
   void operator()(MetaDataMember) const {
+ */
+
+/*
     auto mem_ptr = reflect::get_pointer_v<MetaDataMember>;
+
     result &= a.*mem_ptr == b.*mem_ptr;
   }
 };

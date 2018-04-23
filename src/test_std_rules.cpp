@@ -62,7 +62,18 @@ TEST_CASE("Parse valid number", "[number]") {
 
 TEST_CASE("Parse valid type", "[type]") {
   // TODO add types with templates when we support them
-  std::array valid_types{"int"s, "std::string"s, "rules::ast::val"s,
+  std::array valid_types{"int"s,
+                         "std::string"s,
+                         "rules::ast::val"s,
+                         "const int"s,
+                         "auto&"s,
+                         "auto&&"s,
+                         "const auto&&"s,
+                         "const auto*"s,
+                         "const auto **"s,
+                         "const auto * *"s,
+                         "const auto** const"s,
+                         "auto* const * const"s,
                          "some_Type"s};
 
   for (auto& valid_type : valid_types) {
@@ -126,7 +137,8 @@ TEST_CASE("Parse valid statements", "[statements]") {
 
 TEST_CASE("Parse valid function_signitures", "[function_signiture]") {
   std::array valid_function_signitures{
-      "int a()"s, "std::string s(int i)"s,
+      "int a()"s,
+      "std::string s(int i)"s,
       "rules::ast::val some_name(std::string s, int a)"s,
       "auto def_arg(int a = 2, long l = 3l)"s,
       "template<typename T> auto def_arg(T a = 2, long l = 3l)"s,
@@ -140,14 +152,15 @@ TEST_CASE("Parse valid function_signitures", "[function_signiture]") {
 }
 
 TEST_CASE("Parse valid class", "[class]") {
-  std::array valid_classes{"class A"s,
-                           "struct point"s,
-                           "template <typename T> class Test"s,
-                           "template <typename T, class B> class Test"s,
-                           "template <int N, class B> class Test"s,
-                           "template <std::size_t N, class B> class Test"s,
-                           "template <std::size_t N = 2, class B = int> class Test"s,
-                           "template <std::size_t N = 2, class B = std::size_t> class Test"s,
+  std::array valid_classes{
+      "class A"s,
+      "struct point"s,
+      "template <typename T> class Test"s,
+      "template <typename T, class B> class Test"s,
+      "template <int N, class B> class Test"s,
+      "template <std::size_t N, class B> class Test"s,
+      "template <std::size_t N = 2, class B = int> class Test"s,
+      "template <std::size_t N = 2, class B = std::size_t> class Test"s,
   };
 
   for (auto& valid_class : valid_classes) {
