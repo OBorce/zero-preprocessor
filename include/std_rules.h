@@ -184,8 +184,8 @@ auto const template_parameter_def =
     x3::omit[(lit("typename") | "class" | type)] >> some_space >> name >>
     -(optionaly_space >> '=' >> optionaly_space >> x3::omit[(type | number)]);
 
-x3::rule<class template_parameters> const template_parameters =
-    "template_parameters";
+x3::rule<class template_parameters, std::vector<std::string>> const
+    template_parameters = "template_parameters";
 auto const template_parameters_def =
     lit("template") >> optionaly_space >> '<' >> optionaly_space >>
     template_parameter % arg_separator >> optionaly_space >> '>';

@@ -31,7 +31,16 @@ struct params {
   std::vector<var> parameters;
 };
 
+struct TemplateParameters {
+  std::vector<std::string> template_parameters;
+
+  bool empty() {
+    return template_parameters.empty();
+  }
+};
+
 struct function_signiture {
+  TemplateParameters template_parameters;
   Type return_type;
   std::string name;
   params parameters;
@@ -40,17 +49,21 @@ struct function_signiture {
 enum class class_type { CLASS, STRUCT };
 
 struct class_or_struct {
+  TemplateParameters template_parameters;
+  Type return_type;
   class_type type;
   std::string name;
 };
 
 struct Function {
+  TemplateParameters template_parameters;
   Type return_type;
   std::string name;
   params parameters;
 
   Function(function_signiture&& fun)
-      : return_type{std::move(fun.return_type)},
+      : template_parameters{std::move(fun.template_parameters)},
+        return_type{std::move(fun.return_type)},
         name{std::move(fun.name)},
         parameters{std::move(fun.parameters)} {}
 };
@@ -58,6 +71,7 @@ struct Function {
 struct Class {
   class_type type;
   std::string name;
+  TemplateParameters template_parameters;
   enum class Modifier { PUBLIC, PROTECTED, PRIVATE } state;
 
   std::map<std::string, Class> classes;
@@ -69,7 +83,10 @@ struct Class {
   std::vector<var> protected_members;
   std::vector<var> private_members;
 
-  Class(class_or_struct&& cs) : type{cs.type}, name{std::move(cs.name)} {
+  Class(class_or_struct&& cs)
+      : type{cs.type},
+        name{std::move(cs.name)},
+        template_parameters{std::move(cs.template_parameters)} {
     switch (type) {
       case class_type::CLASS:
         state = Modifier::PRIVATE;
@@ -79,6 +96,8 @@ struct Class {
         break;
     }
   }
+
+  bool is_templated() { return !template_parameters.empty(); }
 
   void add_class(Class&& class_or_struct) {
     auto name = class_or_struct.name;
@@ -178,8 +197,11 @@ BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::TemplateTypes, template_types)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::Type, name, template_types)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::var, type, name)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::params, parameters)
+BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::TemplateParameters,
+                          template_parameters)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::function_signiture,
-                          return_type, name, parameters)
-BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::class_or_struct, type, name)
+                          template_parameters, return_type, name, parameters)
+BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::class_or_struct,
+                          template_parameters, type, name)
 
 #endif  //! STD_AST_H

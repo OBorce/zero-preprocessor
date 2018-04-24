@@ -34,12 +34,22 @@ class StaticReflexParser {
     out.reserve(200);
     out += "\n};\n";
     out += "namespace reflect {template <class T> struct Reflect;}\n";
-    out += "template <> struct reflect::Reflect<";
+    if (c.is_templated()) {
+      out += "template <class ...Ts> struct reflect::Reflect<";
+    } else {
+      out += "template <> struct reflect::Reflect<";
+    }
     out += c.name;
+    if (c.is_templated()) {
+      out += "<Ts...>";
+    }
     out += "> { constexpr inline static std::tuple members = {";
     for (auto& kv : c.public_members) {
       out += '&';
       out += c.name;
+      if (c.is_templated()) {
+        out += "<Ts...>";
+      }
       out += "::";
       out += kv.name;
       out += ',';
