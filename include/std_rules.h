@@ -44,22 +44,32 @@ auto const comment_def =
 x3::rule<class arg_separator> const arg_separator = "arg_separator";
 auto const arg_separator_def = optionaly_space >> ',' >> optionaly_space;
 
-x3::rule<class var_operator> const var_operator = "var_operator";
-auto const var_operator_def =
-    (lit('.') >> -(optionaly_space >> '*')) |
-    ('-' >> optionaly_space >> '>' >> -(optionaly_space >> '*'));
+x3::rule<class prefix_operator> const prefix_operator = "prefix_operator";
+auto const prefix_operator_def = lit("++") | "--" | '*' | '&';
 
-x3::rule<class arg_operator> const arg_operator = "arg_operator";
-auto const arg_operator_def = optionaly_space >>
-                              (lit("++") | "+=" | '+' | "--" | "-=" | '-' |
-                               "*=" | '*' | "/=" | '/' | "%=" | '%' | ">>=" |
-                               ">>" | ">=" | '>' | "<<=" | "<<" | "<=" | '<' |
-                               "&&" | "&=" | '&' | "||" | "|=" | '|' | "~=" |
-                               '~' | "^=" | '^' | "!=" | '!' | "==" |
-                               '='
-                               // TODO: this makes 1.*foo() or a->23 valid
-                               | var_operator) >>
-                              optionaly_space;
+x3::rule<class call_operator> const call_operator = "call_operator";
+auto const call_operator_def =
+    (lit('(') >> optionaly_space >> ')') | (lit('[') >> optionaly_space >> ']');
+
+x3::rule<class binary_operator> const binary_operator = "binary_operator";
+auto const binary_operator_def =
+    lit("+=") | '+' | "-=" | "->*" | "->" | '-' | ".*" | '.' | "*=" | '*' |
+    "/=" | '/' | "%=" | '%' | ">>=" | ">>" | ">=" | '>' | "<<=" | "<<" | "<=" |
+    '<' | "&&" | "&=" | '&' | "||" | "|=" | '|' | "~=" | '~' | "^=" | '^' |
+    "!=" | '!' | "==" | '=';
+
+x3::rule<class all_overloadable_operators> const all_overloadable_operators =
+    "all_overloadable_operators";
+auto const all_overloadable_operators_def =
+    lit("+=") | "++" | '+' | "-=" | "->*" | "->" | "--" | '-' | "*=" | '*' |
+    "/=" | '/' | "%=" | '%' | ">>=" | ">>" | ">=" | '>' | "<<=" | "<<" | "<=" |
+    '<' | "&&" | "&=" | '&' | "||" | "|=" | '|' | "~=" | '~' | "^=" | '^' |
+    "!=" | '!' | "==" | '=' | call_operator;
+
+x3::rule<class operator_sep> const operator_sep = "operator_sep";
+auto const operator_sep_def = optionaly_space >>
+                              // TODO: this makes 1.*foo() or a->23 valid
+                              binary_operator >> optionaly_space;
 
 x3::rule<class scope_begin> const scope_begin = "scope_begin";
 auto const scope_begin_def = optionaly_space >> '{';
@@ -133,8 +143,10 @@ x3::rule<class arg_init_list> const arg_init_list = "arg_init_list";
 
 // TODO: type here denotes a variable name
 // change it to variable_type that also covers ::var and templated variables
-auto const argument_def = arg_init_list | function_call | var_type | number |
-                          char_literal | string_literal | paren_expression;
+auto const argument_def = arg_init_list | function_call |
+                          (-(prefix_operator >> optionaly_space) >> var_type) |
+                          number | char_literal | string_literal |
+                          paren_expression;
 
 auto const optionaly_arguments_def =
     -((expression | init_list) % arg_separator);
@@ -142,7 +154,7 @@ auto const optionaly_arguments_def =
 auto const function_call_def = type >> optionaly_space >> '(' >>
                                optionaly_space >> optionaly_arguments >>
                                optionaly_space >> ')';
-auto const expression_def = argument % arg_operator;
+auto const expression_def = argument % operator_sep;
 auto const paren_expression_def =
     '(' >> optionaly_space >> expression >> optionaly_space >> ')';
 auto const init_list_def =
@@ -156,15 +168,19 @@ auto const statement_def = optionaly_space >> expression >> statement_end;
 x3::rule<class return_statement> const return_statement = "return_statement";
 auto const return_statement_def = "return" >> some_space >> statement;
 
-// TODO: add optional template after type
 x3::rule<class param, ast::var> const param = "param";
 auto const param_def = type >> some_space >> name;
 
+x3::rule<class optional_param, ast::var> const optional_param =
+    "optional_param";
+auto const optional_param_def = type >> -(some_space >> name);
+
 x3::rule<class param_optionaly_default, ast::var> const
     param_optionaly_default = "param_optionaly_default";
-auto const param_optionaly_default_def = param >> -(optionaly_space >> '=' >>
-                                                    optionaly_space >>
-                                                    (expression | init_list));
+auto const param_optionaly_default_def = optional_param >>
+                                         -(optionaly_space >> '=' >>
+                                           optionaly_space >>
+                                           (expression | init_list));
 
 // TODO: support for new / delete ?
 x3::rule<class var, ast::var> const var = "var";
@@ -180,6 +196,8 @@ auto const optionaly_params_def = -(param_optionaly_default % arg_separator);
 // TODO: need variadic templates
 x3::rule<class template_parameter, std::string> const template_parameter =
     "template_parameter";
+
+// TODO: default template parameters are omited
 auto const template_parameter_def =
     x3::omit[(lit("typename") | "class" | type)] >> some_space >> name >>
     -(optionaly_space >> '=' >> optionaly_space >> x3::omit[(type | number)]);
@@ -196,6 +214,14 @@ auto const function_signiture_def =
     -(template_parameters >> optionaly_space) >> type >> some_space >> name >>
     optionaly_space >> '(' >> optionaly_space >> optionaly_params >> ')';
 
+// TODO: change to operator signiture ast
+x3::rule<class operator_signiture, ast::operator_signiture> const
+    operator_signiture = "operator_signiture";
+auto const operator_signiture_def =
+    -(template_parameters >> optionaly_space) >> type >> some_space >>
+    "operator" >> optionaly_space >> all_overloadable_operators >>
+    optionaly_space >> '(' >> optionaly_space >> optionaly_params >> ')';
+
 // TODO: name of class can be namespace::name
 x3::rule<class class_or_struct, ast::class_or_struct> const class_or_struct =
     "class_or_struct";
@@ -203,15 +229,17 @@ auto const class_or_struct_def = -(template_parameters >> optionaly_space) >>
                                  class_type >> some_space >> name;
 
 BOOST_SPIRIT_DEFINE(some_space, optionaly_space, include, comment,
-                    arg_separator, arg_operator, var_operator, scope_begin,
-                    scope_end, namespace_begin, statement_end, name, type_,
-                    type, var_type, template_values, digits, integral, floating,
-                    number, string_literal, char_literal, argument,
-                    optionaly_arguments, function_call, expression,
+                    arg_separator, prefix_operator, binary_operator,
+                    all_overloadable_operators, operator_sep, call_operator,
+                    scope_begin, scope_end, namespace_begin, statement_end,
+                    name, type_, type, var_type, template_values, digits,
+                    integral, floating, number, string_literal, char_literal,
+                    argument, optionaly_arguments, function_call, expression,
                     paren_expression, init_list, arg_init_list,
                     optionaly_params, statement, return_statement, param,
-                    param_optionaly_default, var, template_parameter,
-                    template_parameters, function_signiture, class_or_struct);
+                    optional_param, param_optionaly_default, var,
+                    template_parameter, template_parameters, function_signiture,
+                    operator_signiture, class_or_struct);
 }  // namespace std_parser::rules
 
 #endif  //! STD_RULES_H

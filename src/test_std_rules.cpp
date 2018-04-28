@@ -125,8 +125,15 @@ TEST_CASE("Parse valid variables", "[var]") {
 TEST_CASE("Parse valid statements", "[statements]") {
   std::array valid_statements{"a += 1;"s,
                               "a = 2 + 3;"s,
+                              "a &= b == c;"s,
                               "a -= std::min(2, b);"s,
                               "std::foo(a + b, c);"s,
+                              "a &= b.value == c;"s,
+                              "a = b->valuec;"s,
+                              "a &= b->value == c;"s,
+                              "result &= a.*mem_ptr == b.*mem_ptr;"s,
+                              "a = *c;"s,
+                              "a = &c;"s,
                               "std::cout << 2;"s,
                               "std::cout << asd << 2 << std::endl;"s};
 
@@ -139,15 +146,35 @@ TEST_CASE("Parse valid function_signitures", "[function_signiture]") {
   std::array valid_function_signitures{
       "int a()"s,
       "std::string s(int i)"s,
+      "void s(const int i)"s,
+      "std::string no_name_params(int, float f, double)"s,
+      "std::string no_name_params2(int, int , float f, double)"s,
       "rules::ast::val some_name(std::string s, int a)"s,
-      "auto def_arg(int a = 2, long l = 3l)"s,
+      "auto& def_arg(int a = 2, long l = 3l)"s,
       "template<typename T> auto def_arg(T a = 2, long l = 3l)"s,
       "template<typename T, int N = 0> auto def_arg(T a = 2, long l = 3l)"s,
-      "some_Type function_a2(std::asd::ddd d)"s};
+      "const some_Type* function_a2(std::asd::ddd d)"s};
 
   for (auto& valid_function_signiture : valid_function_signitures) {
     REQUIRE_THAT(valid_function_signiture,
                  CanParse(rules::function_signiture, "function_signiture"));
+  }
+}
+
+TEST_CASE("Parse valid operator_signitures", "[operator_signiture]") {
+  std::array valid_operator_signitures{
+      "std::ostream& operator<<(std::ostream& os)"s,
+      "void operator++()"s,
+      "void operator++(int)"s,
+      "template<typename T> T operator*(T a, T b)"s,
+      "void operator()(int)"s,
+      "template <typename MetaDataMember> void operator()(MetaDataMember)"s,
+      "void operator [ ] (int idx)"s,
+      "bool operator>=(int a, int b)"s};
+
+  for (auto& valid_operator_signiture : valid_operator_signitures) {
+    REQUIRE_THAT(valid_operator_signiture,
+                 CanParse(rules::operator_signiture, "operator_signiture"));
   }
 }
 

@@ -93,8 +93,9 @@ class Preprocessor {
   template <int ID, typename Writer>
   auto process(Source& source, Writer& writer) {
     std::size_t remaining = std::distance(source.begin(), source.end());
-    std::size_t size = std::min(20ul, remaining);
+    std::size_t size = std::min(30ul, remaining);
     std::string_view content = {&*source.begin(), size};
+
     auto out = std::get<ID>(parsers).parse(source);
     if (out) {
       writer((*out).result);
@@ -186,7 +187,7 @@ class Preprocessor {
    * Get a reference to the parser with given PARSER_ID
    */
   template <int PARSER_ID>
-  auto get_parser() -> parser<PARSER_ID> & {
+  auto get_parser() -> parser<PARSER_ID>& {
     constexpr int idx = find_parser_with_id<PARSER_ID>();
     return std::get<idx>(parsers);
   }

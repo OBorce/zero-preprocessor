@@ -34,9 +34,7 @@ struct params {
 struct TemplateParameters {
   std::vector<std::string> template_parameters;
 
-  bool empty() {
-    return template_parameters.empty();
-  }
+  bool empty() { return template_parameters.empty(); }
 };
 
 struct function_signiture {
@@ -46,11 +44,16 @@ struct function_signiture {
   params parameters;
 };
 
+struct operator_signiture {
+  TemplateParameters template_parameters;
+  Type return_type;
+  params parameters;
+};
+
 enum class class_type { CLASS, STRUCT };
 
 struct class_or_struct {
   TemplateParameters template_parameters;
-  Type return_type;
   class_type type;
   std::string name;
 };
@@ -65,6 +68,12 @@ struct Function {
       : template_parameters{std::move(fun.template_parameters)},
         return_type{std::move(fun.return_type)},
         name{std::move(fun.name)},
+        parameters{std::move(fun.parameters)} {}
+
+  Function(operator_signiture&& fun)
+      : template_parameters{std::move(fun.template_parameters)},
+        return_type{std::move(fun.return_type)},
+        name{"op"},
         parameters{std::move(fun.parameters)} {}
 };
 
@@ -201,6 +210,8 @@ BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::TemplateParameters,
                           template_parameters)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::function_signiture,
                           template_parameters, return_type, name, parameters)
+BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::operator_signiture,
+                          template_parameters, return_type, parameters)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::class_or_struct,
                           template_parameters, type, name)
 

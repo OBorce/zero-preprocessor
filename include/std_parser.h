@@ -50,18 +50,16 @@ class StdParser {
     };
 
     auto se = [&](auto& ctx) {
-      auto&& c = std::move(current);
-      nestings.pop_back();
-      if (nestings.size() == 1) {
+      if (nestings.size() < 2) {
         // NOTE: more closing brackets than opened
         throw std::runtime_error("extraneous closing brace ('}')");
       }
 
-      auto& v = nestings.back();
+      auto& v = nestings[nestings.size() - 2];
       std::visit(
           overloaded{
               [&](rules::ast::Namespace& arg) {
-                arg.add_namespace(std::move(c));
+                arg.add_namespace(std::move(current));
               },
               [](auto) {
                 /* NOTE: Can't have a namespace inside a class, function or a
@@ -69,6 +67,7 @@ class StdParser {
               },
           },
           v);
+      nestings.pop_back();
     };
 
     namespace x3 = boost::spirit::x3;
@@ -80,6 +79,8 @@ class StdParser {
                        (rules::class_or_struct >> rules::statement_end) |
                        (rules::function_signiture >> rules::scope_begin)[fun] |
                        (rules::function_signiture >> rules::statement_end) |
+                       (rules::operator_signiture >> rules::scope_begin)[fun] |
+                       (rules::operator_signiture >> rules::statement_end) |
                        rules::namespace_begin[sb] | rules::scope_end[se] |
                        rules::include | rules::comment | rules::var[var])
                   // rules end
@@ -121,6 +122,8 @@ class StdParser {
                        (rules::class_or_struct >> rules::statement_end) |
                        (rules::function_signiture >> rules::scope_begin)[fun] |
                        (rules::function_signiture >> rules::statement_end) |
+                       (rules::operator_signiture >> rules::scope_begin)[fun] |
+                       (rules::operator_signiture >> rules::statement_end) |
                        rules::scope_end[se] | rules::include | rules::comment |
                        rules::var[var])
                   // rules end
@@ -144,21 +147,26 @@ class StdParser {
     auto sb = [&](auto& ctx) { nestings.emplace_back(rules::ast::Scope{}); };
 
     auto se = [&](auto& ctx) {
-      auto&& c = std::move(current);
-      nestings.pop_back();
-      auto& v = nestings.back();
+      if (nestings.size() < 2) {
+        // NOTE: more closing brackets than opened
+        throw std::runtime_error("extraneous closing brace ('}')");
+      }
+      auto& v = nestings[nestings.size() - 2];
       std::visit(
           overloaded{
               [&](rules::ast::Namespace& arg) {
-                arg.add_function(std::move(c));
+                arg.add_function(std::move(current));
               },
-              [&](rules::ast::Class& arg) { arg.add_function(std::move(c)); },
+              [&](rules::ast::Class& arg) {
+                arg.add_function(std::move(current));
+              },
               [](auto) {
                 /* NOTE: Can't have a function inside a function or local
                  * scope*/
               },
           },
           v);
+      nestings.pop_back();
     };
 
     namespace x3 = boost::spirit::x3;
@@ -192,9 +200,11 @@ class StdParser {
     auto sb = [&](auto& ctx) { nestings.emplace_back(rules::ast::Scope{}); };
 
     auto se = [&](auto& ctx) {
-      // auto&& c = std::move(current);
-      nestings.pop_back();
-      auto& v = nestings.back();
+      if (nestings.size() < 2) {
+        // NOTE: more closing brackets than opened
+        throw std::runtime_error("extraneous closing brace ('}')");
+      }
+      auto& v = nestings[nestings.size() - 2];
       std::visit(
           overloaded{
               [&](rules::ast::Function& arg) {
@@ -206,6 +216,7 @@ class StdParser {
               },
           },
           v);
+      nestings.pop_back();
     };
 
     namespace x3 = boost::spirit::x3;
@@ -257,6 +268,10 @@ class StdParser {
 
   void close_current_class() {
     auto& c = std::get<rules::ast::Class>(nestings.back());
+    if (nestings.size() < 2) {
+      // NOTE: more closing brackets than opened
+      throw std::runtime_error("extraneous closing brace ('}')");
+    }
     auto& v = nestings[nestings.size() - 2];
     std::visit(
         overloaded{
