@@ -3,6 +3,7 @@
 
 #include <optional>
 #include <stdexcept>
+#include <unordered_set>
 #include <variant>
 
 #include <overloaded.h>
@@ -23,6 +24,7 @@ class StdParser {
   using Scopable = std::variant<rules::ast::Namespace, rules::ast::Scope,
                                 rules::ast::Class, rules::ast::Function>;
   std::vector<Scopable> nestings = {rules::ast::Namespace{""}};
+  std::unordered_set<std::string> includes;
 
   // parser methods
 
@@ -42,6 +44,11 @@ class StdParser {
     auto var = [&current](auto& ctx) {
       auto& rez = _attr(ctx);
       current.add_variable(std::move(rez));
+    };
+
+    auto inc = [this](auto& ctx) {
+      auto& rez = _attr(ctx);
+      includes.emplace(std::move(rez));
     };
 
     auto sb = [this](auto& ctx) {
@@ -74,15 +81,16 @@ class StdParser {
     bool parsed =
         x3::parse(begin, end,
                   // rules begin
-                  rules::optionaly_space >>
-                      ((rules::class_or_struct >> rules::scope_begin)[cs] |
-                       (rules::class_or_struct >> rules::statement_end) |
-                       (rules::function_signiture >> rules::scope_begin)[fun] |
-                       (rules::function_signiture >> rules::statement_end) |
-                       (rules::operator_signiture >> rules::scope_begin)[fun] |
-                       (rules::operator_signiture >> rules::statement_end) |
-                       rules::namespace_begin[sb] | rules::scope_end[se] |
-                       rules::include | rules::comment | rules::var[var])
+                  rules::some_space |
+                      (rules::optionaly_space >>
+                       ((rules::class_or_struct >> rules::scope_begin)[cs] |
+                        (rules::class_or_struct >> rules::statement_end) |
+                        (rules::function_signiture >> rules::scope_begin)[fun] |
+                        (rules::function_signiture >> rules::statement_end) |
+                        (rules::operator_signiture >> rules::scope_begin)[fun] |
+                        (rules::operator_signiture >> rules::statement_end) |
+                        rules::namespace_begin[sb] | rules::scope_end[se] |
+                        rules::include[inc] | rules::comment | rules::var[var]))
                   // rules end
         );
 
@@ -111,6 +119,11 @@ class StdParser {
       current.add_variable(std::move(rez));
     };
 
+    auto inc = [this](auto& ctx) {
+      auto& rez = _attr(ctx);
+      includes.emplace(std::move(rez));
+    };
+
     auto se = [&](auto& ctx) { this->close_current_class(); };
 
     namespace x3 = boost::spirit::x3;
@@ -124,8 +137,8 @@ class StdParser {
                        (rules::function_signiture >> rules::statement_end) |
                        (rules::operator_signiture >> rules::scope_begin)[fun] |
                        (rules::operator_signiture >> rules::statement_end) |
-                       rules::scope_end[se] | rules::include | rules::comment |
-                       rules::var[var])
+                       rules::scope_end[se] | rules::include[inc] |
+                       rules::comment | rules::var[var])
                   // rules end
         );
 
@@ -142,6 +155,11 @@ class StdParser {
     auto cs = [this](auto& ctx) {
       auto& rez = _attr(ctx);
       nestings.emplace_back(std::move(rez));
+    };
+
+    auto inc = [this](auto& ctx) {
+      auto& rez = _attr(ctx);
+      includes.emplace(std::move(rez));
     };
 
     auto sb = [&](auto& ctx) { nestings.emplace_back(rules::ast::Scope{}); };
@@ -177,7 +195,7 @@ class StdParser {
                       ((rules::class_or_struct >> rules::scope_begin)[cs] |
                        (rules::class_or_struct >> rules::statement_end) |
                        rules::scope_begin[sb] | rules::scope_end[se] |
-                       rules::statement | rules::include | rules::comment |
+                       rules::statement | rules::include[inc] | rules::comment |
                        rules::var | rules::return_statement)
                   // rules end
         );
@@ -195,6 +213,11 @@ class StdParser {
     auto cs = [this](auto& ctx) {
       auto& rez = _attr(ctx);
       nestings.emplace_back(std::move(rez));
+    };
+
+    auto inc = [this](auto& ctx) {
+      auto& rez = _attr(ctx);
+      includes.emplace(std::move(rez));
     };
 
     auto sb = [&](auto& ctx) { nestings.emplace_back(rules::ast::Scope{}); };
@@ -227,7 +250,7 @@ class StdParser {
             ((rules::class_or_struct >> rules::scope_begin)[cs] |
              (rules::class_or_struct >> rules::statement_end) |
              rules::scope_begin[sb] | rules::scope_end[se] | rules::statement |
-             rules::include | rules::comment | rules::var)
+             rules::include[inc] | rules::comment | rules::var)
         // rules end
     );
 
@@ -286,6 +309,13 @@ class StdParser {
   }
 
   Scopable& get_current_nesting() { return nestings.back(); }
+
+  /**
+   * Return all the includes in the parsed file
+   */
+  auto& get_all_includes() { return includes; }
+
+  void reset_includes() { includes.clear(); }
 };
 }  // namespace std_parser
 

@@ -7,17 +7,19 @@
 #include <optional>
 #include <tuple>
 #include <type_traits>
+#include <unordered_set>
 #include <utility>
 #include <variant>
 #include <vector>
 
 #include <detect.h>
 #include <result.h>
+#include <source_loader.h>
 
-template <typename Source, typename... Functions>
+template <typename... Functions>
 class Preprocessor {
   // Deduce the type of our parsers
-  using me = Preprocessor<Source, Functions...>;
+  using me = Preprocessor<Functions...>;
   using my_ref = me&;
   using Parsers = std::tuple<std::invoke_result_t<Functions, my_ref>...>;
 
@@ -82,6 +84,16 @@ class Preprocessor {
   }
 
   /**
+   * parse the source with the ID-th parser
+   *
+   * Return the cursor to the end of the successfully parsed source
+   */
+  template <int ID, typename Source>
+  auto parse(Source& source) {
+    return std::get<ID>(parsers).parse(source);
+  }
+
+  /**
    * process the source with the ID-th parser
    * If successful write the result using the writer
    *
@@ -90,13 +102,13 @@ class Preprocessor {
    *
    * Throws runtime_error if none of the parsers can parse the source
    */
-  template <int ID, typename Writer>
+  template <int ID, typename Source, typename Writer>
   auto process(Source& source, Writer& writer) {
     std::size_t remaining = std::distance(source.begin(), source.end());
     std::size_t size = std::min(30ul, remaining);
     std::string_view content = {&*source.begin(), size};
 
-    auto out = std::get<ID>(parsers).parse(source);
+    auto out = parse<ID>(source);
     if (out) {
       writer((*out).result);
       return (*out).processed_to;
@@ -107,20 +119,24 @@ class Preprocessor {
     }
 
     std::string error_msg = "source can't be parsed by none of the parsers: ";
+    error_msg += std::to_string(content.size());
     error_msg += content;
     throw std::runtime_error(error_msg);
   }
 
   /**
-   * Send the source through the parsers for processing until it is finished
+   * Parse the source by the std parser
    *
-   * Throws runtime error if none of the parsers can process the source
-   * or a parser reported that it processed 0 length of the source
+   * Returns the source's dependencies i.e. #includes
+   *
+   * Throws runtime error if source is not parsable
    */
-  template <typename Writer>
-  void process_source(Source& source, Writer& writer) {
+  template <typename Source>
+  auto& source_dependencies(Source& source) {
+    constexpr int parser_idx = get_parsers_idx_with_error<1>();
     while (!source.is_finished()) {
-      auto processed_to = process<0>(source, writer);
+      auto rez = parse<parser_idx>(source);
+      auto processed_to = rez ? rez.value().processed_to : source.begin();
 
       std::size_t processed_chars = std::distance(source.begin(), processed_to);
       if (processed_chars == 0) {
@@ -129,6 +145,8 @@ class Preprocessor {
 
       source.advance(processed_chars);
     }
+
+    return std::get<parser_idx>(parsers).get_all_includes();
   }
 
   template <class T>
@@ -152,22 +170,79 @@ class Preprocessor {
   }
 
   // Data members
-  std::vector<Source> sources;
+  source::SourceLoader source_loader;
   Parsers parsers;
 
  public:
-  Preprocessor(std::vector<Source>&& sources, Functions... funs)
-      : sources{std::move(sources)}, parsers{funs(*this)...} {
+  Preprocessor(source::SourceLoader&& loader, Functions... funs)
+      : source_loader{std::move(loader)}, parsers{funs(*this)...} {
     check_unique();
     init();
   }
 
   // Methods
 
+  /**
+   * Send the source through the parsers for processing until it is finished
+   *
+   * Throws runtime error if none of the parsers can process the source
+   * or a parser reported that it processed 0 length of the source
+   */
   template <typename Writer>
-  void process(Writer& writer) {
-    for (auto& source : sources) {
-      process_source(source, writer);
+  void process_source(std::string_view source_name, Writer& writer) {
+    auto source = source_loader.load_source(source_name);
+    while (!source.is_finished()) {
+      auto processed_to = process<0>(source, writer);
+
+      std::size_t processed_chars = std::distance(source.begin(), processed_to);
+      if (processed_chars == 0) {
+        throw std::runtime_error("error in one of the parsers");
+      }
+
+      source.advance(processed_chars);
+    }
+  }
+
+  /**
+   * Write the dependencies of the source using the writer
+   *
+   * Terminates if a found dependency file can't be opened
+   */
+  template <typename Writer>
+  void get_dependencies(std::string source_name, Writer& writer) {
+    std::unordered_set<std::string> dependencies;
+    std::vector<std::string> sources = {std::move(source_name)};
+    while (!sources.empty()) {
+      auto& name = sources.back();
+      auto source = source_loader.load_source(name);
+      // process source
+      auto& deps = source_dependencies(source);
+      // remove processed
+      sources.pop_back();
+
+      // add new to be processed
+      for (auto& dep : deps) {
+        if (source::is_standard(dep)) {
+          continue;
+        }
+
+        if (auto include = source_loader.find_source(dep); include) {
+          auto name = include.value().string();
+          auto [it, ok] = dependencies.emplace(name);
+          if (ok) {
+            // write the dependencies using the writer
+            writer(name);
+            auto out = source_loader.get_out_path(dep).string();
+            writer(out);
+
+            sources.push_back(std::move(name));
+          }
+        } else {
+          std::cout << "file " << dep << " can't be found\n";
+        }
+      }
+      constexpr int parser_idx = get_parsers_idx_with_error<1>();
+      std::get<parser_idx>(parsers).reset_includes();
     }
   }
 

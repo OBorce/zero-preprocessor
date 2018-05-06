@@ -1,8 +1,11 @@
 #include <iostream>
 #include <string>
+#include <tuple>
 
-#include <reflect.h>
+//#include <reflect.h>
+#include <foo.h>
 
+/*
 template <typename T>
 struct compare_data_members {
   const T& a;
@@ -15,30 +18,37 @@ struct compare_data_members {
     result &= a.*mem_ptr == b.*mem_ptr;
   }
 };
+*/
 
+  /*
 template <typename T>
 bool generic_equal(const T& a, const T& b) {
   using metaT = reflexpr<T>;
   bool result = true;
-  /*
   reflect::for_each<reflect::get_data_members_t<metaT>>(
       compare_data_members<T>{a, b, result});
-  */
 
   return result;
 }
+  */
 
+/*
 struct Bar {
   int bazz;
   int foo;
 };
+*/
 
 int main() {
   std::cout << "hello from example\n";
-  Bar obj{1, 5};
+  //Bar obj{1, 2};
+  Baz b;
+
+  std::cout << "size of Baz = " << b.a + 2 << std::endl;
 
   // TODO: try some reflection when we can
 
+  /*
   using meta = reflexpr<Bar>;
 
   auto name = reflect::get_name<meta>;
@@ -53,5 +63,6 @@ int main() {
   auto ptr2 = reflect::get_pointer_v<std::tuple_element_t<1, members>>;
 
   std::cout << "Bar::foo = " << obj.*ptr2 << std::endl;
+  */
   return 0;
 }

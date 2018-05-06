@@ -5,6 +5,7 @@ project(reflected-project)
 
 add_executable(example src/main.cpp)
 target_compile_features(example INTERFACE cxx_std_17)
+target_include_directories(example PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR})
 
 # add our preprocessor
 set(preprocessor_dir "./../../")
