@@ -9,16 +9,9 @@
 #include <overloaded.h>
 #include <result.h>
 #include <std_rules.h>
+#include <string_utils.h>
 
 namespace std_parser {
-
-// FIXME: this only works for char
-// TODO: change this to a span<T> in 2a
-template <typename Iter>
-std::string_view make_range(Iter begin, Iter end) {
-  std::size_t size = std::distance(begin, end);
-  return {std::addressof(*begin), size};
-}
 
 class StdParser {
   using Scopable = std::variant<rules::ast::Namespace, rules::ast::Scope,
@@ -94,9 +87,9 @@ class StdParser {
                   // rules end
         );
 
-    return parsed
-               ? std::optional{Result{begin, make_range(source.begin(), begin)}}
-               : std::nullopt;
+    return parsed ? std::optional{Result{
+                        begin, make_string_view(source.begin(), begin)}}
+                  : std::nullopt;
   }
 
   template <class Source>
@@ -142,9 +135,9 @@ class StdParser {
                   // rules end
         );
 
-    return parsed
-               ? std::optional{Result{begin, make_range(source.begin(), begin)}}
-               : std::nullopt;
+    return parsed ? std::optional{Result{
+                        begin, make_string_view(source.begin(), begin)}}
+                  : std::nullopt;
   }
 
   template <class Source>
@@ -200,9 +193,9 @@ class StdParser {
                   // rules end
         );
 
-    return parsed
-               ? std::optional{Result{begin, make_range(source.begin(), begin)}}
-               : std::nullopt;
+    return parsed ? std::optional{Result{
+                        begin, make_string_view(source.begin(), begin)}}
+                  : std::nullopt;
   }
 
   template <class Source>
@@ -254,9 +247,9 @@ class StdParser {
         // rules end
     );
 
-    return parsed
-               ? std::optional{Result{begin, make_range(source.begin(), begin)}}
-               : std::nullopt;
+    return parsed ? std::optional{Result{
+                        begin, make_string_view(source.begin(), begin)}}
+                  : std::nullopt;
   }
 
  public:
@@ -309,6 +302,24 @@ class StdParser {
   }
 
   Scopable& get_current_nesting() { return nestings.back(); }
+
+  template <class Source>
+  auto parse_function(Source& source) {
+    auto begin = source.begin();
+    auto end = source.end();
+
+    namespace x3 = boost::spirit::x3;
+    bool parsed = x3::parse(begin, end,
+                            // rules begin
+                            rules::optionaly_space >>
+                                rules::function_signiture >> rules::scope_begin
+                            // rules end
+    );
+
+    return parsed ? std::optional{Result{
+                        begin, make_string_view(source.begin(), begin)}}
+                  : std::nullopt;
+  }
 
   /**
    * Return all the includes in the parsed file

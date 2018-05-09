@@ -92,10 +92,10 @@ class StaticReflexParser {
 
  public:
   // TODO: when supported in std=c++2a change to fixed length string
+  constexpr static int id = 5;
 
   StaticReflexParser(Parent& p) : parent{p} {}
 
-  constexpr static int id = 5;
   template <class Source>
   auto parse(Source& source) {
     auto& std_parser = parent.template get_parser<1>();

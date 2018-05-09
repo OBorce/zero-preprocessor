@@ -12,11 +12,17 @@ message("cur source dir " ${CMAKE_CURRENT_SOURCE_DIR})
 message("cur project dir " ${PROJECT_SOURCE_DIR})
 # Make test executable
 set(TEST_SOURCES
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/tests_main.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/test_std_rules.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/test_std_parser.cpp)
+  ${CMAKE_CURRENT_SOURCE_DIR}/tests/tests_main.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_std_rules.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_meta_classes_rules.cpp
+  #${CMAKE_CURRENT_SOURCE_DIR}/tests/test_std_parser.cpp
+  )
 add_executable(tests ${TEST_SOURCES})
-target_include_directories(tests PRIVATE ${PROJECT_SOURCE_DIR}/include)
+target_include_directories(tests PRIVATE
+  ${PROJECT_SOURCE_DIR}/include
+  ${PROJECT_SOURCE_DIR}/parsers/static_reflection
+  ${PROJECT_SOURCE_DIR}/parsers/meta_classes/
+  )
 find_package(Boost 1.67 REQUIRED COMPONENTS system)
 target_link_libraries(tests PRIVATE Catch Boost::boost)
 enable_testing()
@@ -74,5 +80,9 @@ endfunction()
 # Our main
 add_executable(main ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
 target_compile_features(main INTERFACE cxx_std_17)
-target_include_directories(main PRIVATE ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR}/parsers/static_reflection)
+target_include_directories(main PRIVATE
+  ${PROJECT_SOURCE_DIR}/include
+  ${PROJECT_SOURCE_DIR}/parsers/static_reflection
+  ${PROJECT_SOURCE_DIR}/parsers/meta_classes/
+  )
 target_link_libraries(main PRIVATE Boost::boost Boost::system -lstdc++fs -lpthread)
