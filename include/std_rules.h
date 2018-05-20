@@ -34,6 +34,9 @@ auto const include_def = optionaly_space >> '#' >> *(lit(' ') | '\t') >>
                          (('<' >> *(char_ - '>') >> '>') |
                           ('"' >> *(char_ - '"') >> '"'));
 
+x3::rule<class skip_line> const skip_line = "skip_line";
+auto const skip_line_def = *(char_ - eol);
+
 x3::rule<class comment> const comment = "comment";
 auto const comment_def =
     optionaly_space >>
@@ -126,7 +129,8 @@ auto const var_type_def = (type_) >> -(optionaly_space >> template_values);
 auto const template_values_def = '<' >> optionaly_space >>
                                  ((type | digits) % arg_separator) >> '>';
 
-auto const type_def = -(lit("const") >> some_space) >> var_type >>
+auto const type_def = -(lit("constexpr") >> some_space) >>
+                      -(lit("const") >> some_space) >> var_type >>
                       -(-(some_space >> -lit("const")) >> optionaly_space >>
                         ((lit('&') >> -(optionaly_space >> '&')) |
                          +(optionaly_space >> lit('*') >>
@@ -228,7 +232,7 @@ x3::rule<class class_or_struct, ast::class_or_struct> const class_or_struct =
 auto const class_or_struct_def = -(template_parameters >> optionaly_space) >>
                                  class_type >> some_space >> name;
 
-BOOST_SPIRIT_DEFINE(some_space, optionaly_space, include, comment,
+BOOST_SPIRIT_DEFINE(some_space, optionaly_space, include, skip_line, comment,
                     arg_separator, prefix_operator, binary_operator,
                     all_overloadable_operators, operator_sep, call_operator,
                     scope_begin, scope_end, namespace_begin, statement_end,

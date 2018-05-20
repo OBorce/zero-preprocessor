@@ -37,11 +37,12 @@ class CanParse : public Catch::MatcherBase<std::string> {
   }
 };
 
-TEST_CASE("Parse valid meta class target", "[meta_class]") {
+TEST_CASE("Parse valid meta class selected target", "[meta_class]") {
   std::array valid_targets{"->(target)"s, "->(some_meta_target2)"s};
 
   for (auto& valid_target : valid_targets) {
-    REQUIRE_THAT(valid_target, CanParse(rules::target, "target"));
+    REQUIRE_THAT(valid_target,
+                 CanParse(rules::selected_target, "selected_target"));
   }
 }
 
@@ -55,10 +56,8 @@ TEST_CASE("Parse valid meta class meta target", "[meta_class]") {
 }
 
 TEST_CASE("Parse valid meta class meta target outputs", "[meta_class]") {
-  std::array valid_target_outputs{"int a;"s,
-    "{ fasd_ds.name_ds()$ }"s,
-    "{ void fasd_ds.name_ds()$ {} }"s
-  };
+  std::array valid_target_outputs{"int a;"s, "{ fasd_ds.name_ds()$ }"s,
+                                  "{ void fasd_ds.name_ds()$ {} }"s};
 
   for (auto& valid_target_output : valid_target_outputs) {
     REQUIRE_THAT(valid_target_output,
@@ -67,13 +66,22 @@ TEST_CASE("Parse valid meta class meta target outputs", "[meta_class]") {
 }
 
 TEST_CASE("Parse valid meta class target outputs", "[meta_class]") {
-  std::array valid_target_outputs{"{ int a };"s,
-    "{ fasd_ds.name_ds()$ };"s,
-    "{ void fasd_ds.name_ds()$ {} };"s
-  };
+  std::array valid_target_outputs{"{ int a };"s, "{ fasd_ds.name_ds()$ };"s,
+                                  "{ void fasd_ds.name_ds()$ {} };"s};
 
   for (auto& valid_target_output : valid_target_outputs) {
     REQUIRE_THAT(valid_target_output,
                  CanParse(rules::target_out, "target output"));
+  }
+}
+
+TEST_CASE("Parse valid meta class target", "[meta_class]") {
+  std::array valid_targets{
+      "->(target) { fasd_ds.name_ds()$ };"s,
+      "  ->(target) { void fasd_ds.name_ds()$ {} };"s,
+      "->(target) { virtual ~(source.name()$)() noexcept {}};"s};
+
+  for (auto& valid_target : valid_targets) {
+    REQUIRE_THAT(valid_target, CanParse(rules::target, "target"));
   }
 }

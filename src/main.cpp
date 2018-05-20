@@ -1,13 +1,11 @@
 #include <fstream>
 #include <iostream>
 
+#include <meta_classes.h>
 #include <preprocessor.h>
 #include <source_loader.h>
 #include <static_reflection.h>
 #include <std_parser.h>
-
-#include <boost/process.hpp>
-namespace bp = boost::process;
 
 int stage_one(int argc, char* argv[]) {
   source::check_out_dir({argv[3]});
@@ -21,7 +19,10 @@ int stage_one(int argc, char* argv[]) {
   source::SourceLoader loader{std::move(inc_dirs), "include"};
 
   auto std_parser = [](auto& p) { return std_parser::StdParser{}; };
-  Preprocessor preprocessor(std::move(loader), std_parser);
+  auto meta_classes = [](auto& p) {
+    return meta_classes::MetaClassParser{p, "", ""};
+  };
+  Preprocessor preprocessor(std::move(loader), meta_classes, std_parser);
 
   std::ofstream out_file(argv[3], std::ios::out);
   auto writer = [&out_file](auto& src) {
@@ -49,16 +50,27 @@ auto read_sources(std::string_view file) {
 }
 
 int stage_two(int argc, char* argv[]) {
-  std::string src = R"src(
-#include <iostream>
-int main() {
-  std::cout << "hello " << std::endl;
-  return 0;
-}
-)src";
-  source::check_out_dir(argv[2]);
-  std::ofstream out_file(argv[2], std::ios::out);
-  out_file << src;
+  source::check_out_dir({argv[3]});
+
+  source::SourceLoader loader{{}, "include"};
+
+  auto std_parser = [](auto& p) { return std_parser::StdParser{}; };
+  auto meta_classes = [&](auto& p) {
+    return meta_classes::MetaClassParser{p, "", argv[3]};
+  };
+
+  Preprocessor preprocessor(std::move(loader), meta_classes, std_parser);
+
+  /*
+  std::ofstream out_file(argv[3], std::ios::out);
+  auto writer = [&out_file](auto& src) {
+    for (auto& elem : src) {
+      out_file << elem;
+    }
+    out_file << '\n';
+  };
+  */
+  preprocessor.preprocess_source(argv[2]);
 
   return 0;
 }
@@ -68,27 +80,22 @@ int stage_three(int argc, char* argv[]) {
     return 1;
   }
 
-  std::cout << "meta is " << argv[5] << std::endl;
-  {
-    bp::opstream p1;
-    bp::ipstream p2;
-    bp::system(argv[5], bp::std_out > p2, bp::std_in < p1);
-    p1 << "my_text";
-    std::string out;
-    p2 >> out;
-    std::cout << "read meta output: " << out <<std::endl;
-  }
-
   auto sources = read_sources(argv[4]);
   sources.emplace_back(argv[2], argv[3]);
 
   source::SourceLoader loader{{}, "include"};
 
+  auto meta_classes = [&](auto& p) {
+    return meta_classes::MetaClassParser{p, argv[5], ""};
+  };
+
   auto static_ref = [](auto& p) {
     return static_reflection::StaticReflexParser{p};
   };
+
   auto std_parser = [](auto& p) { return std_parser::StdParser{}; };
-  Preprocessor preprocessor(std::move(loader), static_ref, std_parser);
+  Preprocessor preprocessor(std::move(loader), meta_classes, static_ref,
+                            std_parser);
 
   for (auto& pair : sources) {
     std::cout << "processing " << pair.first << " into " << pair.second

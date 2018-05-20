@@ -83,18 +83,21 @@ class Preprocessor {
     return idx;
   }
 
-  /**
-   * parse the source with the ID-th parser
-   *
-   * Return the cursor to the end of the successfully parsed source
-   */
-  template <int ID, typename Source>
-  auto parse(Source& source) {
-    return std::get<ID>(parsers).parse(source);
+  template <typename Source>
+  auto throw_unparsable_error(Source& source) {
+    std::size_t remaining = std::distance(source.begin(), source.end());
+    std::size_t size = std::min(30ul, remaining);
+    std::string_view content = {&*source.begin(), size};
+
+    std::string error_msg = "source can't be parsed by none of the parsers: ";
+    error_msg += std::to_string(content.size());
+    error_msg += '\n';
+    error_msg += content;
+    return std::runtime_error(error_msg);
   }
 
   /**
-   * process the source with the ID-th parser
+   * process the source with the N-th parser
    * If successful write the result using the writer
    *
    * Return the cursor to the end of the successfully parsed source
@@ -102,51 +105,76 @@ class Preprocessor {
    *
    * Throws runtime_error if none of the parsers can parse the source
    */
-  template <int ID, typename Source, typename Writer>
+  template <int N = 0, typename Source, typename Writer>
   auto process(Source& source, Writer& writer) {
-    std::size_t remaining = std::distance(source.begin(), source.end());
-    std::size_t size = std::min(30ul, remaining);
-    std::string_view content = {&*source.begin(), size};
-
-    auto out = parse<ID>(source);
+    std::cout << "processing with " << N << "th parser\n";
+    auto out = std::get<N>(parsers).parse(source);
     if (out) {
       writer((*out).result);
       return (*out).processed_to;
     }
 
-    if constexpr (ID + 1 < number_of_parsers) {
-      return process<ID + 1>(source, writer);
+    if constexpr (N + 1 < number_of_parsers) {
+      return process<N + 1>(source, writer);
     }
 
-    std::string error_msg = "source can't be parsed by none of the parsers: ";
-    error_msg += std::to_string(content.size());
-    error_msg += content;
-    throw std::runtime_error(error_msg);
+    throw throw_unparsable_error(source);
   }
 
+  template <class T, class Source>
+  using preprocess_fun =
+      decltype(std::declval<T>().preprocess(std::declval<Source>()));
+
   /**
-   * Parse the source by the std parser
+   * Pre-process a source by all of the parsers that need to pre-process their
+   * target
    *
-   * Returns the source's dependencies i.e. #includes
+   * NOTE: only one parser can process a statement!
    *
-   * Throws runtime error if source is not parsable
+   * Return the cursor to the end of the successfully parsed source
+   * if successful else try to parse the source using the next parser
+   *
+   * Throws runtime_error if none of the parsers can parse the source
    */
-  template <typename Source>
-  auto& source_dependencies(Source& source) {
-    constexpr int parser_idx = get_parsers_idx_with_error<1>();
-    while (!source.is_finished()) {
-      auto rez = parse<parser_idx>(source);
-      auto processed_to = rez ? rez.value().processed_to : source.begin();
-
-      std::size_t processed_chars = std::distance(source.begin(), processed_to);
-      if (processed_chars == 0) {
-        throw std::runtime_error("error in one of the parsers");
+  template <int N = 0, typename Source>
+  auto preprocess(Source& source) {
+    if constexpr (is_detected_v<preprocess_fun, parser_type<N>, Source&>) {
+      auto out = std::get<N>(parsers).preprocess(source);
+      if (out) {
+        return (*out).processed_to;
       }
-
-      source.advance(processed_chars);
     }
 
-    return std::get<parser_idx>(parsers).get_all_includes();
+    // TODO: test if there are more pre parsers with preprocess
+    if constexpr (N + 1 < number_of_parsers) {
+      return preprocess<N + 1>(source);
+    }
+
+    std::cout << "trying to parse with std\n";
+    constexpr int parser_idx = get_parsers_idx_with_error<std_parser_id>();
+    auto out = std::get<parser_idx>(parsers).parse(source);
+    if (out) {
+      return (*out).processed_to;
+    }
+
+    throw throw_unparsable_error(source);
+  }
+
+  template <class T>
+  using finish_preprocess_fun = decltype(std::declval<T>().finish_preprocess());
+
+  /**
+   * Call finish_preprocess on all parsers that have one
+   */
+  template <int N = 0>
+  void finish_preprocess() {
+    if constexpr (is_detected_v<finish_preprocess_fun, parser_type<N>>) {
+      std::get<N>(parsers).finish_preprocess();
+    }
+
+    if constexpr (N + 1 < number_of_parsers) {
+      finish_preprocess<N + 1>();
+    }
   }
 
   template <class T>
@@ -177,8 +205,12 @@ class Preprocessor {
   Preprocessor(source::SourceLoader&& loader, Functions... funs)
       : source_loader{std::move(loader)}, parsers{funs(*this)...} {
     check_unique();
+    constexpr int idx = find_parser_with_id<std_parser_id>();
+    static_assert(idx != -1, "STD Parser not found");
     init();
   }
+
+  inline static constexpr int std_parser_id = 's' + 't' + 'd';
 
   // Methods
 
@@ -190,14 +222,17 @@ class Preprocessor {
    */
   template <typename Writer>
   void process_source(std::string_view source_name, Writer& writer) {
+    std::cout << " process source " << source_name << "\n";
     auto source = source_loader.load_source(source_name);
     while (!source.is_finished()) {
-      auto processed_to = process<0>(source, writer);
+      auto processed_to = process(source, writer);
 
       std::size_t processed_chars = std::distance(source.begin(), processed_to);
       if (processed_chars == 0) {
         throw std::runtime_error("error in one of the parsers");
       }
+
+      std::cout << "processed " << processed_chars << " chars\n";
 
       source.advance(processed_chars);
     }
@@ -212,11 +247,13 @@ class Preprocessor {
   void get_dependencies(std::string source_name, Writer& writer) {
     std::unordered_set<std::string> dependencies;
     std::vector<std::string> sources = {std::move(source_name)};
+    constexpr int parser_idx = get_parsers_idx_with_error<std_parser_id>();
+    auto& std_parser = std::get<parser_idx>(parsers);
     while (!sources.empty()) {
       auto& name = sources.back();
       auto source = source_loader.load_source(name);
       // process source
-      auto& deps = source_dependencies(source);
+      auto deps = std_parser.get_includes(source);
       // remove processed
       sources.pop_back();
 
@@ -241,9 +278,24 @@ class Preprocessor {
           std::cout << "file " << dep << " can't be found\n";
         }
       }
-      constexpr int parser_idx = get_parsers_idx_with_error<1>();
-      std::get<parser_idx>(parsers).reset_includes();
     }
+  }
+
+  void preprocess_source(std::string_view source_name) {
+    auto source = source_loader.load_source(source_name);
+    // TODO: work with headers! And need start_preprocessing?
+    while (!source.is_finished()) {
+      auto processed_to = preprocess(source);
+
+      std::size_t processed_chars = std::distance(source.begin(), processed_to);
+      if (processed_chars == 0) {
+        throw std::runtime_error("error in one of the parsers");
+      }
+
+      source.advance(processed_chars);
+    }
+
+    finish_preprocess();
   }
 
   /*
@@ -255,14 +307,14 @@ class Preprocessor {
   }
 
   template <int ID>
-  using parser =
+  using parser_by_id =
       std::tuple_element_t<get_parsers_idx_with_error<ID>(), Parsers>;
 
   /*
    * Get a reference to the parser with given PARSER_ID
    */
   template <int PARSER_ID>
-  auto get_parser() -> parser<PARSER_ID>& {
+  auto get_parser() -> parser_by_id<PARSER_ID>& {
     constexpr int idx = find_parser_with_id<PARSER_ID>();
     return std::get<idx>(parsers);
   }

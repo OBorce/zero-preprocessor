@@ -84,9 +84,9 @@ struct Class {
   enum class Modifier { PUBLIC, PROTECTED, PRIVATE } state;
 
   std::map<std::string, Class> classes;
-  std::unordered_map<std::string, Function> public_methods;
-  std::unordered_map<std::string, Function> protected_methods;
-  std::unordered_map<std::string, Function> private_methods;
+  std::vector<Function> public_methods;
+  std::vector<Function> protected_methods;
+  std::vector<Function> private_methods;
 
   std::vector<var> public_members;
   std::vector<var> protected_members;
@@ -106,6 +106,22 @@ struct Class {
     }
   }
 
+  Class(std::string&& name)
+      : type{class_type::STRUCT},
+        name{std::move(name)}
+  // TODO: add templates
+  // template_parameters{std::move(cs.template_parameters)}
+  {
+    switch (type) {
+      case class_type::CLASS:
+        state = Modifier::PRIVATE;
+        break;
+      case class_type::STRUCT:
+        state = Modifier::PUBLIC;
+        break;
+    }
+  }
+
   bool is_templated() { return !template_parameters.empty(); }
 
   void add_class(Class&& class_or_struct) {
@@ -114,16 +130,15 @@ struct Class {
   }
 
   void add_function(Function&& fun) {
-    auto name = fun.name;
     switch (state) {
       case Modifier::PUBLIC:
-        public_methods.emplace(name, std::move(fun));
+        public_methods.emplace_back(std::move(fun));
         break;
       case Modifier::PROTECTED:
-        protected_methods.emplace(name, std::move(fun));
+        protected_methods.emplace_back(std::move(fun));
         break;
       case Modifier::PRIVATE:
-        private_methods.emplace(name, std::move(fun));
+        private_methods.emplace_back(std::move(fun));
         break;
     }
   }

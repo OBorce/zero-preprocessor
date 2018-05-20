@@ -69,7 +69,7 @@ class StaticReflexParser {
   }
 
   auto generate_reflection() {
-    auto& std_parser = parent.template get_parser<1>();
+    auto& std_parser = parent.template get_parser<Parent::std_parser_id>();
     auto& current_class = std::get<Class>(std_parser.get_current_nesting());
     auto rez = generate_class_reflection(current_class);
     std_parser.close_current_class();
@@ -98,7 +98,7 @@ class StaticReflexParser {
 
   template <class Source>
   auto parse(Source& source) {
-    auto& std_parser = parent.template get_parser<1>();
+    auto& std_parser = parent.template get_parser<Parent::std_parser_id>();
 
     // TODO: parse $reflexpr
     return is_class(std_parser.get_current_nesting())

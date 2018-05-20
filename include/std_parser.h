@@ -106,6 +106,10 @@ class StdParser {
       auto& rez = _attr(ctx);
       nestings.emplace_back(std::move(rez));
     };
+    auto funSig = [&](auto& ctx) {
+      auto& rez = _attr(ctx);
+      current.add_function(std::move(rez));
+    };
     // TODO: what to do with template types
     auto var = [&current](auto& ctx) {
       auto& rez = _attr(ctx);
@@ -120,20 +124,20 @@ class StdParser {
     auto se = [&](auto& ctx) { this->close_current_class(); };
 
     namespace x3 = boost::spirit::x3;
-    bool parsed =
-        x3::parse(begin, end,
-                  // rules begin
-                  rules::optionaly_space >>
-                      ((rules::class_or_struct >> rules::scope_begin)[cs] |
-                       (rules::class_or_struct >> rules::statement_end) |
-                       (rules::function_signiture >> rules::scope_begin)[fun] |
-                       (rules::function_signiture >> rules::statement_end) |
-                       (rules::operator_signiture >> rules::scope_begin)[fun] |
-                       (rules::operator_signiture >> rules::statement_end) |
-                       rules::scope_end[se] | rules::include[inc] |
-                       rules::comment | rules::var[var])
-                  // rules end
-        );
+    bool parsed = x3::parse(
+        begin, end,
+        // rules begin
+        rules::optionaly_space >>
+            ((rules::class_or_struct >> rules::scope_begin)[cs] |
+             (rules::class_or_struct >> rules::statement_end) |
+             (rules::function_signiture >> rules::scope_begin)[fun] |
+             (rules::function_signiture >> rules::statement_end)[funSig] |
+             (rules::operator_signiture >> rules::scope_begin)[fun] |
+             (rules::operator_signiture >> rules::statement_end)[funSig] |
+             rules::scope_end[se] | rules::include[inc] | rules::comment |
+             rules::var[var])
+        // rules end
+    );
 
     return parsed ? std::optional{Result{
                         begin, make_string_view(source.begin(), begin)}}
@@ -254,7 +258,7 @@ class StdParser {
 
  public:
   // TODO: when supported in std=c++2a change to fixed length string
-  constexpr static int id = 1;
+  constexpr static int id = 's' + 't' + 'd';
   /**
    * Parse a single statement from the source
    *
@@ -267,19 +271,30 @@ class StdParser {
     return std::visit(
         overloaded{
             [&](rules::ast::Namespace& arg) {
+              std::cout << "parsing inside namespace\n";
               return parse_inside_namespace(source, arg);
             },
             [&](rules::ast::Class& arg) {
+              std::cout << "parsing inside class\n";
               return parse_inside_class(source, arg);
             },
             [&](rules::ast::Function& arg) {
+              std::cout << "parsing inside function\n";
               return parse_inside_function(source, arg);
             },
             [&](rules::ast::Scope& arg) {
+              std::cout << "parsing inside local scope\n";
               return parse_inside_scope(source, arg);
             },
         },
         current_nesting);
+  }
+
+  /**
+   * Add a new nesting
+   */
+  void open_new_nesting(Scopable&& arg) {
+    nestings.emplace_back(std::move(arg));
   }
 
   void close_current_class() {
@@ -311,14 +326,48 @@ class StdParser {
     namespace x3 = boost::spirit::x3;
     bool parsed = x3::parse(begin, end,
                             // rules begin
-                            rules::optionaly_space >>
-                                rules::function_signiture >> rules::scope_begin
+                            rules::function_signiture >> rules::scope_begin
                             // rules end
     );
 
     return parsed ? std::optional{Result{
                         begin, make_string_view(source.begin(), begin)}}
                   : std::nullopt;
+  }
+
+  template <class Source>
+  auto get_includes(Source& source) {
+    auto begin = source.begin();
+    auto end = source.end();
+    std::unordered_set<std::string> includes;
+
+    auto inc = [&includes](auto& ctx) {
+      auto& rez = _attr(ctx);
+      includes.emplace(std::move(rez));
+    };
+
+    while (begin != end) {
+      namespace x3 = boost::spirit::x3;
+      bool parsed =
+          x3::parse(begin, end,
+                    // rules begin
+                    rules::some_space | rules::include[inc] | rules::skip_line
+                    // rules end
+          );
+
+      if (!parsed) {
+        std::size_t remaining = std::distance(begin, end);
+        std::size_t size = std::min(30ul, remaining);
+        std::string_view content = {&*begin, size};
+
+        std::string error_msg = "source can't be parsed by the std parser: ";
+        error_msg += std::to_string(content.size());
+        error_msg += content;
+        throw std::runtime_error(error_msg);
+      }
+    }
+
+    return std::move(includes);
   }
 
   /**
