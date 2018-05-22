@@ -152,7 +152,9 @@ class MetaClassParser {
       // if end of function inside_meta_class_function = false;
       auto& current_nesting = std_parser.get_current_nesting();
       using Fun = std_parser::rules::ast::Function;
-      if (!std::holds_alternative<Fun>(current_nesting)) {
+      using Scope = std_parser::rules::ast::Scope;
+      if (!std::holds_alternative<Fun>(current_nesting) &&
+          !std::holds_alternative<Scope>(current_nesting)) {
         inside_meta_class_function = false;
       }
     }

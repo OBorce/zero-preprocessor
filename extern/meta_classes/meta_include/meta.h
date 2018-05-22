@@ -22,13 +22,34 @@ struct Function {
   std::string name;
   std::vector<Param> parameters;
   Access access = Access::PUBLIC;
+
+  std::string get() {
+    std::string s;
+    s.reserve(100);
+    s += return_type;
+    s += ' ';
+    s += name;
+    s += '(';
+    for (auto& p : parameters) {
+      s += p.type;
+      s += ' ';
+      s += p.name;
+      s += ',';
+    }
+    if (!parameters.empty()) {
+      s.pop_back();
+    }
+    s += ");\n";
+
+    return s;
+  }
 };
 
 struct Type {
   std::vector<Function> methods;
   std::string body;
 
-  Type(std::vector<Function>&& m): methods{std::move(m)}, body{} {}
+  Type(std::vector<Function>&& m) : methods{std::move(m)}, body{} {}
 };
 
 class type {
@@ -42,10 +63,15 @@ class type {
 
   auto const& name() const { return class_name; }
 
-  auto& functions() { return internal->methods; }
+  auto const& functions() const { return internal->methods; }
 
   auto& operator<<(std::string_view s) {
     internal->body += s;
+    return *this;
+  }
+
+  auto& operator<<(Function& f) {
+    internal->body += f.get();
     return *this;
   }
 

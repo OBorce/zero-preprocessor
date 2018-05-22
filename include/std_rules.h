@@ -50,6 +50,9 @@ auto const arg_separator_def = optionaly_space >> ',' >> optionaly_space;
 x3::rule<class prefix_operator> const prefix_operator = "prefix_operator";
 auto const prefix_operator_def = lit("++") | "--" | '*' | '&';
 
+x3::rule<class sufix_operator> const sufix_operator = "sufix_operator";
+auto const sufix_operator_def = lit("++") | "--";
+
 x3::rule<class call_operator> const call_operator = "call_operator";
 auto const call_operator_def =
     (lit('(') >> optionaly_space >> ')') | (lit('[') >> optionaly_space >> ']');
@@ -148,7 +151,8 @@ x3::rule<class arg_init_list> const arg_init_list = "arg_init_list";
 // TODO: type here denotes a variable name
 // change it to variable_type that also covers ::var and templated variables
 auto const argument_def = arg_init_list | function_call |
-                          (-(prefix_operator >> optionaly_space) >> var_type) |
+                          (-(prefix_operator >> optionaly_space) >> var_type >>
+                           -(optionaly_space >> sufix_operator)) |
                           number | char_literal | string_literal |
                           paren_expression;
 
@@ -193,6 +197,15 @@ auto const var_def = param >> optionaly_space >>
                        (-('=' >> optionaly_space) >> init_list)) >>
                      optionaly_space >> ';';
 
+// TODO: support full for loop expressions?
+x3::rule<class for_loop> const for_loop = "for_loop";
+auto const for_loop_def =
+    lit("for") >> optionaly_space >> '(' >> optionaly_space >>
+    (((var | ';') >> optionaly_space >> -expression >> optionaly_space >> ';' >>
+      optionaly_space >> -expression) |
+     (param >> optionaly_space >> ':' >> optionaly_space >> expression)) >>
+    optionaly_space >> ')';
+
 x3::rule<class optionaly_params, ast::params> const optionaly_params =
     "optionaly_params";
 auto const optionaly_params_def = -(param_optionaly_default % arg_separator);
@@ -233,15 +246,15 @@ auto const class_or_struct_def = -(template_parameters >> optionaly_space) >>
                                  class_type >> some_space >> name;
 
 BOOST_SPIRIT_DEFINE(some_space, optionaly_space, include, skip_line, comment,
-                    arg_separator, prefix_operator, binary_operator,
-                    all_overloadable_operators, operator_sep, call_operator,
-                    scope_begin, scope_end, namespace_begin, statement_end,
-                    name, type_, type, var_type, template_values, digits,
-                    integral, floating, number, string_literal, char_literal,
-                    argument, optionaly_arguments, function_call, expression,
-                    paren_expression, init_list, arg_init_list,
+                    arg_separator, prefix_operator, sufix_operator,
+                    binary_operator, all_overloadable_operators, operator_sep,
+                    call_operator, scope_begin, scope_end, namespace_begin,
+                    statement_end, name, type_, type, var_type, template_values,
+                    digits, integral, floating, number, string_literal,
+                    char_literal, argument, optionaly_arguments, function_call,
+                    expression, paren_expression, init_list, arg_init_list,
                     optionaly_params, statement, return_statement, param,
-                    optional_param, param_optionaly_default, var,
+                    optional_param, param_optionaly_default, var, for_loop,
                     template_parameter, template_parameters, function_signiture,
                     operator_signiture, class_or_struct);
 }  // namespace std_parser::rules

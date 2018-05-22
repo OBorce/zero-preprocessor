@@ -26,25 +26,35 @@ auto gen_target_output(rules::ast::Target& t, Iter begin, Iter end) {
   // move begin to the closing bracket of ->(target)
   begin = std::find(begin, end, ')');
 
-  //TODO: fix this
-  begin = std::find(begin, end, '{') + 1;
-  for (auto& s : outputs) {
-    auto it = std::search(begin, end, s.begin(), s.end());
+  if (auto start_bracket = std::find(begin, end, '{'); start_bracket != end) {
+    begin = start_bracket + 1;
+    for (auto& s : outputs) {
+      auto it = std::search(begin, end, s.begin(), s.end());
+      out += " << \"";
+      // TODO: maybe we need to escape " characters or use raw string
+      out.append(begin, it);
+
+      out += "\" << ";
+      out += s;
+      begin = std::find(it + s.size(), end, '$') + 1;
+    }
+
+    auto rbeg = std::make_reverse_iterator(begin);
+    auto rend = std::make_reverse_iterator(end);
+    auto it = std::find(rend, rbeg, '}');
+    auto dist = std::distance(rend, it) + 1;
     out += " << \"";
-    out.append(begin, it);
-
-    out += "\" << ";
-    out += s;
-    begin = std::find(it + s.size(), end, '$') + 1;
+    // TODO: maybe we need to escape " characters or use raw string
+    out.append(begin, end - dist);
+    out += "\";";
+  } else {
+    out += " << ";
+    if (outputs.size() != 1) {
+       throw std::runtime_error("error in meta class parser");
+    }
+    out += outputs.front();
+    out += ';';
   }
-
-  auto rbeg = std::make_reverse_iterator(begin);
-  auto rend = std::make_reverse_iterator(end);
-  auto it = std::find(rend, rbeg, '}') + 1;
-  auto dist = std::distance(rend, it);
-  out += " << \"";
-  out.append(begin, end - dist);
-  out += "\";";
 
   return out;
 }

@@ -85,6 +85,8 @@ TEST_CASE("Parse valid expression", "[expression]") {
   std::array valid_expressions{"some_variable"s,
                                "a + b"s,
                                "(a)"s,
+                               "i++"s,
+                               "i < 2"s,
                                "'1'"s,
                                "(a + (b))"s,
                                "(((a - b)) % c) * d"s,
@@ -107,6 +109,7 @@ TEST_CASE("Parse valid variables", "[var]") {
   std::array valid_vars{"int a;"s,
                         "std::string s{\"hello\"};"s,
                         "std::vector<int> v;"s,
+                        "int i = 0;"s,
                         "std::vector<int> v {};"s,
                         "std::vector<int> v {1, 2, 3};"s,
                         "std::pair<int, float> v {1, 2.0f};"s,
@@ -139,6 +142,20 @@ TEST_CASE("Parse valid statements", "[statements]") {
 
   for (auto& valid_statement : valid_statements) {
     REQUIRE_THAT(valid_statement, CanParse(rules::statement, "statement"));
+  }
+}
+
+TEST_CASE("Parse valid for loop", "[for_loop]") {
+  std::array valid_for_loops{"for (;;)"s,
+                             "for(int i = 0;;)"s,
+                             "for(int i = 0; i < 2;)"s,
+                             "for (int i = 0; i < 2; i++)"s,
+                             "for (int i = 0; i < 2;)"s,
+                             "for (; i < 2; i++)"s,
+                             "for (auto& e : elems)"s};
+
+  for (auto& valid_for_loop : valid_for_loops) {
+    REQUIRE_THAT(valid_for_loop, CanParse(rules::for_loop, "for_loop"));
   }
 }
 

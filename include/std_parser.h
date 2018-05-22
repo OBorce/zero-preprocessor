@@ -193,7 +193,7 @@ class StdParser {
                        (rules::class_or_struct >> rules::statement_end) |
                        rules::scope_begin[sb] | rules::scope_end[se] |
                        rules::statement | rules::include[inc] | rules::comment |
-                       rules::var | rules::return_statement)
+                       rules::var | rules::for_loop | rules::return_statement)
                   // rules end
         );
 
@@ -240,16 +240,17 @@ class StdParser {
     };
 
     namespace x3 = boost::spirit::x3;
-    bool parsed = x3::parse(
-        begin, end,
-        // rules begin
-        rules::optionaly_space >>
-            ((rules::class_or_struct >> rules::scope_begin)[cs] |
-             (rules::class_or_struct >> rules::statement_end) |
-             rules::scope_begin[sb] | rules::scope_end[se] | rules::statement |
-             rules::include[inc] | rules::comment | rules::var)
-        // rules end
-    );
+    bool parsed =
+        x3::parse(begin, end,
+                  // rules begin
+                  rules::optionaly_space >>
+                      ((rules::class_or_struct >> rules::scope_begin)[cs] |
+                       (rules::class_or_struct >> rules::statement_end) |
+                       rules::scope_begin[sb] | rules::scope_end[se] |
+                       rules::statement | rules::include[inc] | rules::comment |
+                       rules::var | rules::for_loop | rules::return_statement)
+                  // rules end
+        );
 
     return parsed ? std::optional{Result{
                         begin, make_string_view(source.begin(), begin)}}

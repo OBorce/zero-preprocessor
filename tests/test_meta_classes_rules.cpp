@@ -79,7 +79,9 @@ TEST_CASE("Parse valid meta class target", "[meta_class]") {
   std::array valid_targets{
       "->(target) { fasd_ds.name_ds()$ };"s,
       "  ->(target) { void fasd_ds.name_ds()$ {} };"s,
-      "->(target) { virtual ~(source.name()$)() noexcept {}};"s};
+      "->(target) { virtual ~(source.name()$)() noexcept {}};"s,
+      "->(target)f;"s
+  };
 
   for (auto& valid_target : valid_targets) {
     REQUIRE_THAT(valid_target, CanParse(rules::target, "target"));
