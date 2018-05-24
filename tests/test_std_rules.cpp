@@ -98,6 +98,9 @@ TEST_CASE("Parse valid expression", "[expression]") {
                                "std::string(\"hello\")"s,
                                "baz(\"hello\", 3 + 2)"s,
                                "a - b"s,
+                               "a && !b"s,
+                               "a.foo()"s,
+                               "a.foo(i, std::string{})"s,
                                "a * b"s};
 
   for (auto& valid_expression : valid_expressions) {
@@ -156,6 +159,20 @@ TEST_CASE("Parse valid for loop", "[for_loop]") {
 
   for (auto& valid_for_loop : valid_for_loops) {
     REQUIRE_THAT(valid_for_loop, CanParse(rules::for_loop, "for_loop"));
+  }
+}
+
+TEST_CASE("Parse valid if expression", "[if_expression]") {
+  std::array valid_if_expressions{"if (true)"s,
+                             "if(a || b)"s,
+                             "if(a || !b)"s,
+                             "if (!asd)"s,
+                             "if (a.foo())"s,
+                             "if constexpr (a && b)"s,
+                             "if (int i = foo(); i)"s};
+
+  for (auto& valid_if_expression : valid_if_expressions) {
+    REQUIRE_THAT(valid_if_expression, CanParse(rules::if_expression, "if_expression"));
   }
 }
 

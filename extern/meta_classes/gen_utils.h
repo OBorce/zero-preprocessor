@@ -49,11 +49,7 @@ auto gen_target_output(rules::ast::Target& t, Iter begin, Iter end) {
     out += "\";";
   } else {
     out += " << ";
-    if (outputs.size() != 1) {
-       throw std::runtime_error("error in meta class parser");
-    }
-    out += outputs.front();
-    out += ';';
+    out.append(begin + 1, end);
   }
 
   return out;

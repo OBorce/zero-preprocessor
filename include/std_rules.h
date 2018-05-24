@@ -48,7 +48,7 @@ x3::rule<class arg_separator> const arg_separator = "arg_separator";
 auto const arg_separator_def = optionaly_space >> ',' >> optionaly_space;
 
 x3::rule<class prefix_operator> const prefix_operator = "prefix_operator";
-auto const prefix_operator_def = lit("++") | "--" | '*' | '&';
+auto const prefix_operator_def = lit("++") | "--" | '*' | '&' | '!';
 
 x3::rule<class sufix_operator> const sufix_operator = "sufix_operator";
 auto const sufix_operator_def = lit("++") | "--";
@@ -206,6 +206,12 @@ auto const for_loop_def =
      (param >> optionaly_space >> ':' >> optionaly_space >> expression)) >>
     optionaly_space >> ')';
 
+x3::rule<class if_expression> const if_expression = "if_expression";
+auto const if_expression_def = lit("if") >> optionaly_space >>
+                               -lit("constexpr") >> optionaly_space >>
+                               '(' >> optionaly_space >> -var >> optionaly_space
+                               >> expression >> optionaly_space >> ')';
+
 x3::rule<class optionaly_params, ast::params> const optionaly_params =
     "optionaly_params";
 auto const optionaly_params_def = -(param_optionaly_default % arg_separator);
@@ -255,8 +261,8 @@ BOOST_SPIRIT_DEFINE(some_space, optionaly_space, include, skip_line, comment,
                     expression, paren_expression, init_list, arg_init_list,
                     optionaly_params, statement, return_statement, param,
                     optional_param, param_optionaly_default, var, for_loop,
-                    template_parameter, template_parameters, function_signiture,
-                    operator_signiture, class_or_struct);
+                    if_expression, template_parameter, template_parameters,
+                    function_signiture, operator_signiture, class_or_struct);
 }  // namespace std_parser::rules
 
 #endif  //! STD_RULES_H
