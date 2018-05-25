@@ -42,4 +42,4 @@ constexpr auto get_pointer_v = T::pointer;
 template <typename T>
 using reflexpr = reflect::Reflect<T>;
 
-#endif  //! REFLECT_H
+#endif  // REFLECT_H

@@ -12,9 +12,9 @@
 #include <variant>
 #include <vector>
 
-#include <detect.h>
-#include <result.h>
-#include <source_loader.h>
+#include <detect.hpp>
+#include <result.hpp>
+#include <source_loader.hpp>
 
 template <typename... Functions>
 class Preprocessor {
@@ -319,4 +319,4 @@ class Preprocessor {
     return std::get<idx>(parsers);
   }
 };
-#endif  //! PREPROCESSOR_H
+#endif  // PREPROCESSOR_H

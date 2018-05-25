@@ -5,8 +5,8 @@
 
 #include <boost/spirit/home/x3.hpp>
 
-#include <result.h>
-#include <std_ast.h>
+#include <result.hpp>
+#include <std_ast.hpp>
 
 namespace static_reflection {
 namespace rules {

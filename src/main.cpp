@@ -1,11 +1,11 @@
 #include <fstream>
 #include <iostream>
 
-#include <meta_classes.h>
-#include <preprocessor.h>
-#include <source_loader.h>
-#include <static_reflection.h>
-#include <std_parser.h>
+#include <meta_classes.hpp>
+#include <preprocessor.hpp>
+#include <source_loader.hpp>
+#include <static_reflection.hpp>
+#include <std_parser.hpp>
 
 int stage_one(int argc, char* argv[]) {
   source::check_out_dir({argv[3]});
@@ -61,15 +61,6 @@ int stage_two(int argc, char* argv[]) {
 
   Preprocessor preprocessor(std::move(loader), meta_classes, std_parser);
 
-  /*
-  std::ofstream out_file(argv[3], std::ios::out);
-  auto writer = [&out_file](auto& src) {
-    for (auto& elem : src) {
-      out_file << elem;
-    }
-    out_file << '\n';
-  };
-  */
   preprocessor.preprocess_source(argv[2]);
 
   return 0;

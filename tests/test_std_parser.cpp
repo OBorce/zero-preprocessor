@@ -3,8 +3,8 @@
 #include <string>
 #include <string_view>
 
-#include <source.h>
-#include <std_parser.h>
+#include <source.hpp>
+#include <std_parser.hpp>
 
 #include "catch.hpp"
 

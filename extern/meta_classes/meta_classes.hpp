@@ -7,14 +7,14 @@
 #include <unordered_set>
 #include <variant>
 
-#include <overloaded.h>
-#include <result.h>
-#include <std_ast.h>
-#include <string_utils.h>
+#include <overloaded.hpp>
+#include <result.hpp>
+#include <std_ast.hpp>
+#include <string_utils.hpp>
 
-#include <gen_utils.h>
-#include <meta_classes_rules.h>
-#include <meta_process.h>
+#include <gen_utils.hpp>
+#include <meta_classes_rules.hpp>
+#include <meta_process.hpp>
 
 #include <boost/process.hpp>
 
@@ -250,7 +250,7 @@ class MetaClassParser {
 
     if (first_line) {
       first_line = false;
-      writer("#include <meta.h>\n");
+      writer("#include <meta.hpp>\n");
     }
 
     // TODO: fix this

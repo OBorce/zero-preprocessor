@@ -5,10 +5,10 @@
 #include <iostream>
 #include <iterator>
 
-#include <std_ast.h>
+#include <std_ast.hpp>
 
-#include <meta_classes_rules.h>
-#include <meta_process.h>
+#include <meta_classes_rules.hpp>
+#include <meta_process.hpp>
 
 namespace meta_classes {
 // TODO: replace with a range when we have them
@@ -94,7 +94,7 @@ int main(int argc, char* argv[]) {
         auto f = funs.at(fun);
         f(type, t2);
         std::string output = type.get_representation();
-        std::cout << output.size() << std::endl;
+        std::cout << output.size() << '\n';
         std::cout << output << std::endl;
         break;
       }
@@ -123,7 +123,7 @@ void write_type(std_parser::rules::ast::Type const& type, Writer& writer) {
   type_out.pop_back();
   type_out.pop_back();
 
-  writer << type_out << std::endl;
+  writer << type_out << '\n';
 }
 
 template <typename Writer>
@@ -134,14 +134,23 @@ void write_methods(std::vector<std_parser::rules::ast::Function> const& methods,
     auto& type = m.return_type;
     write_type(type, writer);
 
-    writer << m.name << std::endl;
+    writer << m.name << '\n';
     auto& params = m.parameters.parameters;
-    writer << params.size() << std::endl;
+    writer << params.size() << '\n';
 
     for (auto& p : params) {
       write_type(p.type, writer);
-      writer << p.name << std::endl;
+      writer << p.name << '\n';
     }
+  }
+}
+
+template <typename Writer>
+void write_variables(std::vector<std_parser::rules::ast::var> const& variables,
+                     Writer& writer) {
+  for (auto& v : variables) {
+    write_type(v.type, writer);
+    writer << v.name << std::endl;
   }
 }
 
@@ -175,21 +184,24 @@ std::string gen_meta_class(MetaProcess& process,
                 cls.protected_members.size())
             << "\n";
 
-  std::cout << "public methods\n";
-  for (auto& m : cls.public_members) {
-    std::cout << m.name << '\n';
-  }
+  process.output << (cls.public_members.size() + cls.private_members.size() +
+                     cls.protected_members.size())
+                 << std::endl;
 
   std::cout << "public methods\n";
-  for (auto& m : cls.private_members) {
-    std::cout << m.name << '\n';
-  }
+  write_variables(cls.public_members, process.output);
+  std::cout << "private methods\n";
+  write_variables(cls.private_members, process.output);
+  std::cout << "protected methods\n";
+  write_variables(cls.protected_members, process.output);
+  std::cout << "done methods\n";
 
   std::string output, line;
   std::size_t output_size;
   std::cout << "reading output...";
   process.input >> output_size;
   std::cout << "output lenght should be: " << output_size << '\n';
+  output.reserve(output_size);
   while (output.size() < output_size) {
     std::cout << "reading output...";
     std::getline(process.input, line);

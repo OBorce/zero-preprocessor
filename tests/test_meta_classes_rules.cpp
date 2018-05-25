@@ -2,7 +2,7 @@
 #include <iostream>
 #include <string>
 
-#include <meta_classes_rules.h>
+#include <meta_classes_rules.hpp>
 
 #include <catch.hpp>
 

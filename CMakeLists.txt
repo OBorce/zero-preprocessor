@@ -87,3 +87,5 @@ target_include_directories(main PRIVATE
   ${PROJECT_SOURCE_DIR}/extern/meta_classes/
   )
 target_link_libraries(main PRIVATE Boost::boost Boost::system -lstdc++fs -lpthread)
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)

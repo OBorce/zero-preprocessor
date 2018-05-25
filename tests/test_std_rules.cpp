@@ -2,7 +2,7 @@
 #include <iostream>
 #include <string>
 
-#include <std_rules.h>
+#include <std_rules.hpp>
 
 #include <catch.hpp>
 
@@ -61,10 +61,10 @@ TEST_CASE("Parse valid number", "[number]") {
 }
 
 TEST_CASE("Parse valid type", "[type]") {
-  // TODO add types with templates when we support them
   std::array valid_types{"int"s,
                          "std::string"s,
                          "rules::ast::val"s,
+                         "std::vector<int>"s,
                          "const int"s,
                          "auto&"s,
                          "auto&&"s,
@@ -72,8 +72,10 @@ TEST_CASE("Parse valid type", "[type]") {
                          "const auto*"s,
                          "const auto **"s,
                          "const auto * *"s,
+                         "const std::vector<std::vector<char>>"s,
                          "const auto** const"s,
                          "auto* const * const"s,
+                         "const std::vector<const std::vector<char>>"s,
                          "some_Type"s};
 
   for (auto& valid_type : valid_types) {

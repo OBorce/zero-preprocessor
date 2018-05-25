@@ -26,6 +26,11 @@ struct Param {
   std::string name;
 };
 
+struct Var {
+  std::string type;
+  std::string name;
+};
+
 struct Function {
   std::string return_type;
   std::string name;
@@ -91,11 +96,11 @@ struct Function {
 
 struct Type {
   std::vector<Function> methods;
-  std::vector<Function> variables;
+  std::vector<Var> variables;
   std::string body;
 
-  Type(std::vector<Function>&& m)
-      : methods{std::move(m)}, variables{}, body{} {}
+  Type(std::vector<Function>&& m, std::vector<Var>&& v)
+      : methods{std::move(m)}, variables{std::move(v)}, body{} {}
 };
 
 class type {
@@ -103,9 +108,11 @@ class type {
   std::shared_ptr<Type> internal;
 
  public:
-  type(std::string&& name, std::vector<Function>&& methods)
+  type(std::string&& name, std::vector<Function>&& methods,
+       std::vector<Var>&& variables)
       : class_name{std::move(name)},
-        internal{std::make_shared<Type>(std::move(methods))} {}
+        internal{
+            std::make_shared<Type>(std::move(methods), std::move(variables))} {}
 
   auto const& name() const { return class_name; }
 
@@ -146,6 +153,15 @@ Param read_parameter() {
   return {std::move(type), std::move(name)};
 }
 
+Var read_var() {
+  std::string type;
+  std::string name;
+  std::cin >> type;
+  std::cin >> name;
+
+  return {std::move(type), std::move(name)};
+}
+
 Function read_function() {
   std::string return_type;
 
@@ -167,7 +183,8 @@ Function read_function() {
 type read_type() {
   std::string class_name;
   std::cin >> class_name;
-  int num_methods;
+  int num_methods, num_variables;
+
   std::cin >> num_methods;
   std::vector<Function> methods;
   methods.reserve(num_methods);
@@ -175,8 +192,15 @@ type read_type() {
     methods.emplace_back(read_function());
   }
 
-  return {std::move(class_name), std::move(methods)};
+  std::cin >> num_variables;
+  std::vector<Var> variables;
+  variables.reserve(num_variables);
+  while (num_variables-- > 0) {
+    variables.emplace_back(read_var());
+  }
+
+  return {std::move(class_name), std::move(methods), std::move(variables)};
 }
 }  // namespace meta
 
-#endif  //! META_H
+#endif  // META_H

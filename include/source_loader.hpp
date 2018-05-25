@@ -6,7 +6,7 @@
 #include <iostream>
 #include <optional>
 
-#include <source.h>
+#include <source.hpp>
 
 namespace fs = std::experimental::filesystem;
 

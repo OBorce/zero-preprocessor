@@ -6,10 +6,10 @@
 #include <unordered_set>
 #include <variant>
 
-#include <overloaded.h>
-#include <result.h>
-#include <std_rules.h>
-#include <string_utils.h>
+#include <overloaded.hpp>
+#include <result.hpp>
+#include <std_rules.hpp>
+#include <string_utils.hpp>
 
 namespace std_parser {
 
