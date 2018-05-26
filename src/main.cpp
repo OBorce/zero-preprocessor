@@ -52,16 +52,26 @@ auto read_sources(std::string_view file) {
 int stage_two(int argc, char* argv[]) {
   source::check_out_dir({argv[3]});
 
+  auto includes = read_sources(argv[3]);
+  std::vector<std::string> sources;
+  for (auto& s : includes) {
+    sources.push_back(s.first);
+  }
+  sources.emplace_back(argv[2]);
+
   source::SourceLoader loader{{}, "include"};
 
   auto std_parser = [](auto& p) { return std_parser::StdParser{}; };
   auto meta_classes = [&](auto& p) {
-    return meta_classes::MetaClassParser{p, "", argv[3]};
+    return meta_classes::MetaClassParser{p, "", argv[4]};
   };
 
   Preprocessor preprocessor(std::move(loader), meta_classes, std_parser);
 
-  preprocessor.preprocess_source(argv[2]);
+  for (auto& source : sources) {
+    std::cout << "preprocessing " << source << std::endl;
+    preprocessor.preprocess_source(source);
+  }
 
   return 0;
 }

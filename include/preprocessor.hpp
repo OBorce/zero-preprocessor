@@ -107,7 +107,6 @@ class Preprocessor {
    */
   template <int N = 0, typename Source, typename Writer>
   auto process(Source& source, Writer& writer) {
-    std::cout << "processing with " << N << "th parser\n";
     auto out = std::get<N>(parsers).parse(source);
     if (out) {
       writer((*out).result);
@@ -150,7 +149,6 @@ class Preprocessor {
       return preprocess<N + 1>(source);
     }
 
-    std::cout << "trying to parse with std\n";
     constexpr int parser_idx = get_parsers_idx_with_error<std_parser_id>();
     auto out = std::get<parser_idx>(parsers).parse(source);
     if (out) {
@@ -174,6 +172,24 @@ class Preprocessor {
 
     if constexpr (N + 1 < number_of_parsers) {
       finish_preprocess<N + 1>();
+    }
+  }
+
+  template <class T>
+  using start_preprocess_fun = decltype(
+      std::declval<T>().start_preprocess(std::declval<std::string_view>()));
+
+  /**
+   * Call start_preprocess on all parsers that have one
+   */
+  template <int N = 0>
+  void start_preprocess(std::string_view source_name) {
+    if constexpr (is_detected_v<finish_preprocess_fun, parser_type<N>>) {
+      std::get<N>(parsers).start_preprocess(source_name);
+    }
+
+    if constexpr (N + 1 < number_of_parsers) {
+      start_preprocess<N + 1>(source_name);
     }
   }
 
@@ -222,7 +238,6 @@ class Preprocessor {
    */
   template <typename Writer>
   void process_source(std::string_view source_name, Writer& writer) {
-    std::cout << " process source " << source_name << "\n";
     auto source = source_loader.load_source(source_name);
     while (!source.is_finished()) {
       auto processed_to = process(source, writer);
@@ -231,8 +246,6 @@ class Preprocessor {
       if (processed_chars == 0) {
         throw std::runtime_error("error in one of the parsers");
       }
-
-      std::cout << "processed " << processed_chars << " chars\n";
 
       source.advance(processed_chars);
     }
@@ -281,9 +294,10 @@ class Preprocessor {
     }
   }
 
-  void preprocess_source(std::string_view source_name) {
-    auto source = source_loader.load_source(source_name);
-    // TODO: work with headers! And need start_preprocessing?
+  void preprocess_source(std::string_view source_path) {
+    auto source = source_loader.load_source(source_path);
+    auto source_name = source::get_source_name(source_path);
+    start_preprocess(source_name);
     while (!source.is_finished()) {
       auto processed_to = preprocess(source);
 

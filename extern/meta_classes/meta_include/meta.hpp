@@ -11,7 +11,9 @@
 static struct Compiler {
   void require(bool b, std::string_view msg) {
     if (!b) {
-      std::cerr << msg;
+      std::cout << -1 << std::endl;
+      std::cout << msg.size() << std::endl;
+      std::cout << msg << std::endl;
       std::terminate();
     }
   }

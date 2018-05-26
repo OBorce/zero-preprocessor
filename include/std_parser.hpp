@@ -272,19 +272,15 @@ class StdParser {
     return std::visit(
         overloaded{
             [&](rules::ast::Namespace& arg) {
-              std::cout << "parsing inside namespace\n";
               return parse_inside_namespace(source, arg);
             },
             [&](rules::ast::Class& arg) {
-              std::cout << "parsing inside class\n";
               return parse_inside_class(source, arg);
             },
             [&](rules::ast::Function& arg) {
-              std::cout << "parsing inside function\n";
               return parse_inside_function(source, arg);
             },
             [&](rules::ast::Scope& arg) {
-              std::cout << "parsing inside local scope\n";
               return parse_inside_scope(source, arg);
             },
         },
@@ -328,6 +324,23 @@ class StdParser {
     bool parsed = x3::parse(begin, end,
                             // rules begin
                             rules::function_signiture >> rules::scope_begin
+                            // rules end
+    );
+
+    return parsed ? std::optional{Result{
+                        begin, make_string_view(source.begin(), begin)}}
+                  : std::nullopt;
+  }
+
+  template <class Source>
+  auto parse_include(Source& source) {
+    auto begin = source.begin();
+    auto end = source.end();
+
+    namespace x3 = boost::spirit::x3;
+    bool parsed = x3::parse(begin, end,
+                            // rules begin
+                            rules::include
                             // rules end
     );
 

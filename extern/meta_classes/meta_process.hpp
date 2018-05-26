@@ -32,6 +32,11 @@ class MetaProcess {
   MetaProcess& operator=(MetaProcess&& p) = default;
 
   bool ok() { return process.running(); }
+
+  void wait() noexcept {
+    std::error_code e;
+    process.wait(e);
+  }
 };
 }  // namespace meta_classes
 

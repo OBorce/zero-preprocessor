@@ -80,7 +80,7 @@ int main(int argc, char* argv[]) {
     std::cin >> mode;
     switch (mode) {
       case 1: {
-        std::cout << funs.size();
+        std::cout << funs.size() << std::endl;
         for (auto& kv : funs) {
           std::cout << kv.first << '\n';
         }
@@ -94,6 +94,7 @@ int main(int argc, char* argv[]) {
         auto f = funs.at(fun);
         f(type, t2);
         std::string output = type.get_representation();
+        std::cout << 0 << '\n';
         std::cout << output.size() << '\n';
         std::cout << output << std::endl;
         break;
@@ -130,7 +131,6 @@ template <typename Writer>
 void write_methods(std::vector<std_parser::rules::ast::Function> const& methods,
                    Writer& writer) {
   for (auto& m : methods) {
-    std::cout << m.name << '\n';
     auto& type = m.return_type;
     write_type(type, writer);
 
@@ -166,53 +166,39 @@ std::string gen_meta_class(MetaProcess& process,
                      cls.protected_methods.size())
                  << std::endl;
 
-  std::cout << "num methods "
-            << (cls.public_methods.size() + cls.private_methods.size() +
-                cls.protected_methods.size())
-            << "\n";
-  std::cout << "public methods\n";
   write_methods(cls.public_methods, process.output);
 
-  std::cout << "private methods\n";
   write_methods(cls.private_methods, process.output);
 
-  std::cout << "protected methods\n";
   write_methods(cls.protected_methods, process.output);
-
-  std::cout << "num data members "
-            << (cls.public_members.size() + cls.private_members.size() +
-                cls.protected_members.size())
-            << "\n";
 
   process.output << (cls.public_members.size() + cls.private_members.size() +
                      cls.protected_members.size())
                  << std::endl;
 
-  std::cout << "public methods\n";
   write_variables(cls.public_members, process.output);
-  std::cout << "private methods\n";
   write_variables(cls.private_members, process.output);
-  std::cout << "protected methods\n";
   write_variables(cls.protected_members, process.output);
-  std::cout << "done methods\n";
 
   std::string output, line;
+  int status;
   std::size_t output_size;
-  std::cout << "reading output...";
+  process.input >> status;
   process.input >> output_size;
-  std::cout << "output lenght should be: " << output_size << '\n';
   output.reserve(output_size);
   while (output.size() < output_size) {
-    std::cout << "reading output...";
     std::getline(process.input, line);
     output += line;
     output += '\n';
-    std::cout << "read line: " << line;
   }
-  std::cout << "result for meta class:\n" << output;
 
-  return output;
+  if (status == 0) {
+    return output;
+  }
+
+  std::cerr << output << std::endl;
+  std::terminate();
 }
 }  // namespace meta_classes
 
-#endif  //! GEN_UTILS_H
+#endif  // GEN_UTILS_H

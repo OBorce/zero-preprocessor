@@ -32,36 +32,42 @@ function(preprocess target preprocessor_dir)
   get_target_property(sources ${target} SOURCES)
   get_target_property(includes ${target} INCLUDE_DIRECTORIES)
   message("include directories: ${includes}")
+  set(index "0")
   foreach(src IN LISTS sources)
+    MATH(EXPR index "${index}+1")
+
+    # TODO: throw exception if src is absolute path or relative path to a lower directory
+    # OR maybe just message to the user and continue?
+
+    get_filename_component(src_file_name ${src} NAME)
 
     # get all the includes for the source
     add_custom_command(
       OUTPUT ${src}_target
       COMMAND main 1
       ${CMAKE_SOURCE_DIR}/${src}
-      ${CMAKE_CURRENT_BINARY_DIR}/out/includes.txt
+      ${CMAKE_CURRENT_BINARY_DIR}/out/includes${index}.txt
       ${includes}
-      BYPRODUCTS includes.txt
+      BYPRODUCTS includes${index}.txt
       WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
       COMMENT "Checking includes for ${src}"
       )
 
     # generate the meta for all the includes and the source
     add_custom_command(
-      OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/out/meta.cpp
+      OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/meta_out/${src_file_name}
       COMMAND main 2
       ${CMAKE_SOURCE_DIR}/${src}
-      ${CMAKE_CURRENT_BINARY_DIR}/out/meta.cpp
+      ${CMAKE_CURRENT_BINARY_DIR}/out/includes${index}.txt
+      ${CMAKE_CURRENT_BINARY_DIR}/meta_out
       WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
       DEPENDS main ${src}_target
       COMMENT "Generating meta classes for ${src}"
       )
 
-    add_executable(meta ${CMAKE_CURRENT_BINARY_DIR}/out/meta.cpp)
+    add_executable(meta ${CMAKE_CURRENT_BINARY_DIR}/meta_out/${src_file_name})
     target_include_directories(meta PRIVATE ${preprocessor_dir}/extern/meta_classes/meta_include)
 
-    # TODO: throw exception for absolute path or relative path to a lower directory
-    # OR maybe just message to the user and continue?
 
     # finally preprocess the source
     add_custom_command(
@@ -69,7 +75,7 @@ function(preprocess target preprocessor_dir)
       COMMAND main 3
       ${CMAKE_SOURCE_DIR}/${src}
       ${CMAKE_CURRENT_BINARY_DIR}/${src}
-      ${CMAKE_CURRENT_BINARY_DIR}/out/includes.txt
+      ${CMAKE_CURRENT_BINARY_DIR}/out/includes${index}.txt
       $<TARGET_FILE:meta>
       DEPENDS ${CMAKE_SOURCE_DIR}/${src} main meta
       )

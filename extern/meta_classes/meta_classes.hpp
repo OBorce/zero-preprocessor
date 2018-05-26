@@ -9,6 +9,7 @@
 
 #include <overloaded.hpp>
 #include <result.hpp>
+#include <source_loader.hpp>
 #include <std_ast.hpp>
 #include <string_utils.hpp>
 
@@ -31,14 +32,12 @@ class MetaClassParser {
 
   template <class Source, class Writer>
   auto parse_meta_calss_function(Source& source, Writer& writer) {
-    std::cout << "parsing meta class function\n";
     auto& std_parser = parent.template get_parser<Parent::std_parser_id>();
 
     const auto out = std_parser.parse(source);
     std::string res;
     if (out) {
       // if inside a constexpr function add it as a meta function
-      std::cout << "sucess parsed a function\n";
       const auto& current_nesting = std_parser.get_current_nesting();
       using Fun = std_parser::rules::ast::Function;
       if (std::holds_alternative<Fun>(current_nesting)) {
@@ -60,7 +59,6 @@ class MetaClassParser {
 
   template <class Source, class Writer>
   auto parse_constexpr_function(Source& source, Writer& writer) {
-    std::cout << "trying to parse constexpr\n";
     auto begin = source.begin();
     auto end = source.end();
 
@@ -68,7 +66,6 @@ class MetaClassParser {
     auto out = std_parser.parse_function(source);
 
     if (out) {
-      std::cout << "parsed a function\n";
       std::string res(source.begin(), (*out).processed_to);
       // TODO: check for params to be meta::type
       bool is_constexpr_function = res.find("constexpr") != std::string::npos;
@@ -82,7 +79,6 @@ class MetaClassParser {
 
   template <class Source>
   auto parse_meta_class(Source& source) {
-    std::cout << "trying to parse meta class\n";
     auto begin = source.begin();
     auto end = source.end();
 
@@ -108,15 +104,39 @@ class MetaClassParser {
   }
 
   template <class Source, class Writer>
+  auto parse_include(Source& source, Writer& writer) {
+    auto begin = source.begin();
+    auto end = source.end();
+
+    auto& std_parser = parent.template get_parser<Parent::std_parser_id>();
+    auto out = std_parser.parse_include(source);
+
+    if (out) {
+      std::string inc(source.begin(), (*out).processed_to);
+      writer(inc);
+    }
+
+    return out ? std::optional{Result{(*out).processed_to,
+                                      std::string{(*out).result}}}
+               : std::nullopt;
+  }
+
+  template <class Source, class Writer>
   auto parse_meta(Source& source, Writer& writer) {
     auto out = parse_constexpr_function(source, writer);
+    if (out) {
+      return out;
+    }
+    out = parse_meta_class(source);
+    if (out) {
+      return out;
+    }
 
-    return out ? out : parse_meta_class(source);
+    return parse_include(source, writer);
   }
 
   template <class Source, class Writer>
   auto parse_target(Source& source, Writer& writer) {
-    std::cout << "trying to parse meta class target output\n";
     auto begin = source.begin();
     auto end = source.end();
 
@@ -130,10 +150,6 @@ class MetaClassParser {
 
     std::string out;
     if (parsed) {
-      std::cout << "parsed meta class target" << t.target << " " << std::endl;
-      for (auto& out : t.output) {
-        std::cout << out << "; ";
-      }
       out = gen_target_output(t, source.begin(), begin);
       writer(out);
     }
@@ -143,7 +159,6 @@ class MetaClassParser {
 
   template <class Source, class Writer>
   auto parse_inside_constexpr_function(Source& source, Writer& writer) {
-    std::cout << "parsing inside constexpr function\n";
     auto& std_parser = parent.template get_parser<Parent::std_parser_id>();
     auto out = std_parser.parse(source);
     if (out) {
@@ -164,8 +179,6 @@ class MetaClassParser {
 
   template <class Source>
   auto parse_inside_meta_class(Source& source) {
-    std::cout << "parsing inside meta class\n";
-
     auto& std_parser = parent.template get_parser<Parent::std_parser_id>();
     auto begin = source.begin();
     auto end = source.end();
@@ -176,7 +189,6 @@ class MetaClassParser {
     std::string output;
     using Class = std_parser::rules::ast::Class;
     if (parsed && meta_process.ok()) {
-      std::cout << "parsed end of meta class\n";
       auto& current_nesting = std_parser.get_current_nesting();
       auto& cls = std::get<Class>(current_nesting);
       output = std::move(gen_meta_class(meta_process, current_meta_class, cls));
@@ -197,13 +209,13 @@ class MetaClassParser {
 
   Parent& parent;
   std::string meta_exe;
-  std::string meta_out;
   std::unordered_set<std::string> meta_classes;
   bool inside_meta_class_function = false;
   std::string current_meta_class;
-  bool first_line = true;
   std::ofstream out_file;
+  source::SourceLoader source_loader;
   MetaProcess meta_process;
+  bool is_source = false;
 
  public:
   // TODO: when supported in std=c++2a change to fixed length string
@@ -211,10 +223,9 @@ class MetaClassParser {
 
   MetaClassParser(Parent& p, std::string_view meta_exe,
                   std::string_view meta_out)
-      : parent{p}, meta_exe{meta_exe}, meta_out{meta_out} {
+      : parent{p}, meta_exe{meta_exe}, source_loader{{}, meta_out} {
     if (!this->meta_exe.empty()) {
       meta_process = MetaProcess(this->meta_exe);
-      std::cout << "reading meta from process " << this->meta_exe << "\n";
       bp::opstream& p1 = meta_process.output;
       bp::ipstream& p2 = meta_process.input;
       p1 << '1' << std::endl;
@@ -222,18 +233,26 @@ class MetaClassParser {
       int n;
       p2 >> n;
       while (n-- && p2 >> out) {
-        std::cout << "read meta output: " << out << std::endl;
         meta_classes.emplace(std::move(out));
       }
-    }
-
-    // TODO: use a SourceManager
-    if (!this->meta_out.empty()) {
-      out_file = std::ofstream(this->meta_out.data(), std::ios::out);
     }
   }
 
   MetaClassParser(MetaClassParser&&) = default;
+
+  ~MetaClassParser() noexcept {
+    if (!this->meta_exe.empty()) {
+      meta_process.output << 3 << std::endl;
+      meta_process.wait();
+    }
+  }
+
+  void start_preprocess(std::string_view source_name) {
+    std::cout << "preprocess " << source_name << std::endl;
+    out_file = source_loader.open_source(source_name);
+    out_file << "#include <meta.hpp>" << std::endl;
+    is_source = source::is_source(source_name);
+  }
 
   /**
    * Parse constexpr meta class function
@@ -248,11 +267,6 @@ class MetaClassParser {
       out_file << '\n';
     };
 
-    if (first_line) {
-      first_line = false;
-      writer("#include <meta.hpp>\n");
-    }
-
     // TODO: fix this
 
     if (inside_meta_class_function) {
@@ -266,7 +280,9 @@ class MetaClassParser {
   }
 
   void finish_preprocess() {
-    out_file << gen_main(meta_classes);
+    if (is_source) {
+      out_file << gen_main(meta_classes);
+    }
     out_file.close();
   }
 
@@ -289,4 +305,4 @@ class MetaClassParser {
 };
 }  // namespace meta_classes
 
-#endif  //! META_CLASSES_H
+#endif  // META_CLASSES_H
