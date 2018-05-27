@@ -22,7 +22,8 @@ template <typename T>
 bool generic_equal(const T& a, const T& b) {
   using metaT = reflexpr<T>;
   bool result = true;
-  //reflect::for_each<reflect::get_data_members_t<metaT>>(compare_data_members<T>{a, b, result});
+  // reflect::for_each<reflect::get_data_members_t<metaT>>(compare_data_members<T>{a,
+  // b, result});
 
   return result;
 }
@@ -43,16 +44,19 @@ int main() {
 
   using meta = reflexpr<Bar>;
 
-  auto name = reflect::get_name<meta>;
+  auto name = reflect::get_name_v<meta>;
   std::cout << "reflected name is " << name << std::endl;
 
-  using members = reflect::get_public_members<meta>;
+  using members = reflect::get_public_data_members<meta>;
 
-  auto ptr1 = reflect::get_pointer_v<std::tuple_element_t<0, members>>;
+  std::cout << "type " << name << " has "
+            << reflect::get_size_v<members> << " members " << std::endl;
+
+  auto ptr1 = reflect::get_pointer_v<reflect::get_element_t<0, members>>;
 
   std::cout << "Bar::bazz = " << obj.*ptr1 << std::endl;
 
-  auto ptr2 = reflect::get_pointer_v<std::tuple_element_t<1, members>>;
+  auto ptr2 = reflect::get_pointer_v<reflect::get_element_t<1, members>>;
 
   std::cout << "Bar::foo = " << obj.*ptr2 << std::endl;
   return 0;

@@ -114,17 +114,7 @@ int main(int argc, char* argv[]) {
 
 template <typename Writer>
 void write_type(std_parser::rules::ast::Type const& type, Writer& writer) {
-  std::string type_out;
-  type_out.reserve(30);
-  // TODO: add templates
-  for (auto& t : type.name) {
-    type_out += t;
-    type_out += "::";
-  }
-  type_out.pop_back();
-  type_out.pop_back();
-
-  writer << type_out << '\n';
+  writer << type.to_string() << '\n';
 }
 
 template <typename Writer>

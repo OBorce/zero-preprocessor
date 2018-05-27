@@ -66,7 +66,11 @@ function(preprocess target preprocessor_dir)
       )
 
     add_executable(meta ${CMAKE_CURRENT_BINARY_DIR}/meta_out/${src_file_name})
-    target_include_directories(meta PRIVATE ${preprocessor_dir}/extern/meta_classes/meta_include)
+    target_include_directories(meta PRIVATE
+      ${preprocessor_dir}/extern/meta_classes/meta_include
+      ${CMAKE_CURRENT_BINARY_DIR}/meta_out
+      ${preprocessor_dir}/extern/static_reflection/out_include
+      )
 
 
     # finally preprocess the source

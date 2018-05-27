@@ -20,6 +20,28 @@ struct TemplateTypes {
 struct Type {
   Type_ name;
   TemplateTypes template_types;
+
+  std::string to_string() const {
+    std::string type_out;
+    type_out.reserve(30);
+    for (auto& t : name) {
+      type_out += t;
+      type_out += "::";
+    }
+    type_out.pop_back();
+    type_out.pop_back();
+
+    auto& templates = template_types.template_types;
+    if (!templates.empty()) {
+      type_out += '<';
+      for (auto& type : templates) {
+        type_out += type.to_string();
+      }
+      type_out += '>';
+    }
+
+    return type_out;
+  }
 };
 
 struct var {

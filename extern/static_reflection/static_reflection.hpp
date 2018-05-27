@@ -32,33 +32,89 @@ class StaticReflexParser {
   auto generate_class_reflection(Class& c) {
     std::string out;
     out.reserve(200);
-    out += "\n};\n";
-    out += "namespace reflect {template <class T> struct Reflect;}\n";
+    out += "\nfriend reflect::Reflect<";
+    out += c.name;
+    out += ">;\n};\n";
+
+    auto& templates = c.template_parameters.template_parameters;
+    std::string type_out;
+    if (!templates.empty()) {
+      type_out += '<';
+      for (auto& type : templates) {
+        //TODO: this will not work for non type templates
+        type_out += "class ";
+        type_out += type;
+        type_out += ',';
+      }
+      type_out.pop_back();
+      type_out += '>';
+    }
+
     if (c.is_templated()) {
-      out += "template <class ...Ts> struct reflect::Reflect<";
+      out += "template ";
+      out += type_out;
+      out += "struct reflect::Reflect<";
     } else {
       out += "template <> struct reflect::Reflect<";
     }
     out += c.name;
+    std::string template_types;
     if (c.is_templated()) {
-      out += "<Ts...>";
+      template_types += '<';
+      for (auto& type : templates) {
+        template_types += type;
+        template_types += ',';
+      }
+      template_types.pop_back();
+      template_types += '>';
+      out += template_types;
     }
-    out += "> { constexpr inline static std::tuple members = {";
+    out += "> {\n";
+
+    out += "constexpr inline static std::tuple public_data_members = {";
     for (auto& kv : c.public_members) {
       out += '&';
       out += c.name;
       if (c.is_templated()) {
-        out += "<Ts...>";
+        out += template_types;
       }
       out += "::";
       out += kv.name;
       out += ',';
     }
 
-    out.pop_back();
-    out += "};\n constexpr static auto name = \"";
+    if (!c.public_members.empty()) {
+      out.pop_back();
+    }
+    out += "};\n";
+
+    out += "using public_data_member_types = std::tuple<";
+    for (auto& m : c.public_members) {
+      out += m.type.to_string();
+      out += ',';
+    }
+
+    if (!c.public_members.empty()) {
+      out.pop_back();
+    }
+    out += ">;\n";
+
+    out += "constexpr static auto name = \"";
     out += c.name;
-    out += "\";\n};";
+    out += "\";\n";
+
+    out += "static constexpr auto object_type = \"";
+    switch (c.type) {
+      case std_parser::rules::ast::class_type::CLASS:
+        out += "reflect::ObjectType::CLASS;";
+        break;
+      case std_parser::rules::ast::class_type::STRUCT:
+        out += "reflect::ObjectType::STRUCT;";
+        break;
+    }
+    out += "\";\n";
+
+    out += "};";
 
     return out;
   }
