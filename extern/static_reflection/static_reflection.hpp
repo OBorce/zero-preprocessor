@@ -36,38 +36,14 @@ class StaticReflexParser {
     out += c.name;
     out += ">;\n};\n";
 
-    auto& templates = c.template_parameters.template_parameters;
-    std::string type_out;
-    if (!templates.empty()) {
-      type_out += '<';
-      for (auto& type : templates) {
-        //TODO: this will not work for non type templates
-        type_out += "class ";
-        type_out += type;
-        type_out += ',';
-      }
-      type_out.pop_back();
-      type_out += '>';
-    }
-
     if (c.is_templated()) {
-      out += "template ";
-      out += type_out;
-      out += "struct reflect::Reflect<";
+      out += "template <class ...Ts> struct reflect::Reflect<";
     } else {
       out += "template <> struct reflect::Reflect<";
     }
     out += c.name;
-    std::string template_types;
     if (c.is_templated()) {
-      template_types += '<';
-      for (auto& type : templates) {
-        template_types += type;
-        template_types += ',';
-      }
-      template_types.pop_back();
-      template_types += '>';
-      out += template_types;
+      out += "<Ts...>";
     }
     out += "> {\n";
 
@@ -76,7 +52,7 @@ class StaticReflexParser {
       out += '&';
       out += c.name;
       if (c.is_templated()) {
-        out += template_types;
+        out += "<Ts...>";
       }
       out += "::";
       out += kv.name;
@@ -90,7 +66,14 @@ class StaticReflexParser {
 
     out += "using public_data_member_types = std::tuple<";
     for (auto& m : c.public_members) {
-      out += m.type.to_string();
+      out += "decltype(std::declval<";
+      out += c.name;
+      if (c.is_templated()) {
+        out += "<Ts...>";
+      }
+      out += ">().";
+      out += m.name;
+      out += ')';
       out += ',';
     }
 
@@ -152,6 +135,14 @@ class StaticReflexParser {
 
   StaticReflexParser(Parent& p) : parent{p} {}
 
+  /**
+   * A string to prepend to each file's start
+   */
+  std::string get_prepend() {
+    return std::string(
+        "namespace reflect { template<class T> struct Reflect;}\n");
+  }
+
   template <class Source>
   auto parse(Source& source) {
     auto& std_parser = parent.template get_parser<Parent::std_parser_id>();
@@ -164,4 +155,4 @@ class StaticReflexParser {
 };
 }  // namespace static_reflection
 
-#endif  //! STATIC_REFLECTION_H
+#endif  // STATIC_REFLECTION_H

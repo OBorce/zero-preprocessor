@@ -184,12 +184,33 @@ class Preprocessor {
    */
   template <int N = 0>
   void start_preprocess(std::string_view source_name) {
-    if constexpr (is_detected_v<finish_preprocess_fun, parser_type<N>>) {
+    if constexpr (is_detected_v<start_preprocess_fun, parser_type<N>>) {
       std::get<N>(parsers).start_preprocess(source_name);
     }
 
     if constexpr (N + 1 < number_of_parsers) {
       start_preprocess<N + 1>(source_name);
+    }
+  }
+
+  template <class T>
+  using get_prepend_fun = decltype(std::declval<T>().get_prepend());
+
+  /**
+   * Call get_prepend on all parsers that have one to get a string
+   * that will be prepended to all files on start of processing
+   *
+   * Used mainly for forward declarations or includes
+   */
+  template <typename Writer, int N = 0>
+  void prepend_to_file(Writer writer) {
+    if constexpr (is_detected_v<get_prepend_fun, parser_type<N>>) {
+      auto prepend = std::get<N>(parsers).get_prepend();
+      writer(prepend);
+    }
+
+    if constexpr (N + 1 < number_of_parsers) {
+      prepend_to_file<Writer, N + 1>(writer);
     }
   }
 
@@ -239,6 +260,7 @@ class Preprocessor {
   template <typename Writer>
   void process_source(std::string_view source_name, Writer& writer) {
     auto source = source_loader.load_source(source_name);
+    prepend_to_file(writer);
     while (!source.is_finished()) {
       auto processed_to = process(source, writer);
 
