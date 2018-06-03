@@ -53,8 +53,13 @@ struct params {
   std::vector<var> parameters;
 };
 
+struct TemplateParameter {
+  Type_ type;
+  std::string name;
+};
+
 struct TemplateParameters {
-  std::vector<std::string> template_parameters;
+  std::vector<TemplateParameter> template_parameters;
 
   bool empty() { return template_parameters.empty(); }
 };
@@ -74,10 +79,22 @@ struct operator_signiture {
 
 enum class class_type { CLASS, STRUCT };
 
+enum class access_modifier { PUBLIC, PROTECTED, PRIVATE };
+
+struct class_inheritance {
+  access_modifier modifier = access_modifier::PUBLIC;
+  Type type;
+};
+
+struct class_bases {
+  std::vector<class_inheritance> bases;
+};
+
 struct class_or_struct {
   TemplateParameters template_parameters;
   class_type type;
   std::string name;
+  class_bases bases;
 };
 
 struct Function {
@@ -103,7 +120,11 @@ struct Class {
   class_type type;
   std::string name;
   TemplateParameters template_parameters;
-  enum class Modifier { PUBLIC, PROTECTED, PRIVATE } state;
+  access_modifier state;
+
+  std::vector<Type> public_bases;
+  std::vector<Type> protected_bases;
+  std::vector<Type> private_bases;
 
   std::map<std::string, Class> classes;
   std::vector<Function> public_methods;
@@ -120,11 +141,25 @@ struct Class {
         template_parameters{std::move(cs.template_parameters)} {
     switch (type) {
       case class_type::CLASS:
-        state = Modifier::PRIVATE;
+        state = access_modifier::PRIVATE;
         break;
       case class_type::STRUCT:
-        state = Modifier::PUBLIC;
+        state = access_modifier::PUBLIC;
         break;
+    }
+
+    for (auto& base : cs.bases.bases) {
+      switch (base.modifier) {
+        case access_modifier::PUBLIC:
+          public_bases.emplace_back(std::move(base.type));
+          break;
+        case access_modifier::PROTECTED:
+          protected_bases.emplace_back(std::move(base.type));
+          break;
+        case access_modifier::PRIVATE:
+          private_bases.emplace_back(std::move(base.type));
+          break;
+      }
     }
   }
 
@@ -136,13 +171,15 @@ struct Class {
   {
     switch (type) {
       case class_type::CLASS:
-        state = Modifier::PRIVATE;
+        state = access_modifier::PRIVATE;
         break;
       case class_type::STRUCT:
-        state = Modifier::PUBLIC;
+        state = access_modifier::PUBLIC;
         break;
     }
   }
+
+  void set_access_modifier(access_modifier mod) { state = mod; }
 
   bool is_templated() { return !template_parameters.empty(); }
 
@@ -153,13 +190,13 @@ struct Class {
 
   void add_function(Function&& fun) {
     switch (state) {
-      case Modifier::PUBLIC:
+      case access_modifier::PUBLIC:
         public_methods.emplace_back(std::move(fun));
         break;
-      case Modifier::PROTECTED:
+      case access_modifier::PROTECTED:
         protected_methods.emplace_back(std::move(fun));
         break;
-      case Modifier::PRIVATE:
+      case access_modifier::PRIVATE:
         private_methods.emplace_back(std::move(fun));
         break;
     }
@@ -167,13 +204,13 @@ struct Class {
 
   void add_variable(var&& var) {
     switch (state) {
-      case Modifier::PUBLIC:
+      case access_modifier::PUBLIC:
         public_members.emplace_back(std::move(var));
         break;
-      case Modifier::PROTECTED:
+      case access_modifier::PROTECTED:
         protected_members.emplace_back(std::move(var));
         break;
-      case Modifier::PRIVATE:
+      case access_modifier::PRIVATE:
         private_members.emplace_back(std::move(var));
         break;
     }
@@ -243,13 +280,17 @@ BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::TemplateTypes, template_types)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::Type, name, template_types)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::var, type, name)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::params, parameters)
+BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::TemplateParameter, type, name)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::TemplateParameters,
                           template_parameters)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::function_signiture,
                           template_parameters, return_type, name, parameters)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::operator_signiture,
                           template_parameters, return_type, parameters)
+BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::class_inheritance, modifier,
+                          type)
+BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::class_bases, bases)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::class_or_struct,
-                          template_parameters, type, name)
+                          template_parameters, type, name, bases)
 
 #endif  //! STD_AST_H

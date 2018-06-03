@@ -101,16 +101,22 @@ class StdParser {
       auto& rez = _attr(ctx);
       nestings.emplace_back(std::move(rez));
     };
-    // TODO: what to do with template types
+
     auto fun = [this](auto& ctx) {
       auto& rez = _attr(ctx);
       nestings.emplace_back(std::move(rez));
     };
+
     auto funSig = [&](auto& ctx) {
       auto& rez = _attr(ctx);
       current.add_function(std::move(rez));
     };
-    // TODO: what to do with template types
+
+    auto ac = [&](auto& ctx) {
+      auto& rez = _attr(ctx);
+      current.set_access_modifier(rez);
+    };
+
     auto var = [&current](auto& ctx) {
       auto& rez = _attr(ctx);
       current.add_variable(std::move(rez));
@@ -135,7 +141,7 @@ class StdParser {
              (rules::operator_signiture >> rules::scope_begin)[fun] |
              (rules::operator_signiture >> rules::statement_end)[funSig] |
              rules::scope_end[se] | rules::include[inc] | rules::comment |
-             rules::var[var])
+             rules::class_access_modifier[ac] | rules::var[var])
         // rules end
     );
 

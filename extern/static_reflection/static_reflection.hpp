@@ -37,13 +37,36 @@ class StaticReflexParser {
     out += ">;\n};\n";
 
     if (c.is_templated()) {
-      out += "template <class ...Ts> struct reflect::Reflect<";
+      out += "template <";
+      for(auto& tmp : c.template_parameters.template_parameters) {
+        for(auto& s : tmp.type) {
+          out += s;
+          out += "::";
+        }
+        out.pop_back();
+        out.pop_back();
+        out += ' ';
+        out += tmp.name;
+        out += ',';
+      }
+      out.pop_back();
+      out += '>';
+      out += " struct reflect::Reflect<";
     } else {
       out += "template <> struct reflect::Reflect<";
     }
     out += c.name;
+    std::string class_templates;
     if (c.is_templated()) {
-      out += "<Ts...>";
+      class_templates.reserve(50);
+      class_templates += "<";
+      for(auto& tmp : c.template_parameters.template_parameters) {
+        class_templates += tmp.name;
+        class_templates += ',';
+      }
+      class_templates.pop_back();
+      class_templates += '>';
+      out += class_templates;
     }
     out += "> {\n";
 
@@ -52,7 +75,7 @@ class StaticReflexParser {
       out += '&';
       out += c.name;
       if (c.is_templated()) {
-        out += "<Ts...>";
+        out += class_templates;
       }
       out += "::";
       out += kv.name;
@@ -69,7 +92,7 @@ class StaticReflexParser {
       out += "decltype(std::declval<";
       out += c.name;
       if (c.is_templated()) {
-        out += "<Ts...>";
+        out += class_templates;
       }
       out += ">().";
       out += m.name;
@@ -78,6 +101,17 @@ class StaticReflexParser {
     }
 
     if (!c.public_members.empty()) {
+      out.pop_back();
+    }
+    out += ">;\n";
+
+    out += "using public_base_classes = std::tuple<";
+    for (auto& type : c.public_bases) {
+      out += type.to_string();
+      out += ',';
+    }
+
+    if (!c.public_bases.empty()) {
       out.pop_back();
     }
     out += ">;\n";

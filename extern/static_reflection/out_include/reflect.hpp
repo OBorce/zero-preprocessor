@@ -158,7 +158,9 @@ struct get_accessible_member_types;
 template <class T>
 struct get_member_types;
 template <class T>
-struct get_public_base_classes;
+struct get_public_base_classes {
+  using type = typename T::public_base_classes;
+};
 template <class T>
 struct get_accessible_base_classes;
 template <class T>

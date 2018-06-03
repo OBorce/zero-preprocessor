@@ -166,15 +166,16 @@ TEST_CASE("Parse valid for loop", "[for_loop]") {
 
 TEST_CASE("Parse valid if expression", "[if_expression]") {
   std::array valid_if_expressions{"if (true)"s,
-                             "if(a || b)"s,
-                             "if(a || !b)"s,
-                             "if (!asd)"s,
-                             "if (a.foo())"s,
-                             "if constexpr (a && b)"s,
-                             "if (int i = foo(); i)"s};
+                                  "if(a || b)"s,
+                                  "if(a || !b)"s,
+                                  "if (!asd)"s,
+                                  "if (a.foo())"s,
+                                  "if constexpr (a && b)"s,
+                                  "if (int i = foo(); i)"s};
 
   for (auto& valid_if_expression : valid_if_expressions) {
-    REQUIRE_THAT(valid_if_expression, CanParse(rules::if_expression, "if_expression"));
+    REQUIRE_THAT(valid_if_expression,
+                 CanParse(rules::if_expression, "if_expression"));
   }
 }
 
@@ -214,6 +215,16 @@ TEST_CASE("Parse valid operator_signitures", "[operator_signiture]") {
   }
 }
 
+TEST_CASE("Parse valid class inheritance", "[inheritance]") {
+  std::array valid_inheritances{": public A"s, ": public A, private B"s, ": A"s,
+                                ": A, B"s, ": private A, public B"s};
+
+  for (auto& valid_inheritance : valid_inheritances) {
+    REQUIRE_THAT(valid_inheritance,
+                 CanParse(rules::class_inheritances, "class inheritance"));
+  }
+}
+
 TEST_CASE("Parse valid class", "[class]") {
   std::array valid_classes{
       "class A"s,
@@ -224,6 +235,11 @@ TEST_CASE("Parse valid class", "[class]") {
       "template <std::size_t N, class B> class Test"s,
       "template <std::size_t N = 2, class B = int> class Test"s,
       "template <std::size_t N = 2, class B = std::size_t> class Test"s,
+      "struct point : A"s,
+      "struct point : public A"s,
+      "struct point : A, B"s,
+      "struct point : A, protected B"s,
+      "struct point : private A, private B"s,
   };
 
   for (auto& valid_class : valid_classes) {

@@ -18,11 +18,20 @@ constexpr void interface(meta::type target, const meta::type source) {
 };
 
 interface shape {
-  int get_size();
+  int get_area();
+};
+
+struct square : shape {
+  int a = 2;
+
+  int get_area() { return a * a; }
 };
 
 int main() {
   std::cout << "hello from example\n";
+
+  square s;
+  std::cout << " area of the square s is : " << s.get_area() << std::endl;
 
   return 0;
 }
