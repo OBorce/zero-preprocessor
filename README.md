@@ -70,6 +70,7 @@ Updated every week
 - [x] reflect::get_data_members
 - [x] reflect::get_public_base_classes
 - [x] reflect::get_base_classes
+- [ ] reflect::get_accessible_[data_members, base_classes] based on context
 - [ ] reflect::is_final & reflect::is_virtual
 - [ ] enum operations
 - [ ] reflexpr() for variables and namespaces
@@ -82,6 +83,7 @@ Updated every week
 - [x] struct/class
 - [x] methods and data members
 - [x] virtual/override methods
+- [ ] new/delete malloc/free
 - [x] type templates
 - [x] non-type templates
 - [ ] variadic templates
@@ -102,4 +104,4 @@ There are TODO comments throughout the project. Before starting to fix one pleas
 
 ## License
 
-This project is licensed under the Apache License 2.0 License - see the [LICENSE.md](LICENSE.md) file for details
+This project is licensed under the Apache License 2.0 License - see the [LICENSE](LICENSE) file for details
