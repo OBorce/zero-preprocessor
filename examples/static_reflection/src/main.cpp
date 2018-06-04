@@ -37,8 +37,11 @@ bool generic_equal(const T& a, const T& b) {
 }
 
 struct Bar {
-  int bazz;
-  int foo;
+  int bazz = 2;
+  int foo = 4;
+
+ private:
+  std::string s = "some string";
 };
 
 template <class T>
@@ -53,34 +56,52 @@ struct B : A<int> {
 
 int main() {
   std::cout << "hello from example\n";
-  Bar a{1, 2};
-  Bar b{1, 3};
+  // from foo.h
+  Baz a{1, 2};
+  Baz b{1, 3};
 
   bool equal = generic_equal(a, b);
-
   std::cout << "a == b : " << std::boolalpha << equal << std::endl;
+
+  Bar bar;
 
   using meta = reflexpr<Bar>;
 
-  auto name = reflect::get_name_v<meta>;
-  std::cout << "reflected name is " << name << std::endl;
+  auto class_name = reflect::get_name_v<meta>;
+  std::cout << "reflected name is " << class_name << std::endl;
 
-  using members = reflect::get_public_data_members_t<meta>;
+  using public_members = reflect::get_public_data_members_t<meta>;
 
-  std::cout << "type " << name << " has "
-            << reflect::get_size_v<members> << " public members " << std::endl;
+  std::cout << "type " << class_name << " has "
+            << reflect::get_size_v<public_members> << " public members "
+            << std::endl;
 
-  auto ptr1 = reflect::get_pointer_v<reflect::get_element_t<0, members>>;
+  using first = reflect::get_element_t<0, public_members>;
+  auto ptr1 = reflect::get_pointer_v<first>;
 
-  std::cout << "Bar::bazz = " << a.*ptr1 << std::endl;
+  std::cout << class_name << "::" << reflect::get_name_v<first> << " = "
+            << bar.*ptr1 << std::endl;
 
-  auto ptr2 = reflect::get_pointer_v<reflect::get_element_t<1, members>>;
+  using second = reflect::get_element_t<1, public_members>;
+  auto ptr2 = reflect::get_pointer_v<second>;
 
-  std::cout << "Bar::foo = " << a.*ptr2 << std::endl;
+  std::cout << class_name << "::" << reflect::get_name_v<second> << " = "
+            << bar.*ptr2 << std::endl;
+
+  using all_members = reflect::get_data_members_t<meta>;
+  std::cout << "type " << class_name << " has "
+            << reflect::get_size_v<all_members> << " data members "
+            << std::endl;
+
+  using third = reflect::get_element_t<2, all_members>;
+  auto ptr3 = reflect::get_pointer_v<third>;
+  std::cout << class_name << "::" << reflect::get_name_v<third> << " = "
+            << bar.*ptr3 << std::endl;
 
   // inheritance
   using metaB = reflexpr<B>;
   using bases = reflect::get_public_base_classes_t<metaB>;
+  auto name = reflect::get_name_v<metaB>;
   std::cout << "type " << name << " has "
             << reflect::get_size_v<bases> << " public bases " << std::endl;
 

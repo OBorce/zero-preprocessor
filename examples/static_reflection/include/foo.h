@@ -1,3 +1,4 @@
 struct Baz {
-  int a = 3;
+  int a;
+  int b;
 };

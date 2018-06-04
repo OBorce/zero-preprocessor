@@ -15,19 +15,23 @@ A prerequisite for this project is Boost 1.67
 For now all you need to do is git clone the repo, add it as a sub_directory
  and call the function on the target you wish to include the translator for.
 
-Tested on GCC 7.3, 8.1 and Clang 6.0
-Also beware of the Clang + libstdc++ std::variant bug
-MSVC requires the new upcoming 15.8 preview 3 release
-https://developercommunity.visualstudio.com/content/problem/246689/c17-constexpr-static-tuple-as-class-data-member-us.html?childToView=264647#comment-264647
 ```
 # add our preprocessor
 set(preprocessor_dir "path/to/cloned/repo")
+
 # where to build it relative to your project build dir or an absolute path
 set(preprocessor_build_dir "./preprocessor_build")
 add_subdirectory(${preprocessor_dir} ${preprocessor_build_dir} EXCLUDE_FROM_ALL)
+
 # preprocess our example target
 preprocess(example ${preprocessor_dir})
 ```
+Tested on GCC 7.3, 8.1 and Clang 6.0
+
+Also beware of the Clang + libstdc++ std::variant bug.
+
+MSVC requires the new upcoming 15.8 preview 3 release
+https://developercommunity.visualstudio.com/content/problem/246689/c17-constexpr-static-tuple-as-class-data-member-us.html?childToView=264647#comment-264647
 
 ## Examples
 
@@ -38,6 +42,8 @@ Full examples of usages of the implemented features are located in the examples 
 The project does not use versioning for now, as you should always build from the master branch.
 
 ## TODOs
+Updated every week
+
 #### Meta Classes
 - [x] Parsing of meta classes in code
 - [x] generator -> in constexpr function
@@ -54,12 +60,16 @@ The project does not use versioning for now, as you should always build from the
 #### Static Reflection
 - [x] reflexpr<>
 - [x] reflect::get_name
+- [ ] reflect::get_display_name will need runtime string concatenation
+- [x] reflect::get_type
+- [ ] reflect::get_reflected_type
+- [x] reflect::is_[enum, class, struct, union]
 - [x] reflect::get_public_data_members
 - [x] reflect::get_size and reflect::get_element
 - [x] reflect::get_pointer (for data members)
-- [ ] reflect::get_data_members
+- [x] reflect::get_data_members
 - [x] reflect::get_public_base_classes
-- [ ] reflect::get_base_classes
+- [x] reflect::get_base_classes
 - [ ] reflect::is_final & reflect::is_virtual
 - [ ] enum operations
 - [ ] reflexpr() for variables and namespaces

@@ -29,17 +29,18 @@ template <class Parent>
 class StaticReflexParser {
   using Class = std_parser::rules::ast::Class;
   // TODO: generate reflection for the current class
+  // TODO: refactor this method extract to shorter ones
   auto generate_class_reflection(Class& c) {
     std::string out;
-    out.reserve(200);
+    out.reserve(300);
     out += "\nfriend reflect::Reflect<";
     out += c.name;
     out += ">;\n};\n";
 
     if (c.is_templated()) {
       out += "template <";
-      for(auto& tmp : c.template_parameters.template_parameters) {
-        for(auto& s : tmp.type) {
+      for (auto& tmp : c.template_parameters.template_parameters) {
+        for (auto& s : tmp.type) {
           out += s;
           out += "::";
         }
@@ -60,7 +61,7 @@ class StaticReflexParser {
     if (c.is_templated()) {
       class_templates.reserve(50);
       class_templates += "<";
-      for(auto& tmp : c.template_parameters.template_parameters) {
+      for (auto& tmp : c.template_parameters.template_parameters) {
         class_templates += tmp.name;
         class_templates += ',';
       }
@@ -87,6 +88,19 @@ class StaticReflexParser {
     }
     out += "};\n";
 
+    out += "constexpr inline static std::tuple public_data_member_names = {";
+    for (auto& kv : c.public_members) {
+      out += '\"';
+      out += kv.name;
+      out += '\"';
+      out += ',';
+    }
+
+    if (!c.public_members.empty()) {
+      out.pop_back();
+    }
+    out += "};\n";
+
     out += "using public_data_member_types = std::tuple<";
     for (auto& m : c.public_members) {
       out += "decltype(std::declval<";
@@ -101,6 +115,59 @@ class StaticReflexParser {
     }
 
     if (!c.public_members.empty()) {
+      out.pop_back();
+    }
+    out += ">;\n";
+
+    out += "constexpr inline static std::tuple data_members = {";
+    auto data_members = c.public_members;
+    data_members.insert(data_members.end(), c.protected_members.begin(),
+                        c.protected_members.end());
+    data_members.insert(data_members.end(), c.private_members.begin(),
+                        c.private_members.end());
+    for (auto& kv : data_members) {
+      out += '&';
+      out += c.name;
+      if (c.is_templated()) {
+        out += class_templates;
+      }
+      out += "::";
+      out += kv.name;
+      out += ',';
+    }
+
+    if (!data_members.empty()) {
+      out.pop_back();
+    }
+    out += "};\n";
+
+    out += "constexpr inline static std::tuple data_member_names = {";
+    for (auto& kv : data_members) {
+      out += '\"';
+      out += kv.name;
+      out += '\"';
+      out += ',';
+    }
+
+    if (!data_members.empty()) {
+      out.pop_back();
+    }
+    out += "};\n";
+
+    out += "using data_member_types = std::tuple<";
+    for (auto& m : data_members) {
+      out += "decltype(std::declval<";
+      out += c.name;
+      if (c.is_templated()) {
+        out += class_templates;
+      }
+      out += ">().";
+      out += m.name;
+      out += ')';
+      out += ',';
+    }
+
+    if (!data_members.empty()) {
       out.pop_back();
     }
     out += ">;\n";

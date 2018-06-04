@@ -129,6 +129,14 @@ template <typename T, int N>
 struct PublicMember {
   static constexpr auto pointer = std::get<N>(T::public_data_members);
   using type = std::tuple_element_t<N, typename T::public_data_member_types>;
+  static constexpr auto name = std::get<N>(T::public_data_member_names);
+};
+
+template <typename T, int N>
+struct DataMember {
+  static constexpr auto pointer = std::get<N>(T::data_members);
+  using type = std::tuple_element_t<N, typename T::data_member_types>;
+  static constexpr auto name = std::get<N>(T::data_member_names);
 };
 
 template <template <typename, int> class M, typename T, typename U>
@@ -150,7 +158,11 @@ struct get_public_data_members {
 template <class T>
 struct get_accessible_data_members;
 template <class T>
-struct get_data_members;
+struct get_data_members {
+  static constexpr int N = std::tuple_size<decltype(T::data_members)>();
+  using type = typename helper::selector<helper::DataMember, T,
+                                         std::make_index_sequence<N>>::type;
+};
 template <class T>
 struct get_public_member_types;
 template <class T>
