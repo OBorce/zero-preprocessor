@@ -52,10 +52,10 @@ constexpr auto get_source_file_name_v = get_source_file_name<T>::value;
 
 // for not we use tupple instead od sequence
 template <typename T>
-constexpr auto get_size_v = std::tuple_size<typename T::type>();
+constexpr auto get_size_v = std::tuple_size<T>();
 
 template <int N, typename T>
-using get_element_t = std::tuple_element_t<N, typename T::type>;
+using get_element_t = std::tuple_element_t<N, T>;
 
 // 21.11.4.4 Named operations
 template <class T>

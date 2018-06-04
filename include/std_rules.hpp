@@ -251,6 +251,17 @@ auto const function_signiture_def =
     -(template_parameters >> optionaly_space) >> type >> some_space >> name >>
     optionaly_space >> '(' >> optionaly_space >> optionaly_params >> ')';
 
+// TODO: make ast for method signiture to capture virtual and const && info
+x3::rule<class method_signiture, ast::function_signiture> const
+    method_signiture = "method_signiture";
+auto const method_signiture_def = -(template_parameters >> optionaly_space) >>
+                                  -(lit("virtual") >> some_space) >> type
+                                  >> some_space >> name >> optionaly_space >>
+                                  '(' >> optionaly_space >> optionaly_params >>
+                                  ')' >> -(some_space >> lit("const")) >>
+                                  -(some_space >> (lit("&&") | '&')) >>
+                                  -(some_space >> lit("override"));
+
 x3::rule<class operator_signiture, ast::operator_signiture> const
     operator_signiture = "operator_signiture";
 auto const operator_signiture_def =
@@ -286,8 +297,8 @@ BOOST_SPIRIT_DEFINE(some_space, optionaly_space, include, skip_line, comment,
                     return_statement, param, optional_param,
                     param_optionaly_default, var, for_loop, if_expression,
                     template_parameter, template_parameters, function_signiture,
-                    operator_signiture, class_inheritance, class_inheritances,
-                    class_or_struct);
+                    method_signiture, operator_signiture, class_inheritance,
+                    class_inheritances, class_or_struct);
 }  // namespace std_parser::rules
 
 #endif  //! STD_RULES_H

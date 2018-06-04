@@ -198,6 +198,29 @@ TEST_CASE("Parse valid function_signitures", "[function_signiture]") {
   }
 }
 
+TEST_CASE("Parse valid method_signitures", "[method_signiture]") {
+  std::array valid_method_signitures{
+      "int a()"s,
+      "std::string s(int i)"s,
+      "void s(const int i)"s,
+      "void const_method(const int i) const"s,
+      "void const_method_Rref(const int i) const &&"s,
+      "std::string no_name_params(int, float f, double)"s,
+      "std::string no_name_params2(int, int , float f, double)"s,
+      "rules::ast::val some_name(std::string s, int a)"s,
+      "auto& def_arg(int a = 2, long l = 3l)"s,
+      "virtual auto& virtual_method(int a = 2, long l = 3l)"s,
+      "template<typename T> auto def_arg(T a = 2, long l = 3l)"s,
+      "template<typename T> auto overriden_method(T a = 2, long l = 3l) override"s,
+      "template<typename T, int N = 0> auto def_arg(T a = 2, long l = 3l)"s,
+      "const some_Type* function_a2(std::asd::ddd d)"s};
+
+  for (auto& valid_method_signiture : valid_method_signitures) {
+    REQUIRE_THAT(valid_method_signiture,
+                 CanParse(rules::method_signiture, "method_signiture"));
+  }
+}
+
 TEST_CASE("Parse valid operator_signitures", "[operator_signiture]") {
   std::array valid_operator_signitures{
       "std::ostream& operator<<(std::ostream& os)"s,

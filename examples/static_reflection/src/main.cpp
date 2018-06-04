@@ -26,7 +26,7 @@ bool compare_data_members(const T& a, const T& b) {
 template <typename T>
 bool generic_equal(const T& a, const T& b) {
   using metaT = reflexpr<T>;
-  using members = reflect::get_public_data_members<metaT>;
+  using members = reflect::get_public_data_members_t<metaT>;
   constexpr auto size = reflect::get_size_v<members>;
 
   if constexpr (size == 0) {
@@ -65,7 +65,7 @@ int main() {
   auto name = reflect::get_name_v<meta>;
   std::cout << "reflected name is " << name << std::endl;
 
-  using members = reflect::get_public_data_members<meta>;
+  using members = reflect::get_public_data_members_t<meta>;
 
   std::cout << "type " << name << " has "
             << reflect::get_size_v<members> << " public members " << std::endl;
@@ -80,7 +80,7 @@ int main() {
 
   // inheritance
   using metaB = reflexpr<B>;
-  using bases = reflect::get_public_base_classes<metaB>;
+  using bases = reflect::get_public_base_classes_t<metaB>;
   std::cout << "type " << name << " has "
             << reflect::get_size_v<bases> << " public bases " << std::endl;
 

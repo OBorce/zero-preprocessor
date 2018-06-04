@@ -136,8 +136,8 @@ class StdParser {
         rules::optionaly_space >>
             ((rules::class_or_struct >> rules::scope_begin)[cs] |
              (rules::class_or_struct >> rules::statement_end) |
-             (rules::function_signiture >> rules::scope_begin)[fun] |
-             (rules::function_signiture >> rules::statement_end)[funSig] |
+             (rules::method_signiture >> rules::scope_begin)[fun] |
+             (rules::method_signiture >> rules::statement_end)[funSig] |
              (rules::operator_signiture >> rules::scope_begin)[fun] |
              (rules::operator_signiture >> rules::statement_end)[funSig] |
              rules::scope_end[se] | rules::include[inc] | rules::comment |
