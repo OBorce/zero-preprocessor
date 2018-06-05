@@ -53,8 +53,12 @@ Updated every week
 - [x] -> with target function
 - [x] get class variables
 - [x] compiler.require
-- [ ] method modifier status i.g. is_public()
+- [x] method access modifier status e.g. is_public()
 - [ ] constructors/destructors status
+- [x] compiler.error
+- [ ] compiler.require/error with f to display source location
+- [ ] method const and && not propagated
+- [ ] __metaclass_finalization
 
 
 #### Static Reflection
@@ -82,8 +86,11 @@ Updated every week
 - [x] functions
 - [x] struct/class
 - [x] methods and data members
+- [x] constructors/destructors
 - [x] virtual/override methods
 - [ ] new/delete malloc/free
+- [x] for loop and ranged base for
+- [ ] while loop and else
 - [x] type templates
 - [x] non-type templates
 - [ ] variadic templates

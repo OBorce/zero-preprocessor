@@ -30,6 +30,14 @@ static struct access_modifier_ : x3::symbols<ast::access_modifier> {
   }
 } access_modifier;
 
+static struct is_virtual_ : x3::symbols<ast::Virtual> {
+  is_virtual_() { add("virtual", ast::Virtual::YES); }
+} is_virtual;
+
+static struct is_constructor_ : x3::symbols<ast::Constructor> {
+  is_constructor_() { add("~", ast::Constructor::DESTRUCTOR); }
+} is_constructor;
+
 x3::rule<class some_space> const some_space = "some_space";
 auto const some_space_def = +(eol | ' ' | '\t');
 
@@ -158,6 +166,8 @@ x3::rule<class optionaly_arguments> const optionaly_arguments =
 x3::rule<class function_call> const function_call = "function_call";
 x3::rule<class expression> const expression = "expression";
 x3::rule<class paren_expression> const paren_expression = "paren_expression";
+x3::rule<class optionaly_paren_expression> const optionaly_paren_expression =
+    "optionaly_paren_expression";
 x3::rule<class init_list> const init_list = "init_list";
 x3::rule<class arg_init_list> const arg_init_list = "arg_init_list";
 
@@ -178,6 +188,8 @@ auto const function_call_def = type >> optionaly_space >> '(' >>
 auto const expression_def = argument % operator_sep;
 auto const paren_expression_def =
     '(' >> optionaly_space >> expression >> optionaly_space >> ')';
+auto const optionaly_paren_expression_def =
+    '(' >> optionaly_space >> -expression >> optionaly_space >> ')';
 auto const init_list_def =
     '{' >> optionaly_space >> optionaly_arguments >> optionaly_space >> '}';
 
@@ -202,6 +214,10 @@ auto const param_optionaly_default_def = optional_param >>
                                          -(optionaly_space >> '=' >>
                                            optionaly_space >>
                                            (expression | init_list));
+
+x3::rule<class constructor_init> const constructor_init = "constructor_init";
+auto const constructor_init_def = name >> optionaly_space >>
+                                  (init_list | optionaly_paren_expression);
 
 // TODO: support for new / delete ?
 x3::rule<class var, ast::var> const var = "var";
@@ -251,11 +267,13 @@ auto const function_signiture_def =
     -(template_parameters >> optionaly_space) >> type >> some_space >> name >>
     optionaly_space >> '(' >> optionaly_space >> optionaly_params >> ')';
 
-// TODO: make ast for method signiture to capture virtual and const && info
-x3::rule<class method_signiture, ast::function_signiture> const
-    method_signiture = "method_signiture";
+// TODO: make ast for method signiture to capture const and && info
+x3::rule<class method_signiture, ast::method_signiture> const method_signiture =
+    "method_signiture";
+// TODO: this allows for both template and virtual, but the real compiler will
+// handle it
 auto const method_signiture_def = -(template_parameters >> optionaly_space) >>
-                                  -(lit("virtual") >> some_space) >> type
+                                  -(is_virtual >> some_space) >> type
                                   >> some_space >> name >> optionaly_space >>
                                   '(' >> optionaly_space >> optionaly_params >>
                                   ')' >> -(some_space >> lit("const")) >>
@@ -268,6 +286,15 @@ auto const operator_signiture_def =
     -(template_parameters >> optionaly_space) >> type >> some_space >>
     "operator" >> optionaly_space >> all_overloadable_operators >>
     optionaly_space >> '(' >> optionaly_space >> optionaly_params >> ')';
+
+x3::rule<class constructor, ast::constructor> const constructor = "constructor";
+auto const constructor_def = -(template_parameters >> optionaly_space) >>
+                             -(is_virtual >> some_space) >>
+                             -(is_constructor >> optionaly_space) >> name
+                             >> optionaly_space >> '(' >> optionaly_space
+                             >> optionaly_params >> ')' >>
+                             -(optionaly_space >> ':' >> optionaly_space >>
+                               constructor_init % arg_separator);
 
 x3::rule<class class_inheritance, ast::class_inheritance> const
     class_inheritance = "class_inheritance";
@@ -292,13 +319,14 @@ BOOST_SPIRIT_DEFINE(some_space, optionaly_space, include, skip_line, comment,
                     namespace_begin, statement_end, name, type_, type, var_type,
                     template_values, digits, integral, floating, number,
                     string_literal, char_literal, argument, optionaly_arguments,
-                    function_call, expression, paren_expression, init_list,
-                    arg_init_list, optionaly_params, statement,
-                    return_statement, param, optional_param,
-                    param_optionaly_default, var, for_loop, if_expression,
+                    function_call, expression, paren_expression,
+                    optionaly_paren_expression, init_list, arg_init_list,
+                    optionaly_params, statement, return_statement, param,
+                    optional_param, param_optionaly_default, var,
+                    constructor_init, for_loop, if_expression,
                     template_parameter, template_parameters, function_signiture,
-                    method_signiture, operator_signiture, class_inheritance,
-                    class_inheritances, class_or_struct);
+                    method_signiture, operator_signiture, constructor,
+                    class_inheritance, class_inheritances, class_or_struct);
 }  // namespace std_parser::rules
 
 #endif  //! STD_RULES_H

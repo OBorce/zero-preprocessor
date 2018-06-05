@@ -238,6 +238,30 @@ TEST_CASE("Parse valid operator_signitures", "[operator_signiture]") {
   }
 }
 
+TEST_CASE("Parse valid constructors and destructors", "[constructor]") {
+  std::array valid_constructors{
+      "a()"s,
+      "s(int i)"s,
+      "s(int i): a{i}"s,
+      "s(const int i)"s,
+      "asd(const asd & i)"s,
+      "A(A&& i)"s,
+      "A(int, float f, double)"s,
+      "A(int, int , float f, double)"s,
+      "A(int a, int b, float f) : a{a}, b(b), asd{f, a}"s,
+      "~A()"s,
+      "virtual ~A()"s,
+      "virtual Asd(int a = 2, long l = 3l)"s,
+      "template<typename T> def_arg(T a = 2, long l = 3l)"s,
+      "template<typename T> overriden_method(T a = 2, long l = 3l)"s,
+      "template<typename T, int N = 0> def_arg(T a = 2, long l = 3l)"s};
+
+  for (auto& valid_constructor : valid_constructors) {
+    REQUIRE_THAT(valid_constructor,
+                 CanParse(rules::constructor, "constructor"));
+  }
+}
+
 TEST_CASE("Parse valid class inheritance", "[inheritance]") {
   std::array valid_inheritances{": public A"s, ": public A, private B"s, ": A"s,
                                 ": A, B"s, ": private A, public B"s};

@@ -140,6 +140,8 @@ class StdParser {
              (rules::method_signiture >> rules::statement_end)[funSig] |
              (rules::operator_signiture >> rules::scope_begin)[fun] |
              (rules::operator_signiture >> rules::statement_end)[funSig] |
+             (rules::constructor >> rules::scope_begin)[fun] |
+             (rules::constructor >> rules::statement_end)[funSig] |
              rules::scope_end[se] | rules::include[inc] | rules::comment |
              rules::class_access_modifier[ac] | rules::var[var])
         // rules end

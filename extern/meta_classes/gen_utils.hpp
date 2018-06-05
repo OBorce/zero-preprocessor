@@ -117,14 +117,18 @@ void write_type(std_parser::rules::ast::Type const& type, Writer& writer) {
   writer << type.to_string() << '\n';
 }
 
+using AccessModifier = std_parser::rules::ast::access_modifier;
 template <typename Writer>
 void write_methods(std::vector<std_parser::rules::ast::Function> const& methods,
-                   Writer& writer) {
+                   AccessModifier modifier, Writer& writer) {
   for (auto& m : methods) {
     auto& type = m.return_type;
     write_type(type, writer);
 
+    writer << static_cast<int>(modifier);
+
     writer << m.name << '\n';
+
     auto& params = m.parameters.parameters;
     writer << params.size() << '\n';
 
@@ -137,9 +141,10 @@ void write_methods(std::vector<std_parser::rules::ast::Function> const& methods,
 
 template <typename Writer>
 void write_variables(std::vector<std_parser::rules::ast::var> const& variables,
-                     Writer& writer) {
+                     AccessModifier modifier, Writer& writer) {
   for (auto& v : variables) {
     write_type(v.type, writer);
+    writer << static_cast<int>(modifier);
     writer << v.name << std::endl;
   }
 }
@@ -153,22 +158,31 @@ std::string gen_meta_class(MetaProcess& process,
 
   process.output << cls.name << std::endl;
   process.output << (cls.public_methods.size() + cls.private_methods.size() +
-                     cls.protected_methods.size())
+                     cls.protected_methods.size() +
+                     cls.unspecified_methods.size())
                  << std::endl;
 
-  write_methods(cls.public_methods, process.output);
+  write_methods(cls.public_methods, AccessModifier::PUBLIC, process.output);
 
-  write_methods(cls.private_methods, process.output);
+  write_methods(cls.private_methods, AccessModifier::PROTECTED, process.output);
 
-  write_methods(cls.protected_methods, process.output);
+  write_methods(cls.protected_methods, AccessModifier::PRIVATE, process.output);
+
+  write_methods(cls.unspecified_methods, AccessModifier::UNSPECIFIED,
+                process.output);
 
   process.output << (cls.public_members.size() + cls.private_members.size() +
-                     cls.protected_members.size())
+                     cls.protected_members.size() +
+                     cls.unspecified_members.size())
                  << std::endl;
 
-  write_variables(cls.public_members, process.output);
-  write_variables(cls.private_members, process.output);
-  write_variables(cls.protected_members, process.output);
+  write_variables(cls.public_members, AccessModifier::PUBLIC, process.output);
+  write_variables(cls.private_members, AccessModifier::PROTECTED,
+                  process.output);
+  write_variables(cls.protected_members, AccessModifier::PRIVATE,
+                  process.output);
+  write_variables(cls.unspecified_members, AccessModifier::UNSPECIFIED,
+                  process.output);
 
   std::string output, line;
   int status;

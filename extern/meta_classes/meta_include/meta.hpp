@@ -17,11 +17,18 @@ static struct Compiler {
       std::terminate();
     }
   }
+
+  void error(std::string_view msg) {
+    std::cout << -1 << std::endl;
+    std::cout << msg.size() << std::endl;
+    std::cout << msg << std::endl;
+    std::terminate();
+  }
 } compiler;
 
 namespace meta {
 
-enum class Access { PRIVATE, PROTECTED, PUBLIC };
+enum class Access { PUBLIC, PROTECTED, PRIVATE, UNSPECIFIED };
 
 struct Param {
   std::string type;
@@ -31,13 +38,28 @@ struct Param {
 struct Var {
   std::string type;
   std::string name;
+  Access access = Access::UNSPECIFIED;
+
+  bool has_access() { return access != Access::UNSPECIFIED; }
+
+  bool is_public() { return access == Access::PUBLIC; }
+
+  bool is_protected() { return access == Access::PROTECTED; }
+
+  bool is_private() { return access == Access::PRIVATE; }
+
+  void make_public() { access = Access::PUBLIC; }
+
+  void make_private() { access = Access::PRIVATE; }
+
+  void make_protected() { access = Access::PROTECTED; }
 };
 
 struct Function {
   std::string return_type;
   std::string name;
   std::vector<Param> parameters;
-  Access access = Access::PUBLIC;
+  Access access = Access::UNSPECIFIED;
 
   bool is_virtual = false;
   std::string body = "";
@@ -52,14 +74,19 @@ struct Function {
     return false;
   }
 
-  bool has_access() {
-    // TODO:
-    return false;
-  }
+  bool has_access() { return access != Access::UNSPECIFIED; }
 
   void make_public() { access = Access::PUBLIC; }
 
+  void make_private() { access = Access::PRIVATE; }
+
+  void make_protected() { access = Access::PROTECTED; }
+
   bool is_public() { return access == Access::PUBLIC; }
+
+  bool is_protected() { return access == Access::PROTECTED; }
+
+  bool is_private() { return access == Access::PRIVATE; }
 
   void make_pure_virtual() {
     is_virtual = true;
@@ -159,15 +186,22 @@ Var read_var() {
   std::string type;
   std::string name;
   std::cin >> type;
+  int a;
+  std::cin >> a;
+  Access acc = static_cast<Access>(a);
   std::cin >> name;
 
-  return {std::move(type), std::move(name)};
+  return {std::move(type), std::move(name), acc};
 }
 
 Function read_function() {
   std::string return_type;
 
   std::cin >> return_type;
+  int a;
+  std::cin >> a;
+  Access acc = static_cast<Access>(a);
+
   std::string name;
   std::cin >> name;
   int num_params;
@@ -178,8 +212,7 @@ Function read_function() {
     params.emplace_back(read_parameter());
   }
 
-  return {std::move(return_type), std::move(name), std::move(params),
-          Access::PUBLIC};
+  return {std::move(return_type), std::move(name), std::move(params), acc};
 }
 
 type read_type() {

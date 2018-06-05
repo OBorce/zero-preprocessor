@@ -2,6 +2,7 @@
 #define STD_AST_H
 
 #include <map>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -20,6 +21,9 @@ struct TemplateTypes {
 struct Type {
   Type_ name;
   TemplateTypes template_types;
+
+  Type() {}
+  Type(std::string&& s) : name{std::move(s)} {}
 
   std::string to_string() const {
     std::string type_out;
@@ -77,9 +81,29 @@ struct operator_signiture {
   params parameters;
 };
 
+enum class Virtual { YES, NO };
+
+struct method_signiture {
+  TemplateParameters template_parameters;
+  Virtual virtual_status = Virtual::NO;
+  Type return_type;
+  std::string name;
+  params parameters;
+};
+
+enum class Constructor { CONSTRUCTOR, DESTRUCTOR, NOTHING };
+
+struct constructor {
+  TemplateParameters template_parameters;
+  Virtual virtual_status = Virtual::NO;
+  Constructor type = Constructor::CONSTRUCTOR;
+  std::string name;
+  params parameters;
+};
+
 enum class class_type { CLASS, STRUCT };
 
-enum class access_modifier { PUBLIC, PROTECTED, PRIVATE };
+enum class access_modifier { PUBLIC, PROTECTED, PRIVATE, UNSPECIFIED };
 
 struct class_inheritance {
   access_modifier modifier = access_modifier::PUBLIC;
@@ -99,6 +123,8 @@ struct class_or_struct {
 
 struct Function {
   TemplateParameters template_parameters;
+  Virtual virtual_status = Virtual::NO;
+  Constructor type = Constructor::NOTHING;
   Type return_type;
   std::string name;
   params parameters;
@@ -109,11 +135,29 @@ struct Function {
         name{std::move(fun.name)},
         parameters{std::move(fun.parameters)} {}
 
+  Function(method_signiture&& fun)
+      : template_parameters{std::move(fun.template_parameters)},
+        virtual_status{fun.virtual_status},
+        return_type{std::move(fun.return_type)},
+        name{std::move(fun.name)},
+        parameters{std::move(fun.parameters)} {}
+
+  Function(constructor&& fun)
+      : template_parameters{std::move(fun.template_parameters)},
+        virtual_status{fun.virtual_status},
+        type{fun.type},
+        return_type{std::move(fun.name)},
+        name{},
+        parameters{std::move(fun.parameters)} {}
+
   Function(operator_signiture&& fun)
       : template_parameters{std::move(fun.template_parameters)},
         return_type{std::move(fun.return_type)},
+        // TODO: need operator name
         name{"op"},
         parameters{std::move(fun.parameters)} {}
+
+  bool is_virtual() { return virtual_status == Virtual::YES; }
 };
 
 struct Class {
@@ -127,13 +171,16 @@ struct Class {
   std::vector<Type> private_bases;
 
   std::map<std::string, Class> classes;
+
   std::vector<Function> public_methods;
   std::vector<Function> protected_methods;
   std::vector<Function> private_methods;
+  std::vector<Function> unspecified_methods;
 
   std::vector<var> public_members;
   std::vector<var> protected_members;
   std::vector<var> private_members;
+  std::vector<var> unspecified_members;
 
   Class(class_or_struct&& cs)
       : type{cs.type},
@@ -159,25 +206,19 @@ struct Class {
         case access_modifier::PRIVATE:
           private_bases.emplace_back(std::move(base.type));
           break;
+        case access_modifier::UNSPECIFIED:
+          break;
       }
     }
   }
 
   Class(std::string&& name)
       : type{class_type::STRUCT},
-        name{std::move(name)}
+        name{std::move(name)},
+        state{access_modifier::UNSPECIFIED}
   // TODO: add templates
   // template_parameters{std::move(cs.template_parameters)}
-  {
-    switch (type) {
-      case class_type::CLASS:
-        state = access_modifier::PRIVATE;
-        break;
-      case class_type::STRUCT:
-        state = access_modifier::PUBLIC;
-        break;
-    }
-  }
+  {}
 
   void set_access_modifier(access_modifier mod) { state = mod; }
 
@@ -199,6 +240,9 @@ struct Class {
       case access_modifier::PRIVATE:
         private_methods.emplace_back(std::move(fun));
         break;
+      case access_modifier::UNSPECIFIED:
+        unspecified_methods.emplace_back(std::move(fun));
+        break;
     }
   }
 
@@ -212,6 +256,9 @@ struct Class {
         break;
       case access_modifier::PRIVATE:
         private_members.emplace_back(std::move(var));
+        break;
+      case access_modifier::UNSPECIFIED:
+        unspecified_members.emplace_back(std::move(var));
         break;
     }
   }
@@ -285,8 +332,14 @@ BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::TemplateParameters,
                           template_parameters)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::function_signiture,
                           template_parameters, return_type, name, parameters)
+BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::method_signiture,
+                          template_parameters, virtual_status, return_type,
+                          name, parameters)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::operator_signiture,
                           template_parameters, return_type, parameters)
+BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::constructor,
+                          template_parameters, virtual_status, type, name,
+                          parameters)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::class_inheritance, modifier,
                           type)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::class_bases, bases)

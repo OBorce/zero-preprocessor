@@ -37,11 +37,14 @@ bool generic_equal(const T& a, const T& b) {
 }
 
 struct Bar {
-  int bazz = 2;
-  int foo = 4;
+  int bazz;
+  int foo;
 
  private:
-  std::string s = "some string";
+  std::string s;
+
+ public:
+  Bar(int a, int b, std::string s) : bazz{a}, foo{b}, s{std::move(s)} {}
 };
 
 template <class T>
@@ -63,7 +66,7 @@ int main() {
   bool equal = generic_equal(a, b);
   std::cout << "a == b : " << std::boolalpha << equal << std::endl;
 
-  Bar bar;
+  Bar bar{2, 4, "some string"};
 
   using meta = reflexpr<Bar>;
 
