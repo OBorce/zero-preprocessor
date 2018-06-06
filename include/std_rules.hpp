@@ -38,6 +38,10 @@ static struct is_constructor_ : x3::symbols<ast::Constructor> {
   is_constructor_() { add("~", ast::Constructor::DESTRUCTOR); }
 } is_constructor;
 
+static struct enum_class_ : x3::symbols<ast::EnumType> {
+  enum_class_() { add("class", ast::EnumType::ENUM_CLASS); }
+} enum_class;
+
 x3::rule<class some_space> const some_space = "some_space";
 auto const some_space_def = +(eol | ' ' | '\t');
 
@@ -312,21 +316,29 @@ auto const class_or_struct_def = -(template_parameters >> optionaly_space) >>
                                  class_type >> some_space >> name >>
                                  -(optionaly_space >> class_inheritances);
 
-BOOST_SPIRIT_DEFINE(some_space, optionaly_space, include, skip_line, comment,
-                    arg_separator, class_access_modifier, prefix_operator,
-                    sufix_operator, binary_operator, all_overloadable_operators,
-                    operator_sep, call_operator, scope_begin, scope_end,
-                    namespace_begin, statement_end, name, type_, type, var_type,
-                    template_values, digits, integral, floating, number,
-                    string_literal, char_literal, argument, optionaly_arguments,
-                    function_call, expression, paren_expression,
-                    optionaly_paren_expression, init_list, arg_init_list,
-                    optionaly_params, statement, return_statement, param,
-                    optional_param, param_optionaly_default, var,
-                    constructor_init, for_loop, if_expression,
-                    template_parameter, template_parameters, function_signiture,
-                    method_signiture, operator_signiture, constructor,
-                    class_inheritance, class_inheritances, class_or_struct);
+x3::rule<class enumeration, ast::enum_> const enumeration = "enumeration";
+auto const enumeration_def = lit("enum") >>
+                             -(optionaly_space >> enum_class) >> some_space
+                             >> name >> -(optionaly_space >> ':' >>
+                                          optionaly_space >> var_type);
+
+x3::rule<class enumerators, std::vector<std::string>> const enumerators =
+    "enumerators";
+auto const enumerators_def = name % arg_separator;
+
+BOOST_SPIRIT_DEFINE(
+    some_space, optionaly_space, include, skip_line, comment, arg_separator,
+    class_access_modifier, prefix_operator, sufix_operator, binary_operator,
+    all_overloadable_operators, operator_sep, call_operator, scope_begin,
+    scope_end, namespace_begin, statement_end, name, type_, type, var_type,
+    template_values, digits, integral, floating, number, string_literal,
+    char_literal, argument, optionaly_arguments, function_call, expression,
+    paren_expression, optionaly_paren_expression, init_list, arg_init_list,
+    optionaly_params, statement, return_statement, param, optional_param,
+    param_optionaly_default, var, constructor_init, for_loop, if_expression,
+    template_parameter, template_parameters, function_signiture,
+    method_signiture, operator_signiture, constructor, class_inheritance,
+    class_inheritances, class_or_struct, enumeration, enumerators);
 }  // namespace std_parser::rules
 
 #endif  //! STD_RULES_H

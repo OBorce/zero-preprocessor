@@ -294,3 +294,16 @@ TEST_CASE("Parse valid class", "[class]") {
                  CanParse(rules::class_or_struct, "class or struct"));
   }
 }
+
+TEST_CASE("Parse valid enum", "[enum]") {
+  std::array valid_enums{
+      "enum A"s,
+      "enum A : bool"s,
+      "enum class point"s,
+      "enum class point: int"s,
+  };
+
+  for (auto& valid_enum : valid_enums) {
+    REQUIRE_THAT(valid_enum, CanParse(rules::enumeration, "enum"));
+  }
+}

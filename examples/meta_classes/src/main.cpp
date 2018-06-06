@@ -22,15 +22,17 @@ interface shape {
 };
 
 struct square : shape {
-  int a = 2;
+  int a;
 
-  int get_area() { return a * a; }
+  square(int a): a{a} {}
+
+  int get_area() override { return a * a; }
 };
 
 int main() {
   std::cout << "hello from example\n";
 
-  square s;
+  square s{3};
   std::cout << " area of the square s is : " << s.get_area() << std::endl;
 
   return 0;

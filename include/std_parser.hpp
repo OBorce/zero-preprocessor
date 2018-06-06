@@ -14,8 +14,9 @@
 namespace std_parser {
 
 class StdParser {
-  using Scopable = std::variant<rules::ast::Namespace, rules::ast::Scope,
-                                rules::ast::Class, rules::ast::Function>;
+  using Scopable =
+      std::variant<rules::ast::Namespace, rules::ast::Scope, rules::ast::Class,
+                   rules::ast::Enumeration, rules::ast::Function>;
   std::vector<Scopable> nestings = {rules::ast::Namespace{""}};
   std::unordered_set<std::string> includes;
 
@@ -26,14 +27,11 @@ class StdParser {
     auto begin = source.begin();
     auto end = source.end();
 
-    auto cs = [this](auto& ctx) {
+    auto nest = [this](auto& ctx) {
       auto& rez = _attr(ctx);
       nestings.emplace_back(std::move(rez));
     };
-    auto fun = [this](auto& ctx) {
-      auto& rez = _attr(ctx);
-      nestings.emplace_back(std::move(rez));
-    };
+
     auto var = [&current](auto& ctx) {
       auto& rez = _attr(ctx);
       current.add_variable(std::move(rez));
@@ -71,21 +69,23 @@ class StdParser {
     };
 
     namespace x3 = boost::spirit::x3;
-    bool parsed =
-        x3::parse(begin, end,
-                  // rules begin
-                  rules::some_space |
-                      (rules::optionaly_space >>
-                       ((rules::class_or_struct >> rules::scope_begin)[cs] |
-                        (rules::class_or_struct >> rules::statement_end) |
-                        (rules::function_signiture >> rules::scope_begin)[fun] |
-                        (rules::function_signiture >> rules::statement_end) |
-                        (rules::operator_signiture >> rules::scope_begin)[fun] |
-                        (rules::operator_signiture >> rules::statement_end) |
-                        rules::namespace_begin[sb] | rules::scope_end[se] |
-                        rules::include[inc] | rules::comment | rules::var[var]))
-                  // rules end
-        );
+    bool parsed = x3::parse(
+        begin, end,
+        // rules begin
+        rules::some_space |
+            (rules::optionaly_space >>
+             ((rules::class_or_struct >> rules::scope_begin)[nest] |
+              (rules::class_or_struct >> rules::statement_end) |
+              (rules::function_signiture >> rules::scope_begin)[nest] |
+              (rules::function_signiture >> rules::statement_end) |
+              (rules::operator_signiture >> rules::scope_begin)[nest] |
+              (rules::operator_signiture >> rules::statement_end) |
+              (rules::enumeration >> rules::scope_begin)[nest] |
+              (rules::enumeration >> rules::statement_end) |
+              rules::namespace_begin[sb] | rules::scope_end[se] |
+              rules::include[inc] | rules::comment | rules::var[var]))
+        // rules end
+    );
 
     return parsed ? std::optional{Result{
                         begin, make_string_view(source.begin(), begin)}}
@@ -97,12 +97,7 @@ class StdParser {
     auto begin = source.begin();
     auto end = source.end();
 
-    auto cs = [this](auto& ctx) {
-      auto& rez = _attr(ctx);
-      nestings.emplace_back(std::move(rez));
-    };
-
-    auto fun = [this](auto& ctx) {
+    auto nest = [this](auto& ctx) {
       auto& rez = _attr(ctx);
       nestings.emplace_back(std::move(rez));
     };
@@ -134,16 +129,43 @@ class StdParser {
         begin, end,
         // rules begin
         rules::optionaly_space >>
-            ((rules::class_or_struct >> rules::scope_begin)[cs] |
+            ((rules::class_or_struct >> rules::scope_begin)[nest] |
              (rules::class_or_struct >> rules::statement_end) |
-             (rules::method_signiture >> rules::scope_begin)[fun] |
+             (rules::method_signiture >> rules::scope_begin)[nest] |
              (rules::method_signiture >> rules::statement_end)[funSig] |
-             (rules::operator_signiture >> rules::scope_begin)[fun] |
+             (rules::operator_signiture >> rules::scope_begin)[nest] |
              (rules::operator_signiture >> rules::statement_end)[funSig] |
-             (rules::constructor >> rules::scope_begin)[fun] |
+             (rules::constructor >> rules::scope_begin)[nest] |
              (rules::constructor >> rules::statement_end)[funSig] |
+             (rules::enumeration >> rules::scope_begin)[nest] |
+             (rules::enumeration >> rules::statement_end) |
              rules::scope_end[se] | rules::include[inc] | rules::comment |
              rules::class_access_modifier[ac] | rules::var[var])
+        // rules end
+    );
+
+    return parsed ? std::optional{Result{
+                        begin, make_string_view(source.begin(), begin)}}
+                  : std::nullopt;
+  }
+
+  template <class Source>
+  auto parse_inside_enum(Source& source, rules::ast::Enumeration& current) {
+    auto begin = source.begin();
+    auto end = source.end();
+
+    auto en = [&current](auto& ctx) {
+      auto& rez = _attr(ctx);
+      current.set_enumerators(std::move(rez));
+    };
+
+    auto se = [&](auto& ctx) { this->close_current_enum(); };
+
+    namespace x3 = boost::spirit::x3;
+    bool parsed = x3::parse(
+        begin, end,
+        // rules begin
+        rules::optionaly_space >> (rules::enumerators[en] | rules::scope_end[se] | rules::comment)
         // rules end
     );
 
@@ -157,7 +179,7 @@ class StdParser {
     auto begin = source.begin();
     auto end = source.end();
 
-    auto cs = [this](auto& ctx) {
+    auto nest = [this](auto& ctx) {
       auto& rez = _attr(ctx);
       nestings.emplace_back(std::move(rez));
     };
@@ -197,8 +219,10 @@ class StdParser {
         begin, end,
         // rules begin
         rules::optionaly_space >>
-            ((rules::class_or_struct >> rules::scope_begin)[cs] |
+            ((rules::class_or_struct >> rules::scope_begin)[nest] |
              (rules::class_or_struct >> rules::statement_end) |
+             (rules::enumeration >> rules::scope_begin)[nest] |
+             (rules::enumeration >> rules::statement_end) |
              rules::scope_begin[sb] | rules::scope_end[se] | rules::statement |
              rules::include[inc] | rules::comment | rules::var |
              rules::for_loop | rules::if_expression | rules::return_statement)
@@ -215,7 +239,7 @@ class StdParser {
     auto begin = source.begin();
     auto end = source.end();
 
-    auto cs = [this](auto& ctx) {
+    auto nest = [this](auto& ctx) {
       auto& rez = _attr(ctx);
       nestings.emplace_back(std::move(rez));
     };
@@ -252,8 +276,10 @@ class StdParser {
         begin, end,
         // rules begin
         rules::optionaly_space >>
-            ((rules::class_or_struct >> rules::scope_begin)[cs] |
+            ((rules::class_or_struct >> rules::scope_begin)[nest] |
              (rules::class_or_struct >> rules::statement_end) |
+             (rules::enumeration >> rules::scope_begin)[nest] |
+             (rules::enumeration >> rules::statement_end) |
              rules::scope_begin[sb] | rules::scope_end[se] | rules::statement |
              rules::include[inc] | rules::comment | rules::var |
              rules::for_loop | rules::if_expression | rules::return_statement)
@@ -291,6 +317,9 @@ class StdParser {
             [&](rules::ast::Scope& arg) {
               return parse_inside_scope(source, arg);
             },
+            [&](rules::ast::Enumeration& arg) {
+              return parse_inside_enum(source, arg);
+            },
         },
         current_nesting);
   }
@@ -315,6 +344,25 @@ class StdParser {
             [&](rules::ast::Class& arg) { arg.add_class(std::move(c)); },
             [](auto) {
               /* TODO: local classes inside functions or local scopes*/
+            },
+        },
+        v);
+    nestings.pop_back();
+  }
+
+  void close_current_enum() {
+    auto& c = std::get<rules::ast::Enumeration>(nestings.back());
+    if (nestings.size() < 2) {
+      // NOTE: more closing brackets than opened
+      throw std::runtime_error("extraneous closing brace ('}')");
+    }
+    auto& v = nestings[nestings.size() - 2];
+    std::visit(
+        overloaded{
+            [&](rules::ast::Namespace& arg) { arg.add_enum(std::move(c)); },
+            [&](rules::ast::Class& arg) { arg.add_enum(std::move(c)); },
+            [](auto) {
+              /* TODO: local enums inside functions or local scopes*/
             },
         },
         v);

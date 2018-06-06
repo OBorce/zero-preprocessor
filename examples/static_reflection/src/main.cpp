@@ -57,6 +57,10 @@ struct B : A<int> {
   int b;
 };
 
+enum class Enum {
+  E1, E2, E3
+};
+
 int main() {
   std::cout << "hello from example\n";
   // from foo.h

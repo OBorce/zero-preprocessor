@@ -28,6 +28,66 @@ BOOST_SPIRIT_DEFINE(optionaly_space, scope_end);
 template <class Parent>
 class StaticReflexParser {
   using Class = std_parser::rules::ast::Class;
+  using Enumeration = std_parser::rules::ast::Enumeration;
+  using var = std_parser::rules::ast::var;
+
+  /**
+   * Append pointer to data members  as &class_name<tmps>::member.name
+   */
+  void append_members(std::string& out, std::vector<var> data_members,
+                      std::string_view class_name,
+                      std::string_view class_templates) {
+    for (auto& member : data_members) {
+      out += '&';
+      out += class_name;
+      out += class_templates;
+      out += "::";
+      out += member.name;
+      out += ',';
+    }
+
+    if (!data_members.empty()) {
+      out.pop_back();
+    }
+  }
+
+  /**
+   * Append data member names  as "member.name"
+   */
+  void append_names(std::string& out, std::vector<var> data_members) {
+    for (auto& member : data_members) {
+      out += '\"';
+      out += member.name;
+      out += '\"';
+      out += ',';
+    }
+
+    if (!data_members.empty()) {
+      out.pop_back();
+    }
+  }
+
+  /**
+   * append types as decltype(std::declval<class_name<temps>().m.name)
+   */
+  void append_types(std::string& out, std::vector<var> data_members,
+                    std::string_view class_name,
+                    std::string_view class_templates) {
+    for (auto& m : data_members) {
+      out += "decltype(std::declval<";
+      out += class_name;
+      out += class_templates;
+      out += ">().";
+      out += m.name;
+      out += ')';
+      out += ',';
+    }
+
+    if (!data_members.empty()) {
+      out.pop_back();
+    }
+  }
+
   // TODO: generate reflection for the current class
   // TODO: refactor this method extract to shorter ones
   auto generate_class_reflection(Class& c) {
@@ -72,51 +132,15 @@ class StaticReflexParser {
     out += "> {\n";
 
     out += "constexpr inline static std::tuple public_data_members = {";
-    for (auto& kv : c.public_members) {
-      out += '&';
-      out += c.name;
-      if (c.is_templated()) {
-        out += class_templates;
-      }
-      out += "::";
-      out += kv.name;
-      out += ',';
-    }
-
-    if (!c.public_members.empty()) {
-      out.pop_back();
-    }
+    append_members(out, c.public_members, c.name, class_templates);
     out += "};\n";
 
     out += "constexpr inline static std::tuple public_data_member_names = {";
-    for (auto& kv : c.public_members) {
-      out += '\"';
-      out += kv.name;
-      out += '\"';
-      out += ',';
-    }
-
-    if (!c.public_members.empty()) {
-      out.pop_back();
-    }
+    append_names(out, c.public_members);
     out += "};\n";
 
     out += "using public_data_member_types = std::tuple<";
-    for (auto& m : c.public_members) {
-      out += "decltype(std::declval<";
-      out += c.name;
-      if (c.is_templated()) {
-        out += class_templates;
-      }
-      out += ">().";
-      out += m.name;
-      out += ')';
-      out += ',';
-    }
-
-    if (!c.public_members.empty()) {
-      out.pop_back();
-    }
+    append_types(out, c.public_members, c.name, class_templates);
     out += ">;\n";
 
     out += "constexpr inline static std::tuple data_members = {";
@@ -125,51 +149,15 @@ class StaticReflexParser {
                         c.protected_members.end());
     data_members.insert(data_members.end(), c.private_members.begin(),
                         c.private_members.end());
-    for (auto& kv : data_members) {
-      out += '&';
-      out += c.name;
-      if (c.is_templated()) {
-        out += class_templates;
-      }
-      out += "::";
-      out += kv.name;
-      out += ',';
-    }
-
-    if (!data_members.empty()) {
-      out.pop_back();
-    }
+    append_members(out, data_members, c.name, class_templates);
     out += "};\n";
 
     out += "constexpr inline static std::tuple data_member_names = {";
-    for (auto& kv : data_members) {
-      out += '\"';
-      out += kv.name;
-      out += '\"';
-      out += ',';
-    }
-
-    if (!data_members.empty()) {
-      out.pop_back();
-    }
+    append_names(out, data_members);
     out += "};\n";
 
     out += "using data_member_types = std::tuple<";
-    for (auto& m : data_members) {
-      out += "decltype(std::declval<";
-      out += c.name;
-      if (c.is_templated()) {
-        out += class_templates;
-      }
-      out += ">().";
-      out += m.name;
-      out += ')';
-      out += ',';
-    }
-
-    if (!data_members.empty()) {
-      out.pop_back();
-    }
+    append_types(out, data_members, c.name, class_templates);
     out += ">;\n";
 
     out += "using public_base_classes = std::tuple<";
@@ -203,12 +191,36 @@ class StaticReflexParser {
     return out;
   }
 
+  auto generate_enum_reflection(Enumeration& c) {
+    std::string out;
+    out.reserve(300);
+    out += "\n};\n template <> struct reflect::Reflect<";
+    out += c.name;
+    out += ">{\n";
+
+    out += "constexpr static bool is_scoped_enum = ";
+    out += c.is_scoped() ? "true;\n" : "false;\n";
+
+    out += "using underlying_type = ";
+    out += c.as.to_string();
+    out += ';';
+    out += '\n';
+
+    out += "};";
+    return out;
+  }
+
   template <class V>
   bool is_class(V v) {
     return std::holds_alternative<Class>(v);
   }
 
-  auto generate_reflection() {
+  template <class V>
+  bool is_enum(V v) {
+    return std::holds_alternative<Enumeration>(v);
+  }
+
+  auto generate_class_reflection() {
     auto& std_parser = parent.template get_parser<Parent::std_parser_id>();
     auto& current_class = std::get<Class>(std_parser.get_current_nesting());
     auto rez = generate_class_reflection(current_class);
@@ -216,16 +228,35 @@ class StaticReflexParser {
     return rez;
   }
 
+  auto generate_enum_reflection() {
+    auto& std_parser = parent.template get_parser<Parent::std_parser_id>();
+    auto& current_enum =
+        std::get<Enumeration>(std_parser.get_current_nesting());
+    auto rez = generate_enum_reflection(current_enum);
+    std_parser.close_current_enum();
+    return rez;
+  }
+
+  //TODO: maybe use std::visit
+  template <typename Iter>
+  auto generate_reflection(Iter begin) {
+    auto& std_parser = parent.template get_parser<Parent::std_parser_id>();
+    return is_class(std_parser.get_current_nesting())
+               ? std::optional{Result{begin, generate_class_reflection()}}
+               : is_enum(std_parser.get_current_nesting())
+                     ? std::optional{Result{begin, generate_enum_reflection()}}
+                     : std::nullopt;
+  }
+
   template <typename Source>
-  auto parse_end_of_class(Source& source) {
+  auto parse_end_of_scope(Source& source) {
     auto begin = source.begin();
     auto end = source.end();
 
     namespace x3 = boost::spirit::x3;
     bool parsed = x3::parse(begin, end, rules::scope_end);
 
-    return parsed ? std::optional{Result{begin, generate_reflection()}}
-                  : std::nullopt;
+    return parsed ? std::optional{begin} : std::nullopt;
   }
 
   Parent& parent;
@@ -246,12 +277,9 @@ class StaticReflexParser {
 
   template <class Source>
   auto parse(Source& source) {
-    auto& std_parser = parent.template get_parser<Parent::std_parser_id>();
-
     // TODO: parse $reflexpr
-    return is_class(std_parser.get_current_nesting())
-               ? parse_end_of_class(source)
-               : std::nullopt;
+    auto end_of_scope = parse_end_of_scope(source);
+    return end_of_scope ? generate_reflection(*end_of_scope) : std::nullopt;
   }
 };
 }  // namespace static_reflection

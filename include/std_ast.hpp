@@ -2,7 +2,6 @@
 #define STD_AST_H
 
 #include <map>
-#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -24,6 +23,7 @@ struct Type {
 
   Type() {}
   Type(std::string&& s) : name{std::move(s)} {}
+  Type(const char* s) : name{s} {}
 
   std::string to_string() const {
     std::string type_out;
@@ -121,6 +121,30 @@ struct class_or_struct {
   class_bases bases;
 };
 
+enum class EnumType { ENUM, ENUM_CLASS };
+
+struct enum_ {
+  EnumType type = EnumType::ENUM;
+  std::string name;
+  Type as{"int"};
+};
+
+struct Enumeration {
+  EnumType type = EnumType::ENUM;
+  std::string name;
+  Type as;
+  std::vector<std::string> enumerators;
+
+  Enumeration(enum_&& e)
+      : type{e.type}, name{std::move(e.name)}, as{std::move(e.as)} {}
+
+  void set_enumerators(std::vector<std::string>&& e) {
+    enumerators = std::move(e);
+  }
+
+  bool is_scoped() { return type == EnumType::ENUM_CLASS; }
+};
+
 struct Function {
   TemplateParameters template_parameters;
   Virtual virtual_status = Virtual::NO;
@@ -171,6 +195,7 @@ struct Class {
   std::vector<Type> private_bases;
 
   std::map<std::string, Class> classes;
+  std::map<std::string, Enumeration> enums;
 
   std::vector<Function> public_methods;
   std::vector<Function> protected_methods;
@@ -229,6 +254,11 @@ struct Class {
     classes.emplace(name, std::move(class_or_struct));
   }
 
+  void add_enum(Enumeration&& enumeration) {
+    auto name = enumeration.name;
+    enums.emplace(name, std::move(enumeration));
+  }
+
   void add_function(Function&& fun) {
     switch (state) {
       case access_modifier::PUBLIC:
@@ -285,6 +315,7 @@ class Scope {
 class Namespace {
   std::string name;
   std::unordered_map<std::string, Class> classes;
+  std::unordered_map<std::string, Enumeration> enums;
   std::unordered_map<std::string, Function> functions;
   std::unordered_map<std::string, var> variables;
   std::map<std::string, Namespace> nested_namespaces;
@@ -296,6 +327,11 @@ class Namespace {
   void add_class(Class&& class_or_struct) {
     auto name = class_or_struct.name;
     classes.emplace(name, std::move(class_or_struct));
+  }
+
+  void add_enum(Enumeration&& enumeration) {
+    auto name = enumeration.name;
+    enums.emplace(name, std::move(enumeration));
   }
 
   void add_function(Function&& fun) {
@@ -343,6 +379,7 @@ BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::constructor,
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::class_inheritance, modifier,
                           type)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::class_bases, bases)
+BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::enum_, type, name, as)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::class_or_struct,
                           template_parameters, type, name, bases)
 
