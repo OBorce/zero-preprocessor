@@ -57,8 +57,8 @@ struct B : A<int> {
   int b;
 };
 
-enum class Enum {
-  E1, E2, E3
+enum class E {
+  first, second
 };
 
 int main() {
@@ -115,6 +115,12 @@ int main() {
   using base1 = reflexpr<reflect::get_element_t<0, bases>>;
   std::cout << "type " << name << " inherits from "
             << reflect::get_name_v<base1> << std::endl;
+
+  // enums
+
+  using E_m = reflexpr<E>;
+  using first_m = reflect::get_element_t<0, reflect::get_enumerators_t<E_m>>;
+  std::cout << reflect::get_name_v<first_m> << std::endl; // prints "first"
 
   return 0;
 }

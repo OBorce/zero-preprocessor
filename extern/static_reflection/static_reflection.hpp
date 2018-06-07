@@ -170,6 +170,21 @@ class StaticReflexParser {
       out.pop_back();
     }
     out += ">;\n";
+    auto base_classes = c.public_bases;
+    base_classes.insert(base_classes.end(), c.protected_bases.begin(),
+                        c.protected_bases.end());
+    base_classes.insert(base_classes.end(), c.private_bases.begin(),
+                        c.private_bases.end());
+    out += "using base_classes = std::tuple<";
+    for (auto& type : base_classes) {
+      out += type.to_string();
+      out += ',';
+    }
+
+    if (!base_classes.empty()) {
+      out.pop_back();
+    }
+    out += ">;\n";
 
     out += "constexpr static auto name = \"";
     out += c.name;
@@ -197,6 +212,41 @@ class StaticReflexParser {
     out += "\n};\n template <> struct reflect::Reflect<";
     out += c.name;
     out += ">{\n";
+
+    out += "constexpr static auto name = \"";
+    out += c.name;
+    out += "\";\n";
+
+    out += "constexpr static std::tuple enumerator_names = {";
+    for (auto& e : c.enumerators) {
+      out += '\"';
+      out += e;
+      out += '\"';
+      out += ',';
+    }
+
+    if (!c.enumerators.empty()) {
+      out.pop_back();
+    }
+
+    out += "};\n";
+
+    out += "constexpr static std::tuple enumerator_constants = {";
+    for (auto& e : c.enumerators) {
+      out += c.name;
+      out += "::";
+      out += e;
+      out += ',';
+    }
+
+    if (!c.enumerators.empty()) {
+      out.pop_back();
+    }
+
+    out += "};\n";
+
+    out +=
+        "static constexpr auto object_type = \"reflect::ObjectType::ENUM\";\n";
 
     out += "constexpr static bool is_scoped_enum = ";
     out += c.is_scoped() ? "true;\n" : "false;\n";
@@ -237,7 +287,7 @@ class StaticReflexParser {
     return rez;
   }
 
-  //TODO: maybe use std::visit
+  // TODO: maybe use std::visit
   template <typename Iter>
   auto generate_reflection(Iter begin) {
     auto& std_parser = parent.template get_parser<Parent::std_parser_id>();

@@ -139,6 +139,13 @@ struct DataMember {
   static constexpr auto name = std::get<N>(T::data_member_names);
 };
 
+template <typename T, int N>
+struct Enumerator {
+  static constexpr auto constant = std::get<N>(T::enumerator_constants);
+  using type = T;
+  static constexpr auto name = std::get<N>(T::enumerator_names);
+};
+
 template <template <typename, int> class M, typename T, typename U>
 struct selector;
 
@@ -176,7 +183,9 @@ struct get_public_base_classes {
 template <class T>
 struct get_accessible_base_classes;
 template <class T>
-struct get_base_classes;
+struct get_base_classes {
+  using type = typename T::base_classes;
+};
 template <class T>
 struct is_final;
 
@@ -206,11 +215,19 @@ constexpr auto is_final_v = is_final<T>::value;
 
 // 21.11.4.9 Enum operations
 template <class T>
-struct is_scoped_enum;
+struct is_scoped_enum {
+  constexpr static auto value = T::is_scoped_enum;
+};
 template <class T>
-struct get_enumerators;
+struct get_enumerators {
+  static constexpr int N = std::tuple_size<decltype(T::enumerator_names)>();
+  using type = typename helper::selector<helper::Enumerator, T,
+                                         std::make_index_sequence<N>>::type;
+};
 template <class T>
-struct get_underlying_type;
+struct get_underlying_type {
+  using type = typename T::underlying_type;
+};
 
 template <class T>
 constexpr auto is_scoped_enum_v = is_scoped_enum<T>::value;
@@ -221,7 +238,9 @@ using get_underlying_type_t = typename get_underlying_type<T>::type;
 
 // 21.11.4.10 Value operations
 template <class T>
-struct get_constant;
+struct get_constant {
+  static constexpr auto value = T::constant;
+};
 template <class T>
 struct is_constexpr;
 template <class T>

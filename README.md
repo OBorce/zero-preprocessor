@@ -76,7 +76,8 @@ Updated every week
 - [x] reflect::get_base_classes
 - [ ] reflect::get_accessible_[data_members, base_classes] based on context
 - [ ] reflect::is_final & reflect::is_virtual
-- [ ] enum operations
+- [x] enum operations
+- [x] reflect::get_constant for enumerator values
 - [ ] reflexpr() for variables and namespaces
 - [ ] reflect::is_inline for namespaces
 
@@ -99,7 +100,9 @@ Updated every week
 - [x] if constexpr
 - [x] namespaces
 - [ ] C++17 namespaces n1::n2
-- [ ] enum/union
+- [x] enum
+- [ ] union
+- [ ] constexpr functions
 - [ ] lambdas
 - [ ] C++17 structured binding declaration
 - [ ] C++14 functions with -> return type
