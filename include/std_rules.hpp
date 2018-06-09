@@ -42,6 +42,14 @@ static struct enum_class_ : x3::symbols<ast::EnumType> {
   enum_class_() { add("class", ast::EnumType::ENUM_CLASS); }
 } enum_class;
 
+static struct type_qualifier_ : x3::symbols<ast::TypeQualifier> {
+  type_qualifier_() {
+    add("constexpr", ast::TypeQualifier::CONSTEXPR)(
+        "const", ast::TypeQualifier::CONST)("&&", ast::TypeQualifier::R_REF)(
+        "&", ast::TypeQualifier::L_REF)("*", ast::TypeQualifier::POINTER);
+  }
+} type_qualifier;
+
 x3::rule<class some_space> const some_space = "some_space";
 auto const some_space_def = +(eol | ' ' | '\t');
 
@@ -147,7 +155,12 @@ auto const char_literal_def = lit('\'') >> (char_ - '\'') >> '\'';
 x3::rule<class type_, ast::Type_> const type_ = "type_";
 auto const type__def = name >> *(lit("::") >> name);
 
-x3::rule<class var_type, ast::Type> const var_type = "var_type";
+x3::rule<class type_qualifiers, std::vector<ast::TypeQualifier>> const
+    type_qualifiers = "type_qualifiers";
+// NOTE: !name is to not parse const from start of a name e.g. int const_name
+auto const type_qualifiers_def = type_qualifier % optionaly_space >> !name;
+
+x3::rule<class var_type, ast::UnqulifiedType> const var_type = "var_type";
 x3::rule<class type, ast::Type> const type = "type";
 x3::rule<class template_values, ast::TemplateTypes> const template_values =
     "template_values";
@@ -157,12 +170,8 @@ auto const var_type_def = (type_) >> -(optionaly_space >> template_values);
 auto const template_values_def = '<' >> optionaly_space >>
                                  ((type | digits) % arg_separator) >> '>';
 
-auto const type_def = -(lit("constexpr") >> some_space) >>
-                      -(lit("const") >> some_space) >> var_type >>
-                      -(-(some_space >> -lit("const")) >> optionaly_space >>
-                        ((lit('&') >> -(optionaly_space >> '&')) |
-                         +(optionaly_space >> lit('*') >>
-                           -(some_space >> lit("const")))));
+auto const type_def = -(type_qualifiers >> some_space) >> var_type >>
+                      -(optionaly_space >> type_qualifiers);
 
 x3::rule<class argument> const argument = "argument";
 x3::rule<class optionaly_arguments> const optionaly_arguments =
@@ -176,7 +185,7 @@ x3::rule<class init_list> const init_list = "init_list";
 x3::rule<class arg_init_list> const arg_init_list = "arg_init_list";
 
 // TODO: type here denotes a variable name
-// change it to variable_type that also covers ::var and templated variables
+// change it to variable_type that also covers ::var
 auto const argument_def = arg_init_list | function_call |
                           (-(prefix_operator >> optionaly_space) >> var_type >>
                            -(optionaly_space >> sufix_operator)) |
@@ -284,6 +293,7 @@ auto const method_signiture_def = -(template_parameters >> optionaly_space) >>
                                   -(some_space >> (lit("&&") | '&')) >>
                                   -(some_space >> lit("override"));
 
+// TODO: const operators and &&
 x3::rule<class operator_signiture, ast::operator_signiture> const
     operator_signiture = "operator_signiture";
 auto const operator_signiture_def =
@@ -320,7 +330,7 @@ x3::rule<class enumeration, ast::enum_> const enumeration = "enumeration";
 auto const enumeration_def = lit("enum") >>
                              -(optionaly_space >> enum_class) >> some_space
                              >> name >> -(optionaly_space >> ':' >>
-                                          optionaly_space >> var_type);
+                                          optionaly_space >> type_);
 
 x3::rule<class enumerators, std::vector<std::string>> const enumerators =
     "enumerators";
@@ -330,13 +340,13 @@ BOOST_SPIRIT_DEFINE(
     some_space, optionaly_space, include, skip_line, comment, arg_separator,
     class_access_modifier, prefix_operator, sufix_operator, binary_operator,
     all_overloadable_operators, operator_sep, call_operator, scope_begin,
-    scope_end, namespace_begin, statement_end, name, type_, type, var_type,
-    template_values, digits, integral, floating, number, string_literal,
-    char_literal, argument, optionaly_arguments, function_call, expression,
-    paren_expression, optionaly_paren_expression, init_list, arg_init_list,
-    optionaly_params, statement, return_statement, param, optional_param,
-    param_optionaly_default, var, constructor_init, for_loop, if_expression,
-    template_parameter, template_parameters, function_signiture,
+    scope_end, namespace_begin, statement_end, name, type_, type_qualifiers,
+    type, var_type, template_values, digits, integral, floating, number,
+    string_literal, char_literal, argument, optionaly_arguments, function_call,
+    expression, paren_expression, optionaly_paren_expression, init_list,
+    arg_init_list, optionaly_params, statement, return_statement, param,
+    optional_param, param_optionaly_default, var, constructor_init, for_loop,
+    if_expression, template_parameter, template_parameters, function_signiture,
     method_signiture, operator_signiture, constructor, class_inheritance,
     class_inheritances, class_or_struct, enumeration, enumerators);
 }  // namespace std_parser::rules

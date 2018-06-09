@@ -6,10 +6,12 @@
 #include <iterator>
 
 #include <std_ast.hpp>
+#include <std_helpers.hpp>
 
 #include <meta_classes_rules.hpp>
 #include <meta_process.hpp>
 
+namespace helper = std_parser::rules::ast;
 namespace meta_classes {
 // TODO: replace with a range when we have them
 template <class Iter>
@@ -114,7 +116,7 @@ int main(int argc, char* argv[]) {
 
 template <typename Writer>
 void write_type(std_parser::rules::ast::Type const& type, Writer& writer) {
-  writer << type.to_string() << '\n';
+  writer << helper::to_string(type) << '\n';
 }
 
 using AccessModifier = std_parser::rules::ast::access_modifier;

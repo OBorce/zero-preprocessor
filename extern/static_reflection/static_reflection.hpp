@@ -7,6 +7,7 @@
 
 #include <result.hpp>
 #include <std_ast.hpp>
+#include <std_helpers.hpp>
 
 namespace static_reflection {
 namespace rules {
@@ -24,6 +25,8 @@ auto const scope_end_def = optionaly_space >> '}' >> optionaly_space >>
 
 BOOST_SPIRIT_DEFINE(optionaly_space, scope_end);
 }  // namespace rules
+
+namespace helper = std_parser::rules::ast;
 
 template <class Parent>
 class StaticReflexParser {
@@ -162,7 +165,7 @@ class StaticReflexParser {
 
     out += "using public_base_classes = std::tuple<";
     for (auto& type : c.public_bases) {
-      out += type.to_string();
+      out += helper::to_string(type);
       out += ',';
     }
 
@@ -177,7 +180,7 @@ class StaticReflexParser {
                         c.private_bases.end());
     out += "using base_classes = std::tuple<";
     for (auto& type : base_classes) {
-      out += type.to_string();
+      out += helper::to_string(type);
       out += ',';
     }
 
@@ -252,7 +255,14 @@ class StaticReflexParser {
     out += c.is_scoped() ? "true;\n" : "false;\n";
 
     out += "using underlying_type = ";
-    out += c.as.to_string();
+    for (auto& t : c.as) {
+      out += t;
+      out += "::";
+    }
+    if (!c.as.empty()) {
+      out.pop_back();
+      out.pop_back();
+    }
     out += ';';
     out += '\n';
 

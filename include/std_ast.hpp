@@ -17,35 +17,31 @@ struct TemplateTypes {
   std::vector<Type> template_types;
 };
 
-struct Type {
+struct UnqulifiedType {
   Type_ name;
   TemplateTypes template_types;
 
-  Type() {}
-  Type(std::string&& s) : name{std::move(s)} {}
-  Type(const char* s) : name{s} {}
+  UnqulifiedType() = default;
 
-  std::string to_string() const {
-    std::string type_out;
-    type_out.reserve(30);
-    for (auto& t : name) {
-      type_out += t;
-      type_out += "::";
-    }
-    type_out.pop_back();
-    type_out.pop_back();
+  // NOTE: used for the constructors as the name is used as return type
+  // maybe it should be used as a name of the function?
+  UnqulifiedType(std::string&& s) : name{std::move(s)} {}
+  UnqulifiedType(const char* s) : name{s} {}
+};
 
-    auto& templates = template_types.template_types;
-    if (!templates.empty()) {
-      type_out += '<';
-      for (auto& type : templates) {
-        type_out += type.to_string();
-      }
-      type_out += '>';
-    }
+enum class TypeQualifier { CONST, CONSTEXPR, L_REF, R_REF, POINTER };
 
-    return type_out;
-  }
+struct Type {
+  std::vector<TypeQualifier> left_qualifiers;
+  UnqulifiedType type;
+  std::vector<TypeQualifier> right_qualifiers;
+
+  Type() = default;
+
+  // NOTE: used for the constructors as the name is used as return type
+  // maybe it should be used as a name of the function?
+  Type(std::string&& s) : type{std::move(s)} {}
+  Type(const char* s) : type{s} {}
 };
 
 struct var {
@@ -107,7 +103,7 @@ enum class access_modifier { PUBLIC, PROTECTED, PRIVATE, UNSPECIFIED };
 
 struct class_inheritance {
   access_modifier modifier = access_modifier::PUBLIC;
-  Type type;
+  UnqulifiedType type;
 };
 
 struct class_bases {
@@ -126,13 +122,13 @@ enum class EnumType { ENUM, ENUM_CLASS };
 struct enum_ {
   EnumType type = EnumType::ENUM;
   std::string name;
-  Type as{"int"};
+  Type_ as{"int"};
 };
 
 struct Enumeration {
   EnumType type = EnumType::ENUM;
   std::string name;
-  Type as;
+  Type_ as;
   std::vector<std::string> enumerators;
 
   Enumeration(enum_&& e)
@@ -190,9 +186,9 @@ struct Class {
   TemplateParameters template_parameters;
   access_modifier state;
 
-  std::vector<Type> public_bases;
-  std::vector<Type> protected_bases;
-  std::vector<Type> private_bases;
+  std::vector<UnqulifiedType> public_bases;
+  std::vector<UnqulifiedType> protected_bases;
+  std::vector<UnqulifiedType> private_bases;
 
   std::map<std::string, Class> classes;
   std::map<std::string, Enumeration> enums;
@@ -360,7 +356,10 @@ class Namespace {
 }  // namespace std_parser::rules::ast
 
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::TemplateTypes, template_types)
-BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::Type, name, template_types)
+BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::UnqulifiedType, name,
+                          template_types)
+BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::Type, left_qualifiers, type,
+                          right_qualifiers)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::var, type, name)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::params, parameters)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::TemplateParameter, type, name)
