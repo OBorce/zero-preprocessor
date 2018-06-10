@@ -1,6 +1,7 @@
 #ifndef STD_HELPERS_HPP
 #define STD_HELPERS_HPP
 
+#include <ostream>
 #include <string>
 
 #include <std_ast.hpp>
@@ -16,8 +17,10 @@ std::string to_string(UnqulifiedType const& x) {
     type_out += t;
     type_out += "::";
   }
-  type_out.pop_back();
-  type_out.pop_back();
+  if (!x.name.empty()) {
+    type_out.pop_back();
+    type_out.pop_back();
+  }
 
   auto& templates = x.template_types.template_types;
   if (!templates.empty()) {
@@ -38,6 +41,25 @@ std::string to_string(Type const& x) {
   type_out += to_string(x.type);
 
   return type_out;
+}
+
+template <class T>
+void serialize(T& out, Type const& x) {
+  out << x.left_qualifiers.size() << '\n';
+  for (auto q : x.left_qualifiers) {
+    out << static_cast<int>(q) << '\n';
+  }
+
+  auto t = to_string(x.type);
+  out << t.empty() << '\n';
+  if (!t.empty()) {
+    out << t << '\n';
+  }
+
+  out << x.right_qualifiers.size() << '\n';
+  for (auto q : x.right_qualifiers) {
+    out << static_cast<int>(q) << '\n';
+  }
 }
 
 }  // namespace std_parser::rules::ast

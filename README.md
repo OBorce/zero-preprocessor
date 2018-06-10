@@ -54,6 +54,7 @@ Updated every week
 - [x] get class variables
 - [x] compiler.require
 - [x] method access modifier status e.g. is_public()
+- [x] constructors is_copy() is_move()
 - [ ] constructors/destructors status
 - [x] compiler.error
 - [ ] compiler.require/error with f to display source location

@@ -1,6 +1,7 @@
 #ifndef META_H
 #define META_H
 
+#include <cstddef>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -30,13 +31,53 @@ namespace meta {
 
 enum class Access { PUBLIC, PROTECTED, PRIVATE, UNSPECIFIED };
 
-struct Param {
+enum class TypeQualifier { CONST, CONSTEXPR, L_REF, R_REF, POINTER };
+
+std::string to_string(TypeQualifier q) {
+  switch (q) {
+    case TypeQualifier::CONST:
+      return "const";
+    case TypeQualifier::CONSTEXPR:
+      return "constexpr";
+    case TypeQualifier::L_REF:
+      return "&";
+    case TypeQualifier::R_REF:
+      return "&&";
+    case TypeQualifier::POINTER:
+      return "*";
+  }
+
+  return "";
+}
+
+struct CppType {
+  std::vector<TypeQualifier> left_qualifiers;
   std::string type;
+  std::vector<TypeQualifier> right_qualifiers;
+
+  std::string to_string() {
+    std::string out;
+    out.reserve(50);
+    for (auto q : left_qualifiers) {
+      out += meta::to_string(q);
+      out += ' ';
+    }
+    out += type;
+    for (auto q : right_qualifiers) {
+      out += ' ';
+      out += meta::to_string(q);
+    }
+    return out;
+  }
+};
+
+struct Param {
+  CppType type;
   std::string name;
 };
 
 struct Var {
-  std::string type;
+  CppType type;
   std::string name;
   Access access = Access::UNSPECIFIED;
 
@@ -56,7 +97,7 @@ struct Var {
 };
 
 struct Function {
-  std::string return_type;
+  CppType return_type;
   std::string name;
   std::vector<Param> parameters;
   Access access = Access::UNSPECIFIED;
@@ -65,13 +106,48 @@ struct Function {
   std::string body = "";
 
   bool is_copy() {
-    // TODO
-    return false;
+    if (parameters.size() != 1) {
+      return false;
+    }
+
+    auto& param = parameters.back().type;
+    auto qualifiers = param.left_qualifiers;
+    qualifiers.insert(qualifiers.end(), param.right_qualifiers.begin(),
+                      param.right_qualifiers.end());
+    if (qualifiers.size() != 2) {
+      return false;
+    }
+
+    if (qualifiers.front() != TypeQualifier::CONST) {
+      return false;
+    }
+
+    if (qualifiers.back() != TypeQualifier::L_REF) {
+      return false;
+    }
+
+    return name == param.type;
   }
 
   bool is_move() {
-    // TODO:
-    return false;
+    if (parameters.size() != 1) {
+      return false;
+    }
+
+    auto& param = parameters.back().type;
+    if (!param.left_qualifiers.empty()) {
+      return false;
+    }
+
+    if (param.right_qualifiers.size() != 1) {
+      return false;
+    }
+
+    if (param.right_qualifiers.front() != TypeQualifier::R_REF) {
+      return false;
+    }
+
+    return name == param.type;
   }
 
   bool has_access() { return access != Access::UNSPECIFIED; }
@@ -99,12 +175,12 @@ struct Function {
     if (is_virtual) {
       s += "virtual ";
     }
-    s += return_type;
+    s += return_type.to_string();
     s += ' ';
     s += name;
     s += '(';
     for (auto& p : parameters) {
-      s += p.type;
+      s += p.type.to_string();
       s += ' ';
       s += p.name;
       s += ',';
@@ -173,19 +249,46 @@ class type {
   }
 };
 
-Param read_parameter() {
+CppType read_cpp_type() {
+  std::size_t n;
+  std::cin >> n;
+  std::vector<TypeQualifier> left_qualifiers;
+  while (n-- > 0) {
+    int q;
+    std::cin >> q;
+    left_qualifiers.push_back(static_cast<TypeQualifier>(q));
+  }
+
+  bool empty;
+  std::cin >> empty;
   std::string type;
+  if (!empty) {
+    std::cin >> type;
+  }
+
+  std::cin >> n;
+  std::vector<TypeQualifier> right_qualifiers;
+  while (n-- > 0) {
+    int q;
+    std::cin >> q;
+    right_qualifiers.push_back(static_cast<TypeQualifier>(q));
+  }
+
+  return {std::move(left_qualifiers), std::move(type),
+          std::move(right_qualifiers)};
+}
+
+Param read_parameter() {
   std::string name;
-  std::cin >> type;
+  auto type = read_cpp_type();
   std::cin >> name;
 
   return {std::move(type), std::move(name)};
 }
 
 Var read_var() {
-  std::string type;
   std::string name;
-  std::cin >> type;
+  auto type = read_cpp_type();
   int a;
   std::cin >> a;
   Access acc = static_cast<Access>(a);
@@ -195,16 +298,14 @@ Var read_var() {
 }
 
 Function read_function() {
-  std::string return_type;
-
-  std::cin >> return_type;
+  auto return_type = read_cpp_type();
   int a;
   std::cin >> a;
   Access acc = static_cast<Access>(a);
 
   std::string name;
   std::cin >> name;
-  int num_params;
+  std::size_t num_params;
   std::cin >> num_params;
   std::vector<Param> params;
   params.reserve(num_params);
@@ -218,7 +319,7 @@ Function read_function() {
 type read_type() {
   std::string class_name;
   std::cin >> class_name;
-  int num_methods, num_variables;
+  std::size_t num_methods, num_variables;
 
   std::cin >> num_methods;
   std::vector<Function> methods;

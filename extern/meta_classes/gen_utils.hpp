@@ -116,7 +116,7 @@ int main(int argc, char* argv[]) {
 
 template <typename Writer>
 void write_type(std_parser::rules::ast::Type const& type, Writer& writer) {
-  writer << helper::to_string(type) << '\n';
+  helper::serialize(writer, type);
 }
 
 using AccessModifier = std_parser::rules::ast::access_modifier;

@@ -20,13 +20,6 @@ struct TemplateTypes {
 struct UnqulifiedType {
   Type_ name;
   TemplateTypes template_types;
-
-  UnqulifiedType() = default;
-
-  // NOTE: used for the constructors as the name is used as return type
-  // maybe it should be used as a name of the function?
-  UnqulifiedType(std::string&& s) : name{std::move(s)} {}
-  UnqulifiedType(const char* s) : name{s} {}
 };
 
 enum class TypeQualifier { CONST, CONSTEXPR, L_REF, R_REF, POINTER };
@@ -35,13 +28,6 @@ struct Type {
   std::vector<TypeQualifier> left_qualifiers;
   UnqulifiedType type;
   std::vector<TypeQualifier> right_qualifiers;
-
-  Type() = default;
-
-  // NOTE: used for the constructors as the name is used as return type
-  // maybe it should be used as a name of the function?
-  Type(std::string&& s) : type{std::move(s)} {}
-  Type(const char* s) : type{s} {}
 };
 
 struct var {
@@ -166,8 +152,8 @@ struct Function {
       : template_parameters{std::move(fun.template_parameters)},
         virtual_status{fun.virtual_status},
         type{fun.type},
-        return_type{std::move(fun.name)},
-        name{},
+        return_type{},
+        name{std::move(fun.name)},
         parameters{std::move(fun.parameters)} {}
 
   Function(operator_signiture&& fun)
@@ -382,4 +368,4 @@ BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::enum_, type, name, as)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::class_or_struct,
                           template_parameters, type, name, bases)
 
-#endif  //! STD_AST_H
+#endif  // STD_AST_H

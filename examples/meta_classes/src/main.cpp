@@ -19,6 +19,8 @@ constexpr void interface(meta::type target, const meta::type source) {
 
 interface shape {
   int get_area();
+  
+  int some_formula(int const x);
 };
 
 struct square : shape {
@@ -27,6 +29,8 @@ struct square : shape {
   square(int a): a{a} {}
 
   int get_area() override { return a * a; }
+
+  int some_formula(int const x) override { return x * x - a * a; }
 };
 
 int main() {
