@@ -48,17 +48,19 @@ Updated every week
 - [x] Parsing of meta classes in code
 - [x] generator -> in constexpr function
 - [x] get class functions
-- [x] -> variable$ in {}
+- [x] -> variable.method()$ in {}
+- [ ] -> (variable)$ in {}
 - [x] multiple files
 - [x] -> with target function
 - [x] get class variables
 - [x] compiler.require
 - [x] method access modifier status e.g. is_public()
 - [x] constructors is_copy() is_move()
-- [ ] constructors/destructors status
+- [x] constructors/destructors status
 - [x] compiler.error
 - [ ] compiler.require/error with f to display source location
 - [ ] method const and && not propagated
+- [ ] class and method templates
 - [ ] __metaclass_finalization
 
 

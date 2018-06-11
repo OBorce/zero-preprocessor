@@ -124,10 +124,13 @@ template <typename Writer>
 void write_methods(std::vector<std_parser::rules::ast::Function> const& methods,
                    AccessModifier modifier, Writer& writer) {
   for (auto& m : methods) {
-    auto& type = m.return_type;
-    write_type(type, writer);
+    write_type(m.return_type, writer);
 
-    writer << static_cast<int>(modifier);
+    writer << static_cast<int>(m.virtual_status) << '\n';
+
+    writer << static_cast<int>(m.constructor_type) << '\n';
+
+    writer << static_cast<int>(modifier) << '\n';
 
     writer << m.name << '\n';
 

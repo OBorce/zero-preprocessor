@@ -130,7 +130,7 @@ struct Enumeration {
 struct Function {
   TemplateParameters template_parameters;
   Virtual virtual_status = Virtual::NO;
-  Constructor type = Constructor::NOTHING;
+  Constructor constructor_type = Constructor::NOTHING;
   Type return_type;
   std::string name;
   params parameters;
@@ -151,7 +151,7 @@ struct Function {
   Function(constructor&& fun)
       : template_parameters{std::move(fun.template_parameters)},
         virtual_status{fun.virtual_status},
-        type{fun.type},
+        constructor_type{fun.type},
         return_type{},
         name{std::move(fun.name)},
         parameters{std::move(fun.parameters)} {}

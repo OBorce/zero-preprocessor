@@ -96,16 +96,25 @@ struct Var {
   void make_protected() { access = Access::PROTECTED; }
 };
 
+enum class Virtual { YES, NO };
+
+enum class Constructor { CONSTRUCTOR, DESTRUCTOR, NOTHING };
+
 struct Function {
   CppType return_type;
+  Virtual virtual_status;
+  Constructor constructor_type;
   std::string name;
   std::vector<Param> parameters;
   Access access = Access::UNSPECIFIED;
 
-  bool is_virtual = false;
   std::string body = "";
 
   bool is_copy() {
+    if (constructor_type != Constructor::CONSTRUCTOR) {
+      return false;
+    }
+
     if (parameters.size() != 1) {
       return false;
     }
@@ -130,6 +139,10 @@ struct Function {
   }
 
   bool is_move() {
+    if (constructor_type != Constructor::CONSTRUCTOR) {
+      return false;
+    }
+
     if (parameters.size() != 1) {
       return false;
     }
@@ -165,14 +178,14 @@ struct Function {
   bool is_private() { return access == Access::PRIVATE; }
 
   void make_pure_virtual() {
-    is_virtual = true;
+    virtual_status = Virtual::YES;
     body = " = 0;\n";
   }
 
   std::string get() {
     std::string s;
     s.reserve(100);
-    if (is_virtual) {
+    if (virtual_status == Virtual::YES) {
       s += "virtual ";
     }
     s += return_type.to_string();
@@ -301,6 +314,10 @@ Function read_function() {
   auto return_type = read_cpp_type();
   int a;
   std::cin >> a;
+  Virtual virtual_status = static_cast<Virtual>(a);
+  std::cin >> a;
+  Constructor constructor_type = static_cast<Constructor>(a);
+  std::cin >> a;
   Access acc = static_cast<Access>(a);
 
   std::string name;
@@ -313,7 +330,8 @@ Function read_function() {
     params.emplace_back(read_parameter());
   }
 
-  return {std::move(return_type), std::move(name), std::move(params), acc};
+  return {std::move(return_type), virtual_status,    constructor_type,
+          std::move(name),        std::move(params), acc};
 }
 
 type read_type() {
