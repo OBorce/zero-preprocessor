@@ -59,9 +59,10 @@ Updated every week
 - [x] constructors/destructors status
 - [x] compiler.error
 - [ ] compiler.require/error with f to display source location
-- [ ] method const and && not propagated
+- [x] propagate method's const and && qualifiers
 - [ ] class and method templates
 - [ ] __metaclass_finalization
+- [ ] AS & IS
 
 
 #### Static Reflection

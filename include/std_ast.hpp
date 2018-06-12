@@ -24,6 +24,8 @@ struct UnqulifiedType {
 
 enum class TypeQualifier { CONST, CONSTEXPR, L_REF, R_REF, POINTER };
 
+enum class MethodQualifier { NONE, L_REF, R_REF };
+
 struct Type {
   std::vector<TypeQualifier> left_qualifiers;
   UnqulifiedType type;
@@ -67,17 +69,20 @@ enum class Virtual { YES, NO };
 
 struct method_signiture {
   TemplateParameters template_parameters;
-  Virtual virtual_status = Virtual::NO;
+  bool is_virtual;
   Type return_type;
   std::string name;
   params parameters;
+  bool is_const;
+  MethodQualifier qualifier = MethodQualifier::NONE;
+  bool is_override;
 };
 
 enum class Constructor { CONSTRUCTOR, DESTRUCTOR, NOTHING };
 
 struct constructor {
   TemplateParameters template_parameters;
-  Virtual virtual_status = Virtual::NO;
+  bool is_virtual;
   Constructor type = Constructor::CONSTRUCTOR;
   std::string name;
   params parameters;
@@ -129,11 +134,14 @@ struct Enumeration {
 
 struct Function {
   TemplateParameters template_parameters;
-  Virtual virtual_status = Virtual::NO;
+  bool is_virtual = false;
   Constructor constructor_type = Constructor::NOTHING;
   Type return_type;
   std::string name;
   params parameters;
+  bool is_const = false;
+  MethodQualifier qualifier = MethodQualifier::NONE;
+  bool is_override = false;
 
   Function(function_signiture&& fun)
       : template_parameters{std::move(fun.template_parameters)},
@@ -143,14 +151,17 @@ struct Function {
 
   Function(method_signiture&& fun)
       : template_parameters{std::move(fun.template_parameters)},
-        virtual_status{fun.virtual_status},
+        is_virtual{fun.is_virtual},
         return_type{std::move(fun.return_type)},
         name{std::move(fun.name)},
-        parameters{std::move(fun.parameters)} {}
+        parameters{std::move(fun.parameters)},
+        is_const{fun.is_const},
+        qualifier{fun.qualifier},
+        is_override{fun.is_override} {}
 
   Function(constructor&& fun)
       : template_parameters{std::move(fun.template_parameters)},
-        virtual_status{fun.virtual_status},
+        is_virtual{fun.is_virtual},
         constructor_type{fun.type},
         return_type{},
         name{std::move(fun.name)},
@@ -162,8 +173,6 @@ struct Function {
         // TODO: need operator name
         name{"op"},
         parameters{std::move(fun.parameters)} {}
-
-  bool is_virtual() { return virtual_status == Virtual::YES; }
 };
 
 struct Class {
@@ -354,12 +363,12 @@ BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::TemplateParameters,
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::function_signiture,
                           template_parameters, return_type, name, parameters)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::method_signiture,
-                          template_parameters, virtual_status, return_type,
-                          name, parameters)
+                          template_parameters, is_virtual, return_type, name,
+                          parameters, is_const, qualifier, is_override)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::operator_signiture,
                           template_parameters, return_type, parameters)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::constructor,
-                          template_parameters, virtual_status, type, name,
+                          template_parameters, is_virtual, type, name,
                           parameters)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::class_inheritance, modifier,
                           type)

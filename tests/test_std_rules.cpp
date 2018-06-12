@@ -203,6 +203,7 @@ TEST_CASE("Parse valid method_signitures", "[method_signiture]") {
       "int a()"s,
       "std::string s(int i)"s,
       "void s(const int i)"s,
+      "void s(const int i) &"s,
       "void const_method(const int i) const"s,
       "void const_method_Rref(const int i) const &&"s,
       "std::string no_name_params(int, float f, double)"s,

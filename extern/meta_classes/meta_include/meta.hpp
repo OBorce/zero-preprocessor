@@ -96,16 +96,18 @@ struct Var {
   void make_protected() { access = Access::PROTECTED; }
 };
 
-enum class Virtual { YES, NO };
-
 enum class Constructor { CONSTRUCTOR, DESTRUCTOR, NOTHING };
+enum class MethodQualifier { NONE, L_REF, R_REF };
 
 struct Function {
   CppType return_type;
-  Virtual virtual_status;
+  bool is_virtual;
   Constructor constructor_type;
   std::string name;
   std::vector<Param> parameters;
+  bool is_const;
+  MethodQualifier qualifier;
+  bool is_override;
   Access access = Access::UNSPECIFIED;
 
   std::string body = "";
@@ -178,14 +180,14 @@ struct Function {
   bool is_private() { return access == Access::PRIVATE; }
 
   void make_pure_virtual() {
-    virtual_status = Virtual::YES;
+    is_virtual = true;
     body = " = 0;\n";
   }
 
   std::string get() {
     std::string s;
     s.reserve(100);
-    if (virtual_status == Virtual::YES) {
+    if (is_virtual) {
       s += "virtual ";
     }
     s += return_type.to_string();
@@ -202,6 +204,23 @@ struct Function {
       s.pop_back();
     }
     s += ")";
+    if (is_const) {
+      s += " const";
+    }
+    switch (qualifier) {
+      case MethodQualifier::L_REF:
+        s += " &";
+        break;
+      case MethodQualifier::R_REF:
+        s += " &&";
+        break;
+      default:
+        break;
+    }
+
+    if (is_override) {
+      s += " override";
+    }
     s += body;
     if (body.empty()) {
       s += ';';
@@ -312,9 +331,9 @@ Var read_var() {
 
 Function read_function() {
   auto return_type = read_cpp_type();
+  bool is_virtual;
+  std::cin >> is_virtual;
   int a;
-  std::cin >> a;
-  Virtual virtual_status = static_cast<Virtual>(a);
   std::cin >> a;
   Constructor constructor_type = static_cast<Constructor>(a);
   std::cin >> a;
@@ -329,9 +348,24 @@ Function read_function() {
   while (num_params-- > 0) {
     params.emplace_back(read_parameter());
   }
+  bool is_const;
+  std::cin >> is_const;
 
-  return {std::move(return_type), virtual_status,    constructor_type,
-          std::move(name),        std::move(params), acc};
+  std::cin >> a;
+  MethodQualifier qualifier = static_cast<MethodQualifier>(a);
+
+  bool is_override;
+  std::cin >> is_override;
+
+  return {std::move(return_type),
+          is_virtual,
+          constructor_type,
+          std::move(name),
+          std::move(params),
+          is_const,
+          qualifier,
+          is_override,
+          acc};
 }
 
 type read_type() {

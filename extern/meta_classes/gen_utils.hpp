@@ -126,7 +126,7 @@ void write_methods(std::vector<std_parser::rules::ast::Function> const& methods,
   for (auto& m : methods) {
     write_type(m.return_type, writer);
 
-    writer << static_cast<int>(m.virtual_status) << '\n';
+    writer << m.is_virtual << '\n';
 
     writer << static_cast<int>(m.constructor_type) << '\n';
 
@@ -141,6 +141,12 @@ void write_methods(std::vector<std_parser::rules::ast::Function> const& methods,
       write_type(p.type, writer);
       writer << p.name << '\n';
     }
+
+    writer << m.is_const << '\n';
+
+    writer << static_cast<int>(m.qualifier) << '\n';
+
+    writer << m.is_override << '\n';
   }
 }
 

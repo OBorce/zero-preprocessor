@@ -50,6 +50,16 @@ static struct type_qualifier_ : x3::symbols<ast::TypeQualifier> {
   }
 } type_qualifier;
 
+static struct method_qualifier_ : x3::symbols<ast::MethodQualifier> {
+  method_qualifier_() {
+    add("&&", ast::MethodQualifier::R_REF)("&", ast::MethodQualifier::L_REF);
+  }
+} method_qualifier;
+
+static auto bool_attr = [](auto p) {
+  return (x3::omit[p] >> x3::attr(true)) | x3::attr(false);
+};
+
 x3::rule<class some_space> const some_space = "some_space";
 auto const some_space_def = +(eol | ' ' | '\t');
 
@@ -280,18 +290,16 @@ auto const function_signiture_def =
     -(template_parameters >> optionaly_space) >> type >> some_space >> name >>
     optionaly_space >> '(' >> optionaly_space >> optionaly_params >> ')';
 
-// TODO: make ast for method signiture to capture const and && info
 x3::rule<class method_signiture, ast::method_signiture> const method_signiture =
     "method_signiture";
 // TODO: this allows for both template and virtual, but the real compiler will
 // handle it
-auto const method_signiture_def = -(template_parameters >> optionaly_space) >>
-                                  -(is_virtual >> some_space) >> type
-                                  >> some_space >> name >> optionaly_space >>
-                                  '(' >> optionaly_space >> optionaly_params >>
-                                  ')' >> -(some_space >> lit("const")) >>
-                                  -(some_space >> (lit("&&") | '&')) >>
-                                  -(some_space >> lit("override"));
+auto const method_signiture_def =
+    -(template_parameters >> optionaly_space) >>
+    bool_attr(lit("virtual") >> some_space) >> type >> some_space >> name
+    >> optionaly_space >> '(' >> optionaly_space >> optionaly_params >>
+    ')' >> optionaly_space >> bool_attr(lit("const")) >> optionaly_space >>
+    -(method_qualifier >> optionaly_space) >> bool_attr(lit("override"));
 
 // TODO: const operators and &&
 x3::rule<class operator_signiture, ast::operator_signiture> const
@@ -303,7 +311,7 @@ auto const operator_signiture_def =
 
 x3::rule<class constructor, ast::constructor> const constructor = "constructor";
 auto const constructor_def = -(template_parameters >> optionaly_space) >>
-                             -(is_virtual >> some_space) >>
+                             bool_attr(lit("virtual") >> some_space) >>
                              -(is_constructor >> optionaly_space) >> name
                              >> optionaly_space >> '(' >> optionaly_space
                              >> optionaly_params >> ')' >>
