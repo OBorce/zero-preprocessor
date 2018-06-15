@@ -165,7 +165,8 @@ class StdParser {
     bool parsed = x3::parse(
         begin, end,
         // rules begin
-        rules::optionaly_space >> (rules::enumerators[en] | rules::scope_end[se] | rules::comment)
+        rules::optionaly_space >>
+            (rules::enumerators[en] | rules::scope_end[se] | rules::comment)
         // rules end
     );
 
@@ -331,6 +332,11 @@ class StdParser {
     nestings.emplace_back(std::move(arg));
   }
 
+  /**
+   * Return a constant view of all the nestings
+   */
+  auto const& get_all_nestings() { return nestings; }
+
   void close_current_class() {
     auto& c = std::get<rules::ast::Class>(nestings.back());
     if (nestings.size() < 2) {
@@ -376,16 +382,49 @@ class StdParser {
     auto begin = source.begin();
     auto end = source.end();
 
+    rules::ast::Function f;
     namespace x3 = boost::spirit::x3;
     bool parsed = x3::parse(begin, end,
                             // rules begin
-                            rules::function_signiture >> rules::scope_begin
+                            rules::function_signiture >> rules::scope_begin,
                             // rules end
-    );
+                            f);
 
-    return parsed ? std::optional{Result{
-                        begin, make_string_view(source.begin(), begin)}}
+    return parsed ? std::optional{ResultT{begin, std::move(f)}} : std::nullopt;
+  }
+
+  template <class Iter, class Id, class T, template <class, class> class Rule>
+  auto try_parse_T(Iter begin, Iter end, Rule<Id, T> rule) {
+    T tmp;
+    namespace x3 = boost::spirit::x3;
+    bool parsed = x3::parse(begin, end,
+                            // rules begin
+                            rules::optionaly_space >> rule,
+                            // rules end
+                            tmp);
+
+    return parsed ? std::optional{ResultT{begin, std::move(tmp)}}
                   : std::nullopt;
+  }
+
+  template <class Iter>
+  auto try_parse_templates_params(Iter begin, Iter end) {
+    return try_parse_T(begin, end, rules::template_parameters);
+  }
+
+  template <class Iter>
+  auto try_parse_name(Iter begin, Iter end) {
+    return try_parse_T(begin, end, rules::name);
+  }
+
+  template <class Iter>
+  auto try_parse_class_bases(Iter begin, Iter end) {
+    return try_parse_T(begin, end, rules::class_inheritances);
+  }
+
+  template <class Iter>
+  auto try_parse_scope_begin(Iter begin, Iter end) {
+    return try_parse_T(begin, end, rules::scope_begin);
   }
 
   template <class Source>

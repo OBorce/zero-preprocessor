@@ -66,9 +66,9 @@ class MetaClassParser {
     auto out = std_parser.parse_function(source);
 
     if (out) {
-      std::string res(source.begin(), (*out).processed_to);
+      auto res = (*out).result;
       // TODO: check for params to be meta::type
-      bool is_constexpr_function = res.find("constexpr") != std::string::npos;
+      bool is_constexpr_function = res.is_constexpr;
 
       return is_constexpr_function ? parse_meta_calss_function(source, writer)
                                    : std::nullopt;
@@ -79,28 +79,56 @@ class MetaClassParser {
 
   template <class Source>
   auto parse_meta_class(Source& source) {
+    bool is_parsed = false;
     auto begin = source.begin();
     auto end = source.end();
+    auto& std_parser = parent.template get_parser<Parent::std_parser_id>();
 
-    rules::ast::MetaClass m;
-    namespace x3 = boost::spirit::x3;
-    bool parsed = x3::parse(begin, end,
-                            // begin rules
-                            rules::meta_class,
-                            // end rules
-                            m);
+    auto tmpls = std_parser.try_parse_templates_params(begin, end);
+    begin = tmpls ? (*tmpls).processed_to : begin;
+    auto meta_name = std_parser.try_parse_name(begin, end);
 
-    bool is_known_meta_class = parsed && meta_classes.count(m.meta_class_name);
-    if (is_known_meta_class) {
-      auto& std_parser = parent.template get_parser<Parent::std_parser_id>();
-      current_meta_class = m.meta_class_name;
-      using Class = std_parser::rules::ast::Class;
-      // TODO: add class templates
-      std_parser.open_new_nesting(Class{std::move(m.name)});
+    bool is_known_meta_class =
+        meta_name && meta_classes.count((*meta_name).result);
+    // NOTE: while used just to use break instead of goto
+    while (is_known_meta_class) {
+      begin = (*meta_name).processed_to;
+
+      auto class_name = std_parser.try_parse_name(begin, end);
+      if (!class_name) {
+        break;
+      }
+      begin = (*class_name).processed_to;
+      auto class_bases = std_parser.try_parse_class_bases(begin, end);
+      if (class_bases) {
+        begin = (*class_bases).processed_to;
+      }
+
+      auto scope_begin = std_parser.try_parse_scope_begin(begin, end);
+      if (!scope_begin) {
+        break;
+      }
+      begin = (*scope_begin).processed_to;
+
+      using Class = std_parser::rules::ast::class_or_struct;
+      Class cls;
+      if (tmpls) {
+        cls.template_parameters = std::move((*tmpls).result);
+      }
+      cls.name = (*class_name).result;
+      cls.type = std_parser::rules::ast::class_type::META_CLASS;
+      if (class_bases) {
+        cls.bases = std::move((*class_bases).result);
+      }
+      std_parser.open_new_nesting(std::move(cls));
+      is_parsed = true;
+      current_meta_class = std::move((*meta_name).result);
+      current_meta_class_name = std::move((*class_name).result);
+      break;
     }
 
-    return is_known_meta_class ? std::optional{Result{begin, std::string{}}}
-                               : std::nullopt;
+    return is_parsed ? std::optional{Result{begin, std::string{}}}
+                     : std::nullopt;
   }
 
   template <class Source, class Writer>
@@ -177,6 +205,25 @@ class MetaClassParser {
     return out ? make_result(out) : parse_target(source, writer);
   }
 
+  /**
+   * Traverse the current nestings and try to find a class with our
+   * current_meta_class_name
+   */
+  bool is_still_inside_meta_class() {
+    auto& std_parser = parent.template get_parser<Parent::std_parser_id>();
+    auto& nestings = std_parser.get_all_nestings();
+
+    using Class = std_parser::rules::ast::Class;
+
+    return std::any_of(nestings.begin(), nestings.end(), [this](auto& nesting) {
+      if (!std::holds_alternative<Class>(nesting)) {
+        return false;
+      }
+      auto class_nesting = std::get<Class>(nesting);
+      return class_nesting.name == current_meta_class_name;
+    });
+  }
+
   template <class Source>
   auto parse_inside_meta_class(Source& source) {
     auto& std_parser = parent.template get_parser<Parent::std_parser_id>();
@@ -196,9 +243,9 @@ class MetaClassParser {
 
     auto out = std_parser.parse(source);
     if (out) {
-      auto& current_nesting = std_parser.get_current_nesting();
-      if (!std::holds_alternative<Class>(current_nesting)) {
+      if (!is_still_inside_meta_class()) {
         current_meta_class.clear();
+        current_meta_class_name.clear();
         return std::optional{Result{(*out).processed_to, output}};
       }
     }
@@ -212,6 +259,7 @@ class MetaClassParser {
   std::unordered_set<std::string> meta_classes;
   bool inside_meta_class_function = false;
   std::string current_meta_class;
+  std::string current_meta_class_name;
   std::ofstream out_file;
   source::SourceLoader source_loader;
   MetaProcess meta_process;

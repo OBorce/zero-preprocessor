@@ -101,7 +101,7 @@ enum class MethodQualifier { NONE, L_REF, R_REF };
 
 struct Function {
   CppType return_type;
-  bool is_virtual;
+  bool is_virtual_;
   Constructor constructor_type;
   std::string name;
   std::vector<Param> parameters;
@@ -111,6 +111,8 @@ struct Function {
   Access access = Access::UNSPECIFIED;
 
   std::string body = "";
+
+  bool is_destructor() { return constructor_type == Constructor::DESTRUCTOR; }
 
   bool is_copy() {
     if (constructor_type != Constructor::CONSTRUCTOR) {
@@ -165,6 +167,8 @@ struct Function {
     return name == param.type;
   }
 
+  bool is_virtual() { return is_virtual_; }
+
   bool has_access() { return access != Access::UNSPECIFIED; }
 
   void make_public() { access = Access::PUBLIC; }
@@ -180,14 +184,14 @@ struct Function {
   bool is_private() { return access == Access::PRIVATE; }
 
   void make_pure_virtual() {
-    is_virtual = true;
+    is_virtual_ = true;
     body = " = 0;\n";
   }
 
-  std::string get() {
+  std::string to_string() {
     std::string s;
     s.reserve(100);
-    if (is_virtual) {
+    if (is_virtual_) {
       s += "virtual ";
     }
     s += return_type.to_string();
@@ -231,13 +235,50 @@ struct Function {
   }
 };
 
+struct Base {
+  std::string name;
+  Access access = Access::UNSPECIFIED;
+
+  bool has_access() { return access != Access::UNSPECIFIED; }
+
+  void make_public() { access = Access::PUBLIC; }
+
+  std::string to_string() {
+    std::string out;
+    out.reserve(20);
+    switch (access) {
+      case Access::PUBLIC:
+        out += "public ";
+        break;
+      case Access::PROTECTED:
+        out += "protected ";
+        break;
+      case Access::PRIVATE:
+        out += "private ";
+        break;
+      case Access::UNSPECIFIED:
+        break;
+    }
+    out += name;
+
+    return out;
+  }
+};
+
 struct Type {
   std::vector<Function> methods;
+  std::vector<Base> bases;
   std::vector<Var> variables;
   std::string body;
 
-  Type(std::vector<Function>&& m, std::vector<Var>&& v)
-      : methods{std::move(m)}, variables{std::move(v)}, body{} {}
+  Type() = default;
+
+  Type(std::vector<Function>&& m, std::vector<Var>&& v,
+       std::vector<Base>&& bases)
+      : methods{std::move(m)},
+        bases{std::move(bases)},
+        variables{std::move(v)},
+        body{} {}
 };
 
 class type {
@@ -246,14 +287,19 @@ class type {
 
  public:
   type(std::string&& name, std::vector<Function>&& methods,
-       std::vector<Var>&& variables)
+       std::vector<Var>&& variables, std::vector<Base>&& bases)
       : class_name{std::move(name)},
-        internal{
-            std::make_shared<Type>(std::move(methods), std::move(variables))} {}
+        internal{std::make_shared<Type>(
+            std::move(methods), std::move(variables), std::move(bases))} {}
+
+  type(std::string name)
+      : class_name{std::move(name)}, internal{std::make_shared<Type>()} {}
 
   auto const& name() const { return class_name; }
 
   auto const& functions() const { return internal->methods; }
+
+  auto const& bases() const { return internal->bases; }
 
   auto const& variables() const { return internal->variables; }
 
@@ -263,17 +309,36 @@ class type {
   }
 
   auto& operator<<(Function& f) {
-    internal->body += f.get();
+    internal->methods.push_back(f);
+    return *this;
+  }
+
+  auto& operator<<(Base& b) {
+    internal->bases.push_back(b);
     return *this;
   }
 
   std::string get_representation() {
     std::string content;
-    // TODO: calculate size of string upfront
     content.reserve(100);
     content += "struct ";
     content += class_name;
+    if (!internal->bases.empty()) {
+      content += ':';
+      for (auto& b : internal->bases) {
+        content += b.to_string();
+        content += ',';
+      }
+      content.pop_back();
+    }
     content += " {\n";
+    if (!internal->methods.empty()) {
+      for (auto& f : internal->methods) {
+        content += f.to_string();
+        content += '\n';
+      }
+      content.pop_back();
+    }
     content += internal->body;
     content += "\n};";
 
@@ -368,10 +433,20 @@ Function read_function() {
           acc};
 }
 
+Base read_base() {
+  std::string name;
+  std::cin >> name;
+  int a;
+  std::cin >> a;
+  Access acc = static_cast<Access>(a);
+
+  return {name, acc};
+}
+
 type read_type() {
   std::string class_name;
   std::cin >> class_name;
-  std::size_t num_methods, num_variables;
+  std::size_t num_methods, num_variables, num_bases;
 
   std::cin >> num_methods;
   std::vector<Function> methods;
@@ -387,7 +462,15 @@ type read_type() {
     variables.emplace_back(read_var());
   }
 
-  return {std::move(class_name), std::move(methods), std::move(variables)};
+  std::cin >> num_bases;
+  std::vector<Base> bases;
+  bases.reserve(num_bases);
+  while (num_bases-- > 0) {
+    bases.emplace_back(read_base());
+  }
+
+  return {std::move(class_name), std::move(methods), std::move(variables),
+          std::move(bases)};
 }
 }  // namespace meta
 

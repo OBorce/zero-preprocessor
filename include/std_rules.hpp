@@ -156,8 +156,11 @@ x3::rule<class number> const number = "number";
 auto const number_def = floating | integral;
 
 // TODO: add support for escaped /" inside string
+x3::rule<class quoted_string> const quoted_string = "quoted_string";
+auto const quoted_string_def = lit('"') >> *(char_ - '"') >> '"';
+
 x3::rule<class string_literal> const string_literal = "string_literal";
-auto const string_literal_def = lit('"') >> *(char_ - '"') >> '"';
+auto const string_literal_def = quoted_string % optionaly_space;
 
 x3::rule<class char_literal> const char_literal = "char_literal";
 auto const char_literal_def = lit('\'') >> (char_ - '\'') >> '\'';
@@ -196,11 +199,8 @@ x3::rule<class arg_init_list> const arg_init_list = "arg_init_list";
 
 // TODO: type here denotes a variable name
 // change it to variable_type that also covers ::var
-auto const argument_def = arg_init_list | function_call |
-                          (-(prefix_operator >> optionaly_space) >> var_type >>
-                           -(optionaly_space >> sufix_operator)) |
-                          number | char_literal | string_literal |
-                          paren_expression;
+auto const argument_def = arg_init_list | function_call | var_type | number |
+                          char_literal | string_literal | paren_expression;
 
 auto const optionaly_arguments_def =
     -((expression | init_list) % arg_separator);
@@ -208,7 +208,10 @@ auto const optionaly_arguments_def =
 auto const function_call_def = type >> optionaly_space >> '(' >>
                                optionaly_space >> optionaly_arguments >>
                                optionaly_space >> ')';
-auto const expression_def = argument % operator_sep;
+// TODO: this allows prefix ++ on rvalues
+auto const expression_def = (-(prefix_operator >> optionaly_space) >>
+                             argument >> -(optionaly_space >> sufix_operator)) %
+                            operator_sep;
 auto const paren_expression_def =
     '(' >> optionaly_space >> expression >> optionaly_space >> ')';
 auto const optionaly_paren_expression_def =
@@ -287,15 +290,17 @@ auto const template_parameters_def =
 x3::rule<class function_signiture, ast::function_signiture> const
     function_signiture = "function_signiture";
 auto const function_signiture_def =
-    -(template_parameters >> optionaly_space) >> type >> some_space >> name >>
-    optionaly_space >> '(' >> optionaly_space >> optionaly_params >> ')';
+    -(template_parameters >> optionaly_space) >>
+    bool_attr(lit("constexpr") >> some_space) >> type >> some_space >> name
+    >> optionaly_space >> '(' >> optionaly_space >> optionaly_params >> ')';
 
 x3::rule<class method_signiture, ast::method_signiture> const method_signiture =
     "method_signiture";
 // TODO: this allows for both template and virtual, but the real compiler will
-// handle it
+// handle it; maybe separate into two definitions and do an | on them
 auto const method_signiture_def =
     -(template_parameters >> optionaly_space) >>
+    bool_attr(lit("constexpr") >> some_space) >>
     bool_attr(lit("virtual") >> some_space) >> type >> some_space >> name
     >> optionaly_space >> '(' >> optionaly_space >> optionaly_params >>
     ')' >> optionaly_space >> bool_attr(lit("const")) >> optionaly_space >>
@@ -305,12 +310,14 @@ auto const method_signiture_def =
 x3::rule<class operator_signiture, ast::operator_signiture> const
     operator_signiture = "operator_signiture";
 auto const operator_signiture_def =
-    -(template_parameters >> optionaly_space) >> type >> some_space >>
-    "operator" >> optionaly_space >> all_overloadable_operators >>
-    optionaly_space >> '(' >> optionaly_space >> optionaly_params >> ')';
+    -(template_parameters >> optionaly_space) >>
+    bool_attr(lit("constexpr") >> some_space) >> type >> some_space >>
+    "operator" >> optionaly_space >> all_overloadable_operators
+    >> optionaly_space >> '(' >> optionaly_space >> optionaly_params >> ')';
 
 x3::rule<class constructor, ast::constructor> const constructor = "constructor";
 auto const constructor_def = -(template_parameters >> optionaly_space) >>
+                             bool_attr(lit("constexpr") >> some_space) >>
                              bool_attr(lit("virtual") >> some_space) >>
                              -(is_constructor >> optionaly_space) >> name
                              >> optionaly_space >> '(' >> optionaly_space
@@ -344,19 +351,22 @@ x3::rule<class enumerators, std::vector<std::string>> const enumerators =
     "enumerators";
 auto const enumerators_def = name % arg_separator;
 
-BOOST_SPIRIT_DEFINE(
-    some_space, optionaly_space, include, skip_line, comment, arg_separator,
-    class_access_modifier, prefix_operator, sufix_operator, binary_operator,
-    all_overloadable_operators, operator_sep, call_operator, scope_begin,
-    scope_end, namespace_begin, statement_end, name, type_, type_qualifiers,
-    type, var_type, template_values, digits, integral, floating, number,
-    string_literal, char_literal, argument, optionaly_arguments, function_call,
-    expression, paren_expression, optionaly_paren_expression, init_list,
-    arg_init_list, optionaly_params, statement, return_statement, param,
-    optional_param, param_optionaly_default, var, constructor_init, for_loop,
-    if_expression, template_parameter, template_parameters, function_signiture,
-    method_signiture, operator_signiture, constructor, class_inheritance,
-    class_inheritances, class_or_struct, enumeration, enumerators);
+BOOST_SPIRIT_DEFINE(some_space, optionaly_space, include, skip_line, comment,
+                    arg_separator, class_access_modifier, prefix_operator,
+                    sufix_operator, binary_operator, all_overloadable_operators,
+                    operator_sep, call_operator, scope_begin, scope_end,
+                    namespace_begin, statement_end, name, type_,
+                    type_qualifiers, type, var_type, template_values, digits,
+                    integral, floating, number, quoted_string, string_literal,
+                    char_literal, argument, optionaly_arguments, function_call,
+                    expression, paren_expression, optionaly_paren_expression,
+                    init_list, arg_init_list, optionaly_params, statement,
+                    return_statement, param, optional_param,
+                    param_optionaly_default, var, constructor_init, for_loop,
+                    if_expression, template_parameter, template_parameters,
+                    function_signiture, method_signiture, operator_signiture,
+                    constructor, class_inheritance, class_inheritances,
+                    class_or_struct, enumeration, enumerators);
 }  // namespace std_parser::rules
 
 #endif  //! STD_RULES_H

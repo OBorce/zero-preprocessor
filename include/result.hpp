@@ -25,4 +25,13 @@ struct Result {
   }
 };
 
+template <typename SourceIter, typename T>
+struct ResultT {
+  SourceIter processed_to;
+  T result;
+
+  ResultT(SourceIter processed_to, T&& it)
+      : processed_to{processed_to}, result{std::move(it)} {}
+};
+
 #endif  //! RESULT_H

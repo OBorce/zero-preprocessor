@@ -54,6 +54,7 @@ struct TemplateParameters {
 
 struct function_signiture {
   TemplateParameters template_parameters;
+  bool is_constexpr;
   Type return_type;
   std::string name;
   params parameters;
@@ -61,6 +62,7 @@ struct function_signiture {
 
 struct operator_signiture {
   TemplateParameters template_parameters;
+  bool is_constexpr;
   Type return_type;
   params parameters;
 };
@@ -69,6 +71,7 @@ enum class Virtual { YES, NO };
 
 struct method_signiture {
   TemplateParameters template_parameters;
+  bool is_constexpr;
   bool is_virtual;
   Type return_type;
   std::string name;
@@ -82,13 +85,14 @@ enum class Constructor { CONSTRUCTOR, DESTRUCTOR, NOTHING };
 
 struct constructor {
   TemplateParameters template_parameters;
+  bool is_constexpr;
   bool is_virtual;
   Constructor type = Constructor::CONSTRUCTOR;
   std::string name;
   params parameters;
 };
 
-enum class class_type { CLASS, STRUCT };
+enum class class_type { CLASS, STRUCT, META_CLASS };
 
 enum class access_modifier { PUBLIC, PROTECTED, PRIVATE, UNSPECIFIED };
 
@@ -134,6 +138,7 @@ struct Enumeration {
 
 struct Function {
   TemplateParameters template_parameters;
+  bool is_constexpr;
   bool is_virtual = false;
   Constructor constructor_type = Constructor::NOTHING;
   Type return_type;
@@ -143,14 +148,18 @@ struct Function {
   MethodQualifier qualifier = MethodQualifier::NONE;
   bool is_override = false;
 
+  Function() = default;
+
   Function(function_signiture&& fun)
       : template_parameters{std::move(fun.template_parameters)},
+        is_constexpr{fun.is_constexpr},
         return_type{std::move(fun.return_type)},
         name{std::move(fun.name)},
         parameters{std::move(fun.parameters)} {}
 
   Function(method_signiture&& fun)
       : template_parameters{std::move(fun.template_parameters)},
+        is_constexpr{fun.is_constexpr},
         is_virtual{fun.is_virtual},
         return_type{std::move(fun.return_type)},
         name{std::move(fun.name)},
@@ -161,6 +170,7 @@ struct Function {
 
   Function(constructor&& fun)
       : template_parameters{std::move(fun.template_parameters)},
+        is_constexpr{fun.is_constexpr},
         is_virtual{fun.is_virtual},
         constructor_type{fun.type},
         return_type{},
@@ -169,6 +179,7 @@ struct Function {
 
   Function(operator_signiture&& fun)
       : template_parameters{std::move(fun.template_parameters)},
+        is_constexpr{fun.is_constexpr},
         return_type{std::move(fun.return_type)},
         // TODO: need operator name
         name{"op"},
@@ -209,6 +220,9 @@ struct Class {
       case class_type::STRUCT:
         state = access_modifier::PUBLIC;
         break;
+      case class_type::META_CLASS:
+        state = access_modifier::UNSPECIFIED;
+        break;
     }
 
     for (auto& base : cs.bases.bases) {
@@ -227,14 +241,6 @@ struct Class {
       }
     }
   }
-
-  Class(std::string&& name)
-      : type{class_type::STRUCT},
-        name{std::move(name)},
-        state{access_modifier::UNSPECIFIED}
-  // TODO: add templates
-  // template_parameters{std::move(cs.template_parameters)}
-  {}
 
   void set_access_modifier(access_modifier mod) { state = mod; }
 
@@ -361,15 +367,18 @@ BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::TemplateParameter, type, name)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::TemplateParameters,
                           template_parameters)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::function_signiture,
-                          template_parameters, return_type, name, parameters)
-BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::method_signiture,
-                          template_parameters, is_virtual, return_type, name,
-                          parameters, is_const, qualifier, is_override)
-BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::operator_signiture,
-                          template_parameters, return_type, parameters)
-BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::constructor,
-                          template_parameters, is_virtual, type, name,
+                          template_parameters, is_constexpr, return_type, name,
                           parameters)
+BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::method_signiture,
+                          template_parameters, is_constexpr, is_virtual,
+                          return_type, name, parameters, is_const, qualifier,
+                          is_override)
+BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::operator_signiture,
+                          template_parameters, is_constexpr, return_type,
+                          parameters)
+BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::constructor,
+                          template_parameters, is_constexpr, is_virtual, type,
+                          name, parameters)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::class_inheritance, modifier,
                           type)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::class_bases, bases)

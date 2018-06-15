@@ -91,11 +91,11 @@ int main(int argc, char* argv[]) {
       case 2: {
         std::string fun;
         std::cin >> fun;
-        auto type = meta::read_type();
-        auto const t2 = type;
+        auto const type = meta::read_type();
+        meta::type t{type.name()};
         auto f = funs.at(fun);
-        f(type, t2);
-        std::string output = type.get_representation();
+        f(t, type);
+        std::string output = t.get_representation();
         std::cout << 0 << '\n';
         std::cout << output.size() << '\n';
         std::cout << output << std::endl;
@@ -160,6 +160,16 @@ void write_variables(std::vector<std_parser::rules::ast::var> const& variables,
   }
 }
 
+template <typename Writer>
+void write_bases(
+    std::vector<std_parser::rules::ast::UnqulifiedType> const& bases,
+    AccessModifier modifier, Writer& writer) {
+  for (auto& b : bases) {
+    writer << helper::to_string(b) << std::endl;
+    writer << static_cast<int>(modifier) << std::endl;
+  }
+}
+
 std::string gen_meta_class(MetaProcess& process,
                            const std::string_view meta_class,
                            std_parser::rules::ast::Class& cls) {
@@ -194,6 +204,14 @@ std::string gen_meta_class(MetaProcess& process,
                   process.output);
   write_variables(cls.unspecified_members, AccessModifier::UNSPECIFIED,
                   process.output);
+
+  process.output << (cls.public_bases.size() + cls.private_bases.size() +
+                     cls.protected_bases.size())
+                 << std::endl;
+
+  write_bases(cls.public_bases, AccessModifier::PUBLIC, process.output);
+  write_bases(cls.private_bases, AccessModifier::PROTECTED, process.output);
+  write_bases(cls.protected_bases, AccessModifier::PRIVATE, process.output);
 
   std::string output, line;
   int status;
