@@ -147,6 +147,10 @@ void write_methods(std::vector<std_parser::rules::ast::Function> const& methods,
     writer << static_cast<int>(m.qualifier) << '\n';
 
     writer << m.is_override << '\n';
+
+    writer << m.body.size() << '\n';
+
+    writer << m.body << '\n';
   }
 }
 

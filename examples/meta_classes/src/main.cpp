@@ -48,7 +48,7 @@ interface shape {
   int some_formula(int const x);
 };
 
-base_class asd : shape {
+base_class Rectangle : shape {
   int get_area() const override { return 2; }
 
   int some_formula(int const x) override { return x * x - 2; }

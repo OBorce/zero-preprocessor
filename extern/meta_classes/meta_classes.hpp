@@ -63,7 +63,7 @@ class MetaClassParser {
     auto end = source.end();
 
     auto& std_parser = parent.template get_parser<Parent::std_parser_id>();
-    auto out = std_parser.parse_function(source);
+    auto out = std_parser.try_parse_function(begin, end);
 
     if (out) {
       auto res = (*out).result;
@@ -340,7 +340,7 @@ class MetaClassParser {
   template <class Source>
   auto parse(Source& source) {
     // TODO: fix this
-    auto writer = [](auto& a) {};
+    auto writer = [](auto&) {};
     if (inside_meta_class_function) {
       return parse_inside_constexpr_function(source, writer);
     }

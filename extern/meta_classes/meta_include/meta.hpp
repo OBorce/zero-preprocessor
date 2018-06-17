@@ -109,8 +109,9 @@ struct Function {
   MethodQualifier qualifier;
   bool is_override;
   Access access = Access::UNSPECIFIED;
+  std::string body;
 
-  std::string body = "";
+  bool is_pure_virtual = false;
 
   bool is_destructor() { return constructor_type == Constructor::DESTRUCTOR; }
 
@@ -185,7 +186,8 @@ struct Function {
 
   void make_pure_virtual() {
     is_virtual_ = true;
-    body = " = 0;\n";
+    is_pure_virtual = true;
+    body.clear();
   }
 
   std::string to_string() {
@@ -225,10 +227,18 @@ struct Function {
     if (is_override) {
       s += " override";
     }
-    s += body;
+
+    if (is_pure_virtual) {
+      s += " = 0;\n";
+    }
+
     if (body.empty()) {
       s += ';';
       s += '\n';
+    } else {
+      s += '{';
+      s += body;
+      s += '}';
     }
 
     return s;
@@ -422,6 +432,17 @@ Function read_function() {
   bool is_override;
   std::cin >> is_override;
 
+  std::size_t body_size;
+  std::cin >> body_size;
+  std::string body;
+  body.reserve(body_size);
+  std::string line;
+  while (body.size() < body_size) {
+    std::getline(std::cin, line);
+    body += line;
+    body += '\n';
+  }
+
   return {std::move(return_type),
           is_virtual,
           constructor_type,
@@ -430,7 +451,8 @@ Function read_function() {
           is_const,
           qualifier,
           is_override,
-          acc};
+          acc,
+          body};
 }
 
 Base read_base() {

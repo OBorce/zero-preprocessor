@@ -148,6 +148,10 @@ struct Function {
   MethodQualifier qualifier = MethodQualifier::NONE;
   bool is_override = false;
 
+  // NOTE: used in the generation of meta classes
+  // contains everything inside the brackets of the function
+  std::string body;
+
   Function() = default;
 
   Function(function_signiture&& fun)

@@ -23,9 +23,6 @@ using x3::eol, x3::alpha, x3::char_, x3::digit, x3::lit;
 x3::rule<class optionaly_space> const optionaly_space = "optionaly_space";
 auto const optionaly_space_def = *(eol | ' ' | '\t');
 
-x3::rule<class some_space> const some_space = "some_space";
-auto const some_space_def = +(eol | ' ' | '\t');
-
 x3::rule<class scope_end> const scope_end = "scope_end";
 auto const scope_end_def = optionaly_space >> '}' >> optionaly_space >>
                            lit(';');
@@ -66,14 +63,10 @@ auto const target_out_def =
 x3::rule<class target, ast::Target> const target = "target";
 auto const target_def = selected_target >> optionaly_space >> target_out;
 
-x3::rule<class meta_class, ast::MetaClass> const meta_class = "meta_class";
-auto const meta_class_def =
-    name >> some_space >> name >> optionaly_space >> '{';
-
-BOOST_SPIRIT_DEFINE(optionaly_space, some_space, scope_end, const_expression,
-                    name, selected_target, meta_target, meta_target_out,
+BOOST_SPIRIT_DEFINE(optionaly_space, scope_end, const_expression, name,
+                    selected_target, meta_target, meta_target_out,
                     meta_target_out_braced, meta_target_out_no_braced,
-                    target_out, target, meta_class);
+                    target_out, target);
 }  // namespace meta_classes::rules
 
 BOOST_FUSION_ADAPT_STRUCT(meta_classes::rules::ast::Target, target, output)
