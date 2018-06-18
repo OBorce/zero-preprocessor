@@ -1,12 +1,14 @@
 #ifndef META_H
 #define META_H
 
+#include <algorithm>
 #include <cstddef>
 #include <iostream>
 #include <memory>
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <variant>
 #include <vector>
 
 static struct Compiler {
@@ -55,6 +57,15 @@ struct CppType {
   std::string type;
   std::vector<TypeQualifier> right_qualifiers;
 
+  bool is_auto() { return type == "auto"; }
+
+  void make_constexpr() {
+    if (std::find(left_qualifiers.begin(), left_qualifiers.end(),
+                  TypeQualifier::CONSTEXPR) != left_qualifiers.end()) {
+      left_qualifiers.insert(left_qualifiers.begin(), TypeQualifier::CONSTEXPR);
+    }
+  }
+
   std::string to_string() {
     std::string out;
     out.reserve(50);
@@ -77,9 +88,11 @@ struct Param {
 };
 
 struct Var {
-  CppType type;
+  CppType var_type;
   std::string name;
   Access access = Access::UNSPECIFIED;
+
+  auto const& type() { return var_type; }
 
   bool has_access() { return access != Access::UNSPECIFIED; }
 
@@ -113,13 +126,11 @@ struct Function {
 
   bool is_pure_virtual = false;
 
+  bool is_constructor() { return constructor_type == Constructor::CONSTRUCTOR; }
+
   bool is_destructor() { return constructor_type == Constructor::DESTRUCTOR; }
 
   bool is_copy() {
-    if (constructor_type != Constructor::CONSTRUCTOR) {
-      return false;
-    }
-
     if (parameters.size() != 1) {
       return false;
     }
@@ -140,14 +151,12 @@ struct Function {
       return false;
     }
 
+    // TODO: check for return type or constructor
+
     return name == param.type;
   }
 
   bool is_move() {
-    if (constructor_type != Constructor::CONSTRUCTOR) {
-      return false;
-    }
-
     if (parameters.size() != 1) {
       return false;
     }
@@ -165,7 +174,29 @@ struct Function {
       return false;
     }
 
+    // TODO: check for return type or constructor
+
     return name == param.type;
+  }
+
+  bool is_default_ctor() {
+    return constructor_type == Constructor::CONSTRUCTOR && parameters.empty();
+  }
+
+  bool is_copy_ctor() {
+    return is_copy() && constructor_type == Constructor::CONSTRUCTOR;
+  }
+
+  bool is_move_ctor() {
+    return is_move() && constructor_type == Constructor::CONSTRUCTOR;
+  }
+
+  bool is_copy_assignment() {
+    return is_copy() && constructor_type == Constructor::NOTHING;
+  }
+
+  bool is_move_assignment() {
+    return is_move() && constructor_type == Constructor::NOTHING;
   }
 
   bool is_virtual() { return is_virtual_; }
@@ -275,6 +306,13 @@ struct Base {
   }
 };
 
+struct VarOrBase {
+  std::variant<Var, Base> data;
+
+  VarOrBase(const Var& v) : data{v} {}
+  VarOrBase(const Base& b) : data{b} {}
+};
+
 struct Type {
   std::vector<Function> methods;
   std::vector<Base> bases;
@@ -313,6 +351,19 @@ class type {
 
   auto const& variables() const { return internal->variables; }
 
+  auto members_and_bases() const {
+    std::vector<VarOrBase> members_and_bases;
+    members_and_bases.reserve(internal->bases.size() +
+                              internal->variables.size());
+    members_and_bases.insert(members_and_bases.end(), internal->bases.begin(),
+                             internal->bases.end());
+    members_and_bases.insert(members_and_bases.end(),
+                             internal->variables.begin(),
+                             internal->variables.end());
+
+    return members_and_bases;
+  }
+
   auto& operator<<(std::string_view s) {
     internal->body += s;
     return *this;
@@ -325,6 +376,16 @@ class type {
 
   auto& operator<<(Base& b) {
     internal->bases.push_back(b);
+    return *this;
+  }
+
+  auto& operator<<(VarOrBase& b) {
+    if (std::holds_alternative<Base>(b.data)) {
+      internal->bases.push_back(std::get<Base>(b.data));
+    } else {
+      internal->variables.push_back(std::get<Var>(b.data));
+    }
+
     return *this;
   }
 

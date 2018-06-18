@@ -37,9 +37,14 @@ x3::rule<class selected_target, std::string> const selected_target =
     "selected_target";
 auto const selected_target_def = optionaly_space >> "->(" >> name >> ")";
 
+x3::rule<class meta_expression, std::string> const meta_expression =
+    "meta_expression";
+auto const meta_expression_def = name >> *(char_('.') >> name) >>
+                                 -(char_('(') >> optionaly_space >> char_(')'));
+
 x3::rule<class meta_target, std::string> const meta_target = "meta_target";
-auto const meta_target_def = name >> char_('.') >> name >>
-                             char_('(') >> optionaly_space >> char_(')') >> '$';
+auto const meta_target_def =
+    ('(' >> meta_expression >> ')' >> '$') | (meta_expression >> '$');
 
 x3::rule<class meta_target_out, std::vector<std::string>> const
     meta_target_out = "meta_target_out";
@@ -47,6 +52,7 @@ x3::rule<class meta_target_out_no_braced, std::vector<std::string>> const
     meta_target_out_no_braced = "meta_target_out_no_braced";
 x3::rule<class meta_target_out_braced, std::vector<std::string>> const
     meta_target_out_braced = "meta_target_out_braced";
+
 auto const meta_target_out_no_braced_def =
     +(meta_target | x3::omit[char_ - (lit('{') | '}')]);
 
@@ -64,9 +70,9 @@ x3::rule<class target, ast::Target> const target = "target";
 auto const target_def = selected_target >> optionaly_space >> target_out;
 
 BOOST_SPIRIT_DEFINE(optionaly_space, scope_end, const_expression, name,
-                    selected_target, meta_target, meta_target_out,
-                    meta_target_out_braced, meta_target_out_no_braced,
-                    target_out, target);
+                    selected_target, meta_expression, meta_target,
+                    meta_target_out, meta_target_out_braced,
+                    meta_target_out_no_braced, target_out, target);
 }  // namespace meta_classes::rules
 
 BOOST_FUSION_ADAPT_STRUCT(meta_classes::rules::ast::Target, target, output)

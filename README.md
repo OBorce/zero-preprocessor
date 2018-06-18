@@ -49,7 +49,7 @@ Updated every week
 - [x] generator -> in constexpr function
 - [x] get class functions
 - [x] -> variable.method()$ in {}
-- [ ] -> (variable)$ in {}
+- [x] -> (variable)$ in {}
 - [x] multiple files
 - [x] -> with target function
 - [x] get class variables
