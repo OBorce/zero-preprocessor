@@ -238,7 +238,7 @@ class MetaClassParser {
     if (parsed && meta_process.ok()) {
       auto& current_nesting = std_parser.get_current_nesting();
       auto& cls = std::get<Class>(current_nesting);
-      output = std::move(gen_meta_class(meta_process, current_meta_class, cls));
+      output = gen_meta_class(meta_process, current_meta_class, cls, std_parser);
     }
 
     auto out = std_parser.parse(source);

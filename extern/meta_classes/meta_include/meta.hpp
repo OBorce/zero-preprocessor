@@ -17,7 +17,7 @@ static struct Compiler {
       std::cout << -1 << std::endl;
       std::cout << msg.size() << std::endl;
       std::cout << msg << std::endl;
-      std::terminate();
+      std::exit(EXIT_FAILURE);
     }
   }
 
@@ -25,7 +25,7 @@ static struct Compiler {
     std::cout << -1 << std::endl;
     std::cout << msg.size() << std::endl;
     std::cout << msg << std::endl;
-    std::terminate();
+    std::exit(EXIT_FAILURE);
   }
 } compiler;
 
@@ -50,6 +50,19 @@ std::string to_string(TypeQualifier q) {
   }
 
   return "";
+}
+
+std::string to_string(Access a) {
+  switch (a) {
+    case Access::PUBLIC:
+      return "public: ";
+    case Access::PROTECTED:
+      return "protected: ";
+    case Access::PRIVATE:
+      return "private: ";
+    default:
+      return "";
+  }
 }
 
 struct CppType {
@@ -107,6 +120,10 @@ struct Var {
   void make_private() { access = Access::PRIVATE; }
 
   void make_protected() { access = Access::PROTECTED; }
+
+  std::string to_string() {
+    return meta::to_string(access) + var_type.to_string() + " " + name + ';';
+  }
 };
 
 enum class Constructor { CONSTRUCTOR, DESTRUCTOR, NOTHING };
@@ -224,6 +241,7 @@ struct Function {
   std::string to_string() {
     std::string s;
     s.reserve(100);
+    s += meta::to_string(access);
     if (is_virtual_) {
       s += "virtual ";
     }
@@ -329,6 +347,9 @@ struct Type {
         body{} {}
 };
 
+class type;
+void finalize(meta::type target);
+
 class type {
   const std::string class_name;
   std::shared_ptr<Type> internal;
@@ -355,8 +376,10 @@ class type {
     std::vector<VarOrBase> members_and_bases;
     members_and_bases.reserve(internal->bases.size() +
                               internal->variables.size());
+
     members_and_bases.insert(members_and_bases.end(), internal->bases.begin(),
                              internal->bases.end());
+
     members_and_bases.insert(members_and_bases.end(),
                              internal->variables.begin(),
                              internal->variables.end());
@@ -390,6 +413,7 @@ class type {
   }
 
   std::string get_representation() {
+    finalize(*this);
     std::string content;
     content.reserve(100);
     content += "struct ";
@@ -403,6 +427,13 @@ class type {
       content.pop_back();
     }
     content += " {\n";
+    if (!internal->variables.empty()) {
+      for (auto& v : internal->variables) {
+        content += v.to_string();
+        content += '\n';
+      }
+      content.pop_back();
+    }
     if (!internal->methods.empty()) {
       for (auto& f : internal->methods) {
         content += f.to_string();
@@ -554,6 +585,22 @@ type read_type() {
 
   return {std::move(class_name), std::move(methods), std::move(variables),
           std::move(bases)};
+}
+
+void finalize(meta::type target) {
+  for (auto o : target.variables())
+    if (!o.has_access()) o.make_private();
+  // make data members private by default
+  bool __has_declared_dtor = false;
+  for (auto f : target.functions()) {
+    if (!f.has_access()) f.make_public();
+    // make functions public by default
+    __has_declared_dtor |= f.is_destructor();
+    // and find the destructor
+  }
+  //if (!__has_declared_dtor)  // if no dtor was declared, then
+    //target << "\npublic: ~" << target.name() << "() { }";
+  // make it public nonvirtual by default
 }
 }  // namespace meta
 

@@ -64,7 +64,7 @@ auto const meta_target_out_def =
 x3::rule<class target_out, std::vector<std::string>> const target_out =
     "target_out";
 auto const target_out_def =
-    (name >> optionaly_space >> ';') | ('{' >> meta_target_out >> "};");
+    (name >> optionaly_space >> ';') | ('{' >> meta_target_out >> '}');
 
 x3::rule<class target, ast::Target> const target = "target";
 auto const target_def = selected_target >> optionaly_space >> target_out;

@@ -174,9 +174,11 @@ void write_bases(
   }
 }
 
+template <typename StdParser>
 std::string gen_meta_class(MetaProcess& process,
                            const std::string_view meta_class,
-                           std_parser::rules::ast::Class& cls) {
+                           std_parser::rules::ast::Class& cls,
+                           StdParser& std_parser) {
   std::cout << "getting output from meta process\n";
   process.output << 2 << std::endl;
   process.output << meta_class << std::endl;
@@ -220,21 +222,33 @@ std::string gen_meta_class(MetaProcess& process,
   std::string output, line;
   int status;
   std::size_t output_size;
-  process.input >> status;
-  process.input >> output_size;
-  output.reserve(output_size);
-  while (output.size() < output_size) {
-    std::getline(process.input, line);
-    output += line;
-    output += '\n';
+
+  while (true) {
+    output.clear();
+    process.input >> status;
+    process.input >> output_size;
+    output.reserve(output_size);
+    while (output.size() < output_size) {
+      std::getline(process.input, line);
+      output += line;
+      output += '\n';
+    }
+
+    switch (status) {
+      case 0:
+        break;
+      case -1: {
+        std::cerr << output << std::endl;
+        // TODO: throw exception and catch in main to guarantee resource cleanup
+        std::exit(EXIT_FAILURE);
+      }
+      case 1: {
+        // TODO: parse output and send AST
+      }
+    }
   }
 
-  if (status == 0) {
-    return output;
-  }
-
-  std::cerr << output << std::endl;
-  std::terminate();
+  return output;
 }
 }  // namespace meta_classes
 
