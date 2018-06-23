@@ -2,7 +2,6 @@
 #define META_H
 
 #include <algorithm>
-#include <cassert>
 #include <cstddef>
 #include <iostream>
 #include <memory>
@@ -382,7 +381,6 @@ class type {
       auto str = to_string();
       std::cout << str.size() << std::endl;
       std::cout << str << std::endl;
-      // TODO: read back the result
       int out;
       std::cin >> out;
       auto result = static_cast<ParsedResult>(out);
