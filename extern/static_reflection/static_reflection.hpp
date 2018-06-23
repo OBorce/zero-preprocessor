@@ -284,7 +284,7 @@ class StaticReflexParser {
     auto& std_parser = parent.template get_parser<Parent::std_parser_id>();
     auto& current_class = std::get<Class>(std_parser.get_current_nesting());
     auto rez = generate_class_reflection(current_class);
-    std_parser.close_current_class();
+    std_parser.template close_nesting<Class>();
     return rez;
   }
 
@@ -293,7 +293,7 @@ class StaticReflexParser {
     auto& current_enum =
         std::get<Enumeration>(std_parser.get_current_nesting());
     auto rez = generate_enum_reflection(current_enum);
-    std_parser.close_current_enum();
+    std_parser.template close_nesting<Enumeration>();
     return rez;
   }
 

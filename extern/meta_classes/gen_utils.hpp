@@ -91,11 +91,14 @@ int main(int argc, char* argv[]) {
       case 2: {
         std::string fun;
         std::cin >> fun;
-        auto const type = meta::read_type();
-        meta::type t{type.name()};
-        auto f = funs.at(fun);
-        f(t, type);
-        std::string output = t.get_representation();
+        std::string output;
+        {
+          auto const type = meta::read_type();
+          meta::type t{type.name()};
+          auto f = funs.at(fun);
+          f(t, type);
+          output = t.get_representation();
+        }
         std::cout << 0 << '\n';
         std::cout << output.size() << '\n';
         std::cout << output << std::endl;
@@ -121,36 +124,46 @@ void write_type(std_parser::rules::ast::Type const& type, Writer& writer) {
 
 using AccessModifier = std_parser::rules::ast::access_modifier;
 template <typename Writer>
+void write_function(std_parser::rules::ast::Function const& fun,
+                    AccessModifier modifier, Writer& writer) {
+  write_type(fun.return_type, writer);
+
+  writer << fun.is_virtual << '\n';
+
+  writer << static_cast<int>(fun.constructor_type) << '\n';
+
+  writer << static_cast<int>(modifier) << '\n';
+
+  writer << fun.name << '\n';
+
+  auto& params = fun.parameters.parameters;
+  writer << params.size() << '\n';
+
+  for (auto& p : params) {
+    write_type(p.type, writer);
+    writer << p.name << '\n';
+  }
+
+  writer << fun.is_const << '\n';
+
+  writer << static_cast<int>(fun.qualifier) << '\n';
+
+  writer << fun.is_noexcept << '\n';
+
+  writer << fun.is_override << '\n';
+
+  writer << fun.is_pure_virtual << '\n';
+
+  writer << fun.body.size() << '\n';
+
+  writer << fun.body << '\n';
+}
+
+template <typename Writer>
 void write_methods(std::vector<std_parser::rules::ast::Function> const& methods,
                    AccessModifier modifier, Writer& writer) {
   for (auto& m : methods) {
-    write_type(m.return_type, writer);
-
-    writer << m.is_virtual << '\n';
-
-    writer << static_cast<int>(m.constructor_type) << '\n';
-
-    writer << static_cast<int>(modifier) << '\n';
-
-    writer << m.name << '\n';
-
-    auto& params = m.parameters.parameters;
-    writer << params.size() << '\n';
-
-    for (auto& p : params) {
-      write_type(p.type, writer);
-      writer << p.name << '\n';
-    }
-
-    writer << m.is_const << '\n';
-
-    writer << static_cast<int>(m.qualifier) << '\n';
-
-    writer << m.is_override << '\n';
-
-    writer << m.body.size() << '\n';
-
-    writer << m.body << '\n';
+    write_function(m, modifier, writer);
   }
 }
 
@@ -174,56 +187,78 @@ void write_bases(
   }
 }
 
+template <typename Writer>
+void write_class(std_parser::rules::ast::Class& cls, Writer& writer) {
+  writer << cls.name << std::endl;
+  writer << (cls.public_methods.size() + cls.private_methods.size() +
+             cls.protected_methods.size() + cls.unspecified_methods.size())
+         << std::endl;
+
+  write_methods(cls.public_methods, AccessModifier::PUBLIC, writer);
+
+  write_methods(cls.private_methods, AccessModifier::PROTECTED, writer);
+
+  write_methods(cls.protected_methods, AccessModifier::PRIVATE, writer);
+
+  write_methods(cls.unspecified_methods, AccessModifier::UNSPECIFIED, writer);
+
+  writer << (cls.public_members.size() + cls.private_members.size() +
+             cls.protected_members.size() + cls.unspecified_members.size())
+         << std::endl;
+
+  write_variables(cls.public_members, AccessModifier::PUBLIC, writer);
+  write_variables(cls.private_members, AccessModifier::PROTECTED, writer);
+  write_variables(cls.protected_members, AccessModifier::PRIVATE, writer);
+  write_variables(cls.unspecified_members, AccessModifier::UNSPECIFIED, writer);
+
+  writer << (cls.public_bases.size() + cls.private_bases.size() +
+             cls.protected_bases.size())
+         << std::endl;
+
+  write_bases(cls.public_bases, AccessModifier::PUBLIC, writer);
+  write_bases(cls.private_bases, AccessModifier::PROTECTED, writer);
+  write_bases(cls.protected_bases, AccessModifier::PRIVATE, writer);
+}
+
+enum class ParsedResult { OK, ERROR };
+
+template <typename StdParser>
+void handle_meta_process_request(MetaProcess& process, StdParser& std_parser,
+                                 std::string_view request) {
+  auto out = std_parser.try_parse_entire_class(request.begin(), request.end());
+  if (out.result) {
+    process.output << static_cast<int>(ParsedResult::OK) << std::endl;
+    write_class(*out.result, process.output);
+  } else {
+    process.output << static_cast<int>(ParsedResult::ERROR) << std::endl;
+    std::cout << "can't parse: \n";
+    std::size_t remaining = std::distance(out.processed_to, request.end());
+    std::size_t size = std::min(30ul, remaining);
+    std::string_view content = {&*out.processed_to, size};
+    std::cout << content << std::endl;
+
+    std::exit(EXIT_FAILURE);
+  }
+}
+
 template <typename StdParser>
 std::string gen_meta_class(MetaProcess& process,
                            const std::string_view meta_class,
                            std_parser::rules::ast::Class& cls,
                            StdParser& std_parser) {
-  std::cout << "getting output from meta process\n";
+  std::cout << "getting output from meta process for metaclass " << meta_class
+            << "\n";
+  // TODO: add an enum for meta process request type
   process.output << 2 << std::endl;
   process.output << meta_class << std::endl;
 
-  process.output << cls.name << std::endl;
-  process.output << (cls.public_methods.size() + cls.private_methods.size() +
-                     cls.protected_methods.size() +
-                     cls.unspecified_methods.size())
-                 << std::endl;
-
-  write_methods(cls.public_methods, AccessModifier::PUBLIC, process.output);
-
-  write_methods(cls.private_methods, AccessModifier::PROTECTED, process.output);
-
-  write_methods(cls.protected_methods, AccessModifier::PRIVATE, process.output);
-
-  write_methods(cls.unspecified_methods, AccessModifier::UNSPECIFIED,
-                process.output);
-
-  process.output << (cls.public_members.size() + cls.private_members.size() +
-                     cls.protected_members.size() +
-                     cls.unspecified_members.size())
-                 << std::endl;
-
-  write_variables(cls.public_members, AccessModifier::PUBLIC, process.output);
-  write_variables(cls.private_members, AccessModifier::PROTECTED,
-                  process.output);
-  write_variables(cls.protected_members, AccessModifier::PRIVATE,
-                  process.output);
-  write_variables(cls.unspecified_members, AccessModifier::UNSPECIFIED,
-                  process.output);
-
-  process.output << (cls.public_bases.size() + cls.private_bases.size() +
-                     cls.protected_bases.size())
-                 << std::endl;
-
-  write_bases(cls.public_bases, AccessModifier::PUBLIC, process.output);
-  write_bases(cls.private_bases, AccessModifier::PROTECTED, process.output);
-  write_bases(cls.protected_bases, AccessModifier::PRIVATE, process.output);
+  write_class(cls, process.output);
 
   std::string output, line;
   int status;
   std::size_t output_size;
 
-  while (true) {
+  do {
     output.clear();
     process.input >> status;
     process.input >> output_size;
@@ -235,18 +270,16 @@ std::string gen_meta_class(MetaProcess& process,
     }
 
     switch (status) {
-      case 0:
-        break;
       case -1: {
         std::cerr << output << std::endl;
         // TODO: throw exception and catch in main to guarantee resource cleanup
         std::exit(EXIT_FAILURE);
       }
       case 1: {
-        // TODO: parse output and send AST
+        handle_meta_process_request(process, std_parser, output);
       }
     }
-  }
+  } while (status != 0);
 
   return output;
 }

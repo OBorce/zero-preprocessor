@@ -30,10 +30,6 @@ static struct access_modifier_ : x3::symbols<ast::access_modifier> {
   }
 } access_modifier;
 
-static struct is_virtual_ : x3::symbols<ast::Virtual> {
-  is_virtual_() { add("virtual", ast::Virtual::YES); }
-} is_virtual;
-
 static struct is_constructor_ : x3::symbols<ast::Constructor> {
   is_constructor_() { add("~", ast::Constructor::DESTRUCTOR); }
 } is_constructor;
@@ -287,12 +283,22 @@ auto const template_parameters_def =
     lit("template") >> optionaly_space >> '<' >> optionaly_space >>
     template_parameter % arg_separator >> optionaly_space >> '>';
 
+x3::rule<class is_noexcept, bool> const is_noexcept = "is_noexcept";
+auto const is_noexcept_def = bool_attr(
+    optionaly_space >> "noexcept" >> optionaly_space >>
+    -('(' >> optionaly_space >> expression >> optionaly_space >> ')'));
+
 x3::rule<class function_signiture, ast::function_signiture> const
     function_signiture = "function_signiture";
 auto const function_signiture_def =
     -(template_parameters >> optionaly_space) >>
     bool_attr(lit("constexpr") >> some_space) >> type >> some_space >> name
-    >> optionaly_space >> '(' >> optionaly_space >> optionaly_params >> ')';
+    >> optionaly_space >> '(' >> optionaly_space >> optionaly_params >>
+    ')' >> is_noexcept;
+
+x3::rule<class is_pure_virtual, bool> const is_pure_virtual = "is_pure_virtual";
+auto const is_pure_virtual_def =
+    bool_attr(optionaly_space >> '=' >> optionaly_space >> '0');
 
 x3::rule<class method_signiture, ast::method_signiture> const method_signiture =
     "method_signiture";
@@ -304,24 +310,31 @@ auto const method_signiture_def =
     bool_attr(lit("virtual") >> some_space) >> type >> some_space >> name
     >> optionaly_space >> '(' >> optionaly_space >> optionaly_params >>
     ')' >> optionaly_space >> bool_attr(lit("const")) >> optionaly_space >>
-    -(method_qualifier >> optionaly_space) >> bool_attr(lit("override"));
+    -(method_qualifier >> optionaly_space) >> is_noexcept >>
+    bool_attr(lit("override")) >> is_pure_virtual;
 
 // TODO: const operators and &&
 x3::rule<class operator_signiture, ast::operator_signiture> const
     operator_signiture = "operator_signiture";
-auto const operator_signiture_def =
-    -(template_parameters >> optionaly_space) >>
-    bool_attr(lit("constexpr") >> some_space) >> type >> some_space >>
-    "operator" >> optionaly_space >> all_overloadable_operators
-    >> optionaly_space >> '(' >> optionaly_space >> optionaly_params >> ')';
+auto const operator_signiture_def = -(template_parameters >> optionaly_space) >>
+                                    bool_attr(lit("constexpr") >> some_space) >>
+                                    bool_attr(lit("virtual")) >> optionaly_space
+                                    >> type >> some_space >>
+                                    "operator" >> optionaly_space
+                                    >> all_overloadable_operators
+                                    >> optionaly_space >> '(' >> optionaly_space
+                                    >> optionaly_params >> ')' >> is_noexcept
+                                    >> is_pure_virtual;
 
+// TODO: can be both virtual and have : initialization
 x3::rule<class constructor, ast::constructor> const constructor = "constructor";
 auto const constructor_def = -(template_parameters >> optionaly_space) >>
                              bool_attr(lit("constexpr") >> some_space) >>
                              bool_attr(lit("virtual") >> some_space) >>
                              -(is_constructor >> optionaly_space) >> name
                              >> optionaly_space >> '(' >> optionaly_space
-                             >> optionaly_params >> ')' >>
+                             >> optionaly_params >> ')' >> is_noexcept
+                             >> is_pure_virtual >>
                              -(optionaly_space >> ':' >> optionaly_space >>
                                constructor_init % arg_separator);
 
@@ -351,22 +364,20 @@ x3::rule<class enumerators, std::vector<std::string>> const enumerators =
     "enumerators";
 auto const enumerators_def = name % arg_separator;
 
-BOOST_SPIRIT_DEFINE(some_space, optionaly_space, include, skip_line, comment,
-                    arg_separator, class_access_modifier, prefix_operator,
-                    sufix_operator, binary_operator, all_overloadable_operators,
-                    operator_sep, call_operator, scope_begin, scope_end,
-                    namespace_begin, statement_end, name, type_,
-                    type_qualifiers, type, var_type, template_values, digits,
-                    integral, floating, number, quoted_string, string_literal,
-                    char_literal, argument, optionaly_arguments, function_call,
-                    expression, paren_expression, optionaly_paren_expression,
-                    init_list, arg_init_list, optionaly_params, statement,
-                    return_statement, param, optional_param,
-                    param_optionaly_default, var, constructor_init, for_loop,
-                    if_expression, template_parameter, template_parameters,
-                    function_signiture, method_signiture, operator_signiture,
-                    constructor, class_inheritance, class_inheritances,
-                    class_or_struct, enumeration, enumerators);
+BOOST_SPIRIT_DEFINE(
+    some_space, optionaly_space, include, skip_line, comment, arg_separator,
+    class_access_modifier, prefix_operator, sufix_operator, binary_operator,
+    all_overloadable_operators, operator_sep, call_operator, scope_begin,
+    scope_end, namespace_begin, statement_end, name, type_, type_qualifiers,
+    type, var_type, template_values, digits, integral, floating, number,
+    quoted_string, string_literal, char_literal, argument, optionaly_arguments,
+    function_call, expression, paren_expression, optionaly_paren_expression,
+    init_list, arg_init_list, optionaly_params, statement, return_statement,
+    param, optional_param, param_optionaly_default, var, constructor_init,
+    for_loop, if_expression, template_parameter, template_parameters,
+    is_noexcept, function_signiture, is_pure_virtual, method_signiture,
+    operator_signiture, constructor, class_inheritance, class_inheritances,
+    class_or_struct, enumeration, enumerators);
 }  // namespace std_parser::rules
 
 #endif  //! STD_RULES_H

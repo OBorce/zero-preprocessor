@@ -61,9 +61,7 @@ Updated every week
 - [ ] compiler.require/error with f to display source location
 - [x] propagate method's const and && qualifiers
 - [ ] class and method templates
-- [ ] generated variables and methods through -> can't be modified nor accessed
-      makes conflicts with __metaclass_finalization when searching for destructor
-- [ ] __metaclass_finalization
+- [x] __metaclass_finalization
 - [ ] AS & IS
 
 

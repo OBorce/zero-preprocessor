@@ -2,6 +2,7 @@
 #define META_H
 
 #include <algorithm>
+#include <cassert>
 #include <cstddef>
 #include <iostream>
 #include <memory>
@@ -137,11 +138,11 @@ struct Function {
   std::vector<Param> parameters;
   bool is_const;
   MethodQualifier qualifier;
+  bool is_noexcept;
   bool is_override;
   Access access = Access::UNSPECIFIED;
-  std::string body;
-
   bool is_pure_virtual = false;
+  std::string body;
 
   bool is_constructor() { return constructor_type == Constructor::CONSTRUCTOR; }
 
@@ -247,6 +248,9 @@ struct Function {
     }
     s += return_type.to_string();
     s += ' ';
+    if (constructor_type == Constructor::DESTRUCTOR) {
+      s += '~';
+    }
     s += name;
     s += '(';
     for (auto& p : parameters) {
@@ -273,12 +277,16 @@ struct Function {
         break;
     }
 
+    if (is_noexcept) {
+      s += " noexcept";
+    }
+
     if (is_override) {
       s += " override";
     }
 
     if (is_pure_virtual) {
-      s += " = 0;\n";
+      s += " = 0";
     }
 
     if (body.empty()) {
@@ -348,7 +356,8 @@ struct Type {
 };
 
 class type;
-void finalize(meta::type target);
+void finalize(meta::type& target);
+type read_type();
 
 class type {
   const std::string class_name;
@@ -363,6 +372,28 @@ class type {
 
   type(std::string name)
       : class_name{std::move(name)}, internal{std::make_shared<Type>()} {}
+
+  ~type() {
+    // NOTE: if there is any generated ( -> ) based content
+    // send it for parsing and update our internal state
+    if (!internal->body.empty()) {
+      enum class ParsedResult { OK, ERROR };
+      std::cout << 1 << std::endl;
+      auto str = to_string();
+      std::cout << str.size() << std::endl;
+      std::cout << str << std::endl;
+      // TODO: read back the result
+      int out;
+      std::cin >> out;
+      auto result = static_cast<ParsedResult>(out);
+      if (result == ParsedResult::ERROR) {
+        std::exit(EXIT_FAILURE);
+      }
+
+      type t = read_type();
+      *internal = *t.internal;
+    }
+  }
 
   auto const& name() const { return class_name; }
 
@@ -412,8 +443,7 @@ class type {
     return *this;
   }
 
-  std::string get_representation() {
-    finalize(*this);
+  std::string to_string() {
     std::string content;
     content.reserve(100);
     content += "struct ";
@@ -445,6 +475,11 @@ class type {
     content += "\n};";
 
     return content;
+  }
+
+  std::string get_representation() {
+    finalize(*this);
+    return to_string();
   }
 };
 
@@ -521,8 +556,14 @@ Function read_function() {
   std::cin >> a;
   MethodQualifier qualifier = static_cast<MethodQualifier>(a);
 
+  bool is_noexcept;
+  std::cin >> is_noexcept;
+
   bool is_override;
   std::cin >> is_override;
+
+  bool is_pure_virtual;
+  std::cin >> is_pure_virtual;
 
   std::size_t body_size;
   std::cin >> body_size;
@@ -542,8 +583,10 @@ Function read_function() {
           std::move(params),
           is_const,
           qualifier,
+          is_noexcept,
           is_override,
           acc,
+          is_pure_virtual,
           body};
 }
 
@@ -587,7 +630,7 @@ type read_type() {
           std::move(bases)};
 }
 
-void finalize(meta::type target) {
+void finalize(meta::type& target) {
   for (auto o : target.variables())
     if (!o.has_access()) o.make_private();
   // make data members private by default
@@ -598,8 +641,8 @@ void finalize(meta::type target) {
     __has_declared_dtor |= f.is_destructor();
     // and find the destructor
   }
-  //if (!__has_declared_dtor)  // if no dtor was declared, then
-    //target << "\npublic: ~" << target.name() << "() { }";
+  if (!__has_declared_dtor)  // if no dtor was declared, then
+    target << "\npublic: ~" << target.name() << "() { }";
   // make it public nonvirtual by default
 }
 }  // namespace meta

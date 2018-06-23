@@ -13,11 +13,11 @@
 #include <string_utils.hpp>
 
 namespace std_parser {
+using Scopable =
+    std::variant<rules::ast::Namespace, rules::ast::Scope, rules::ast::Class,
+                 rules::ast::Enumeration, rules::ast::Function>;
 
-class StdParser {
-  using Scopable =
-      std::variant<rules::ast::Namespace, rules::ast::Scope, rules::ast::Class,
-                   rules::ast::Enumeration, rules::ast::Function>;
+class StdParserState {
   std::vector<Scopable> nestings = {rules::ast::Namespace{""}};
   std::unordered_set<std::string> includes;
 
@@ -142,7 +142,7 @@ class StdParser {
       includes.emplace(std::move(rez));
     };
 
-    auto se = [&](auto&) { this->close_current_class(); };
+    auto se = [&](auto&) { this->close_nesting<rules::ast::Class>(); };
 
     namespace x3 = boost::spirit::x3;
     bool parsed = x3::parse(
@@ -179,7 +179,7 @@ class StdParser {
       current.set_enumerators(std::move(rez));
     };
 
-    auto se = [&](auto&) { this->close_current_enum(); };
+    auto se = [&](auto&) { this->close_nesting<rules::ast::Enumeration>(); };
 
     namespace x3 = boost::spirit::x3;
     bool parsed = x3::parse(
@@ -221,7 +221,7 @@ class StdParser {
       auto current_functions_start = function_begins.back();
       auto end = source.begin();
       auto start = std::any_cast<decltype(end)>(current_functions_start);
-      current.body = std::string(start, end);
+      current.body = std::string(start, end) + '\n';
       auto& v = nestings[nestings.size() - 2];
       std::visit(
           overloaded{
@@ -318,33 +318,35 @@ class StdParser {
                   : std::nullopt;
   }
 
-  template <class Iter, class Id, class T, template <class, class> class Rule,
-            class Out = T>
-  auto try_parse_T(Iter begin, Iter end, Rule<Id, T> rule) {
-    Out tmp;
-    namespace x3 = boost::spirit::x3;
-    bool parsed = x3::parse(begin, end,
-                            // rules begin
-                            rules::optionaly_space >> rule,
-                            // rules end
-                            tmp);
-
-    return parsed ? std::optional{ResultT{begin, std::move(tmp)}}
-                  : std::nullopt;
+  void close_current_class() {
+    auto& c = std::get<rules::ast::Class>(nestings.back());
+    auto& v = nestings[nestings.size() - 2];
+    std::visit(
+        overloaded{
+            [&](rules::ast::Namespace& arg) { arg.add_class(std::move(c)); },
+            [&](rules::ast::Class& arg) { arg.add_class(std::move(c)); },
+            [](auto) {
+              /* TODO: local classes inside functions or local scopes*/
+            },
+        },
+        v);
   }
 
-  /**
-   * Used as a helper when we want to specify a different out type
-   */
-  template <class Out, class Iter, class Id, class T,
-            template <class, class> class Rule>
-  auto try_parse_T(Iter begin, Iter end, Rule<Id, T> rule) {
-    return try_parse_T<Iter, Id, T, Rule, Out>(begin, end, rule);
+  void close_current_enum() {
+    auto& c = std::get<rules::ast::Enumeration>(nestings.back());
+    auto& v = nestings[nestings.size() - 2];
+    std::visit(
+        overloaded{
+            [&](rules::ast::Namespace& arg) { arg.add_enum(std::move(c)); },
+            [&](rules::ast::Class& arg) { arg.add_enum(std::move(c)); },
+            [](auto) {
+              /* TODO: local enums inside functions or local scopes*/
+            },
+        },
+        v);
   }
 
  public:
-  // TODO: when supported in std=c++2a change to fixed length string
-  constexpr static int id = 's' + 't' + 'd';
   /**
    * Parse a single statement from the source
    *
@@ -387,87 +389,29 @@ class StdParser {
    */
   auto const& get_all_nestings() { return nestings; }
 
-  void close_current_class() {
-    auto& c = std::get<rules::ast::Class>(nestings.back());
-    if (nestings.size() < 2) {
-      // NOTE: more closing brackets than opened
-      throw std::runtime_error("extraneous closing brace ('}')");
-    }
-    auto& v = nestings[nestings.size() - 2];
-    std::visit(
-        overloaded{
-            [&](rules::ast::Namespace& arg) { arg.add_class(std::move(c)); },
-            [&](rules::ast::Class& arg) { arg.add_class(std::move(c)); },
-            [](auto) {
-              /* TODO: local classes inside functions or local scopes*/
-            },
-        },
-        v);
-    nestings.pop_back();
-  }
-
-  void close_current_enum() {
-    auto& c = std::get<rules::ast::Enumeration>(nestings.back());
-    if (nestings.size() < 2) {
-      // NOTE: more closing brackets than opened
-      throw std::runtime_error("extraneous closing brace ('}')");
-    }
-    auto& v = nestings[nestings.size() - 2];
-    std::visit(
-        overloaded{
-            [&](rules::ast::Namespace& arg) { arg.add_enum(std::move(c)); },
-            [&](rules::ast::Class& arg) { arg.add_enum(std::move(c)); },
-            [](auto) {
-              /* TODO: local enums inside functions or local scopes*/
-            },
-        },
-        v);
-    nestings.pop_back();
-  }
-
   Scopable& get_current_nesting() { return nestings.back(); }
 
-  template <class Iter>
-  auto try_parse_function(Iter begin, Iter end) {
-    return try_parse_T<rules::ast::Function>(
-        begin, end, rules::function_signiture >> rules::scope_begin);
+  rules::ast::Namespace const& get_top_nesting() {
+    return std::get<rules::ast::Namespace>(nestings.front());
   }
 
-  template <class Iter>
-  auto try_parse_templates_params(Iter begin, Iter end) {
-    return try_parse_T(begin, end, rules::template_parameters);
-  }
+  // TODO add SFINAE for Scopable
+  template <class Nesting>
+  void close_nesting() {
+    if (nestings.size() < 2) {
+      // NOTE: more closing brackets than opened
+      throw std::runtime_error("extraneous closing brace ('}')");
+    }
 
-  template <class Iter>
-  auto try_parse_name(Iter begin, Iter end) {
-    return try_parse_T(begin, end, rules::name);
-  }
+    if constexpr (std::is_same<Nesting, rules::ast::Class>()) {
+      close_current_class();
+    } else if constexpr (std::is_same<Nesting, rules::ast::Enumeration>()) {
+      close_current_enum();
+    } else {
+      // TODO: implement
+    }
 
-  template <class Iter>
-  auto try_parse_class_bases(Iter begin, Iter end) {
-    return try_parse_T(begin, end, rules::class_inheritances);
-  }
-
-  template <class Iter>
-  auto try_parse_scope_begin(Iter begin, Iter end) {
-    return try_parse_T(begin, end, rules::scope_begin);
-  }
-
-  template <class Source>
-  auto parse_include(Source& source) {
-    auto begin = source.begin();
-    auto end = source.end();
-
-    namespace x3 = boost::spirit::x3;
-    bool parsed = x3::parse(begin, end,
-                            // rules begin
-                            rules::include
-                            // rules end
-    );
-
-    return parsed ? std::optional{Result{
-                        begin, make_string_view(source.begin(), begin)}}
-                  : std::nullopt;
+    nestings.pop_back();
   }
 
   template <class Source>
@@ -509,9 +453,163 @@ class StdParser {
    * Return all the includes in the parsed file
    */
   auto& get_all_includes() { return includes; }
-
-  void reset_includes() { includes.clear(); }
 };
+
+class StdParser {
+  template <class Iter, class Id, class T, template <class, class> class Rule,
+            class Out = T>
+  auto try_parse_T(Iter begin, Iter end, Rule<Id, T> rule) {
+    Out tmp;
+    namespace x3 = boost::spirit::x3;
+    bool parsed = x3::parse(begin, end,
+                            // rules begin
+                            rules::optionaly_space >> rule,
+                            // rules end
+                            tmp);
+
+    return parsed ? std::optional{ResultT{begin, std::move(tmp)}}
+                  : std::nullopt;
+  }
+
+  /**
+   * Used as a helper when we want to specify a different out type
+   */
+  template <class Out, class Iter, class Id, class T,
+            template <class, class> class Rule>
+  auto try_parse_T(Iter begin, Iter end, Rule<Id, T> rule) {
+    return try_parse_T<Iter, Id, T, Rule, Out>(begin, end, rule);
+  }
+
+  StdParserState parser;
+
+ public:
+  // TODO: when supported in std=c++2a change to fixed length string
+  constexpr static int id = 's' + 't' + 'd';
+
+  template <class Iter>
+  auto try_parse_function(Iter begin, Iter end) {
+    return try_parse_T<rules::ast::Function>(
+        begin, end, rules::function_signiture >> rules::scope_begin);
+  }
+
+  template <class Iter>
+  auto try_parse_variable(Iter begin, Iter end) {
+    return try_parse_T(begin, end, rules::var);
+  }
+
+  template <class Iter>
+  auto try_parse_templates_params(Iter begin, Iter end) {
+    return try_parse_T(begin, end, rules::template_parameters);
+  }
+
+  template <class Iter>
+  auto try_parse_name(Iter begin, Iter end) {
+    return try_parse_T(begin, end, rules::name);
+  }
+
+  template <class Iter>
+  auto try_parse_class_bases(Iter begin, Iter end) {
+    return try_parse_T(begin, end, rules::class_inheritances);
+  }
+
+  template <class Iter>
+  auto try_parse_scope_begin(Iter begin, Iter end) {
+    return try_parse_T(begin, end, rules::scope_begin);
+  }
+
+  template <class Iter>
+  ResultT<Iter, std::optional<rules::ast::Class>> try_parse_entire_class(
+      Iter begin, Iter end) {
+    StdParserState parser;
+
+    struct {
+      Iter begin_;
+      Iter end_;
+
+      Iter begin() { return begin_; }
+      Iter end() { return end_; }
+
+      explicit operator bool() const { return begin_ != end_; }
+    } source{begin, end};
+
+    while (source) {
+      if (auto out = parser.parse(source)) {
+        source.begin_ = out->processed_to;
+      } else {
+        return {source.begin_, std::nullopt};
+      }
+    }
+
+    auto& nesting = parser.get_top_nesting();
+    auto& classes = nesting.get_all_classes();
+    if (classes.size() != 1) {
+      return {begin, std::nullopt};
+    }
+
+    return {begin, {classes.begin()->second}};
+  }
+
+  template <class Source>
+  auto parse(Source& source) {
+    return parser.parse(source);
+  }
+
+  template <class Source>
+  auto parse_include(Source& source) {
+    auto begin = source.begin();
+    auto end = source.end();
+
+    namespace x3 = boost::spirit::x3;
+    bool parsed = x3::parse(begin, end,
+                            // rules begin
+                            rules::include
+                            // rules end
+    );
+
+    return parsed ? std::optional{Result{
+                        begin, make_string_view(source.begin(), begin)}}
+                  : std::nullopt;
+  }
+
+  // ========
+  // INCLUDES
+  // ========
+
+  template <class Source>
+  auto get_includes(Source& source) {
+    return parser.get_includes(source);
+  }
+
+  /**
+   * Return all the includes in the parsed file
+   */
+  auto& get_all_includes() { return parser.get_all_includes(); }
+
+  // ========
+  // NESTINGS
+  // ========
+
+  /**
+   * Add a new nesting
+   */
+  void open_new_nesting(Scopable&& arg) {
+    parser.open_new_nesting(std::move(arg));
+  }
+
+  /**
+   * Return a constant view of all the nestings
+   */
+  auto const& get_all_nestings() { return parser.get_all_nestings(); }
+
+  Scopable& get_current_nesting() { return parser.get_current_nesting(); }
+
+  // TODO: Constraint Nesting to Scopable
+  template <class Nesting>
+  void close_nesting() {
+    parser.close_nesting<Nesting>();
+  }
+};
+
 }  // namespace std_parser
 
 #endif  //! STD_PARSER_H

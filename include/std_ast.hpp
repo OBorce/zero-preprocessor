@@ -58,16 +58,18 @@ struct function_signiture {
   Type return_type;
   std::string name;
   params parameters;
+  bool is_noexcept;
 };
 
 struct operator_signiture {
   TemplateParameters template_parameters;
   bool is_constexpr;
+  bool is_virtual;
   Type return_type;
   params parameters;
+  bool is_noexcept;
+  bool is_pure_virtual;
 };
-
-enum class Virtual { YES, NO };
 
 struct method_signiture {
   TemplateParameters template_parameters;
@@ -78,7 +80,9 @@ struct method_signiture {
   params parameters;
   bool is_const;
   MethodQualifier qualifier = MethodQualifier::NONE;
+  bool is_noexcept;
   bool is_override;
+  bool is_pure_virtual;
 };
 
 enum class Constructor { CONSTRUCTOR, DESTRUCTOR, NOTHING };
@@ -90,6 +94,8 @@ struct constructor {
   Constructor type = Constructor::CONSTRUCTOR;
   std::string name;
   params parameters;
+  bool is_noexcept;
+  bool is_pure_virtual;
 };
 
 enum class class_type { CLASS, STRUCT, META_CLASS };
@@ -146,7 +152,9 @@ struct Function {
   params parameters;
   bool is_const = false;
   MethodQualifier qualifier = MethodQualifier::NONE;
+  bool is_noexcept = false;
   bool is_override = false;
+  bool is_pure_virtual = false;
 
   // NOTE: used in the generation of meta classes
   // contains everything inside the brackets of the function
@@ -159,7 +167,8 @@ struct Function {
         is_constexpr{fun.is_constexpr},
         return_type{std::move(fun.return_type)},
         name{std::move(fun.name)},
-        parameters{std::move(fun.parameters)} {}
+        parameters{std::move(fun.parameters)},
+        is_noexcept{fun.is_noexcept} {}
 
   Function(method_signiture&& fun)
       : template_parameters{std::move(fun.template_parameters)},
@@ -170,7 +179,9 @@ struct Function {
         parameters{std::move(fun.parameters)},
         is_const{fun.is_const},
         qualifier{fun.qualifier},
-        is_override{fun.is_override} {}
+        is_noexcept{fun.is_noexcept},
+        is_override{fun.is_override},
+        is_pure_virtual{fun.is_pure_virtual} {}
 
   Function(constructor&& fun)
       : template_parameters{std::move(fun.template_parameters)},
@@ -179,7 +190,9 @@ struct Function {
         constructor_type{fun.type},
         return_type{},
         name{std::move(fun.name)},
-        parameters{std::move(fun.parameters)} {}
+        parameters{std::move(fun.parameters)},
+        is_noexcept{fun.is_noexcept},
+        is_pure_virtual{fun.is_pure_virtual} {}
 
   Function(operator_signiture&& fun)
       : template_parameters{std::move(fun.template_parameters)},
@@ -187,7 +200,9 @@ struct Function {
         return_type{std::move(fun.return_type)},
         // TODO: need operator name
         name{"op"},
-        parameters{std::move(fun.parameters)} {}
+        parameters{std::move(fun.parameters)},
+        is_noexcept{fun.is_noexcept},
+        is_pure_virtual{fun.is_pure_virtual} {}
 };
 
 struct Class {
@@ -350,6 +365,8 @@ class Namespace {
     nested_namespaces.emplace(name, std::move(n));
   }
 
+  auto const& get_all_classes() const { return classes; }
+
   auto const& get_class(const std::string& name) const {
     return classes.at(name);
   }
@@ -372,17 +389,17 @@ BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::TemplateParameters,
                           template_parameters)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::function_signiture,
                           template_parameters, is_constexpr, return_type, name,
-                          parameters)
+                          parameters, is_noexcept)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::method_signiture,
                           template_parameters, is_constexpr, is_virtual,
                           return_type, name, parameters, is_const, qualifier,
-                          is_override)
+                          is_noexcept, is_override, is_pure_virtual)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::operator_signiture,
-                          template_parameters, is_constexpr, return_type,
-                          parameters)
+                          template_parameters, is_constexpr, is_virtual,
+                          return_type, parameters, is_noexcept, is_pure_virtual)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::constructor,
                           template_parameters, is_constexpr, is_virtual, type,
-                          name, parameters)
+                          name, parameters, is_noexcept, is_pure_virtual)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::class_inheritance, modifier,
                           type)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::class_bases, bases)

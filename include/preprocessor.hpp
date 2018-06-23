@@ -109,8 +109,8 @@ class Preprocessor {
   auto process(Source& source, Writer& writer) {
     auto out = std::get<N>(parsers).parse(source);
     if (out) {
-      writer((*out).result);
-      return (*out).processed_to;
+      writer(out->result);
+      return out->processed_to;
     }
 
     if constexpr (N + 1 < number_of_parsers) {
@@ -140,7 +140,7 @@ class Preprocessor {
     if constexpr (is_detected_v<preprocess_fun, parser_type<N>, Source&>) {
       auto out = std::get<N>(parsers).preprocess(source);
       if (out) {
-        return (*out).processed_to;
+        return out->processed_to;
       }
     }
 
@@ -152,7 +152,7 @@ class Preprocessor {
     constexpr int parser_idx = get_parsers_idx_with_error<std_parser_id>();
     auto out = std::get<parser_idx>(parsers).parse(source);
     if (out) {
-      return (*out).processed_to;
+      return out->processed_to;
     }
 
     throw throw_unparsable_error(source);
