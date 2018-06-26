@@ -282,18 +282,19 @@ class StaticReflexParser {
 
   auto generate_class_reflection() {
     auto& std_parser = parent.template get_parser<Parent::std_parser_id>();
-    auto& current_class = std::get<Class>(std_parser.get_current_nesting());
+    auto& current_class =
+        std::get<Class>(std_parser.get_current_code_fragment());
     auto rez = generate_class_reflection(current_class);
-    std_parser.template close_nesting<Class>();
+    std_parser.template close_code_fragment<Class>();
     return rez;
   }
 
   auto generate_enum_reflection() {
     auto& std_parser = parent.template get_parser<Parent::std_parser_id>();
     auto& current_enum =
-        std::get<Enumeration>(std_parser.get_current_nesting());
+        std::get<Enumeration>(std_parser.get_current_code_fragment());
     auto rez = generate_enum_reflection(current_enum);
-    std_parser.template close_nesting<Enumeration>();
+    std_parser.template close_code_fragment<Enumeration>();
     return rez;
   }
 
@@ -301,9 +302,9 @@ class StaticReflexParser {
   template <typename Iter>
   auto generate_reflection(Iter begin) {
     auto& std_parser = parent.template get_parser<Parent::std_parser_id>();
-    return is_class(std_parser.get_current_nesting())
+    return is_class(std_parser.get_current_code_fragment())
                ? std::optional{Result{begin, generate_class_reflection()}}
-               : is_enum(std_parser.get_current_nesting())
+               : is_enum(std_parser.get_current_code_fragment())
                      ? std::optional{Result{begin, generate_enum_reflection()}}
                      : std::nullopt;
   }

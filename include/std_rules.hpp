@@ -101,7 +101,7 @@ auto const binary_operator_def =
     lit("+=") | '+' | "-=" | "->*" | "->" | '-' | ".*" | '.' | "*=" | '*' |
     "/=" | '/' | "%=" | '%' | ">>=" | ">>" | ">=" | '>' | "<<=" | "<<" | "<=" |
     '<' | "&&" | "&=" | '&' | "||" | "|=" | '|' | "~=" | '~' | "^=" | '^' |
-    "!=" | '!' | "==" | '=';
+    "!=" | '!' | "==" | '=' | ',';
 
 x3::rule<class all_overloadable_operators> const all_overloadable_operators =
     "all_overloadable_operators";
@@ -222,6 +222,36 @@ auto const statement_def = optionaly_space >> expression >> statement_end;
 
 x3::rule<class return_statement> const return_statement = "return_statement";
 auto const return_statement_def = "return" >> some_space >> statement;
+
+// TODO: new expression parsing
+// var_type >> ( {...} | (...) )
+// num | char | str
+// ( ... )
+// lambda [] <> () {}
+
+x3::rule<class type_or_name> const type_or_name = "type_or_name";
+auto const type_or_name_def = var_type;
+
+x3::rule<class literal> const literal = "literal";
+auto const literal_def = number | char_literal | string_literal;
+
+x3::rule<class parenthesis_begin> const parenthesis_begin = "parenthesis_begin";
+auto const parenthesis_begin_def = lit('(');
+
+x3::rule<class parenthesis_end> const parenthesis_end = "parenthesis_end";
+auto const parenthesis_end_def = lit(')');
+
+x3::rule<class curly_begin> const curly_begin = "curly_begin";
+auto const curly_begin_def = lit('{');
+
+x3::rule<class curly_end> const curly_end = "curly_end";
+auto const curly_end_def = lit('}');
+
+x3::rule<class expression2> const expression2 = "expression2";
+auto const expression2_def = -(prefix_operator >> optionaly_space) >>
+                             (type_or_name | literal);
+
+// ============================================
 
 x3::rule<class param, ast::var> const param = "param";
 auto const param_def = type >> some_space >> name;
@@ -373,11 +403,14 @@ BOOST_SPIRIT_DEFINE(
     quoted_string, string_literal, char_literal, argument, optionaly_arguments,
     function_call, expression, paren_expression, optionaly_paren_expression,
     init_list, arg_init_list, optionaly_params, statement, return_statement,
-    param, optional_param, param_optionaly_default, var, constructor_init,
-    for_loop, if_expression, template_parameter, template_parameters,
-    is_noexcept, function_signiture, is_pure_virtual, method_signiture,
-    operator_signiture, constructor, class_inheritance, class_inheritances,
-    class_or_struct, enumeration, enumerators);
+    type_or_name, literal, parenthesis_begin, parenthesis_end, curly_begin,
+    curly_end, expression2, param, optional_param, param_optionaly_default, var,
+    constructor_init, for_loop, if_expression, template_parameter,
+    template_parameters, is_noexcept, function_signiture, is_pure_virtual,
+    method_signiture, operator_signiture, constructor, class_inheritance);
+
+BOOST_SPIRIT_DEFINE(class_inheritances, class_or_struct, enumeration,
+                    enumerators);
 }  // namespace std_parser::rules
 
 #endif  //! STD_RULES_H

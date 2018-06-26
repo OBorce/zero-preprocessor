@@ -118,6 +118,12 @@ struct class_or_struct {
   class_bases bases;
 };
 
+enum class ExpressionEnclosing {CURLY, ROUND, NONE};
+struct Expression {
+  ExpressionEnclosing enclosing = ExpressionEnclosing::NONE;
+  bool is_begin = false;
+};
+
 enum class EnumType { ENUM, ENUM_CLASS };
 
 struct enum_ {

@@ -13,12 +13,12 @@
 #include <string_utils.hpp>
 
 namespace std_parser {
-using Scopable =
-    std::variant<rules::ast::Namespace, rules::ast::Scope, rules::ast::Class,
-                 rules::ast::Enumeration, rules::ast::Function>;
+using CodeFragment = std::variant<rules::ast::Namespace, rules::ast::Scope,
+                                  rules::ast::Class, rules::ast::Enumeration,
+                                  rules::ast::Function, rules::ast::Expression>;
 
 class StdParserState {
-  std::vector<Scopable> nestings = {rules::ast::Namespace{""}};
+  std::vector<CodeFragment> code_fragments = {rules::ast::Namespace{""}};
   std::unordered_set<std::string> includes;
 
   // some iterator pointing to the start of the function's body
@@ -35,14 +35,14 @@ class StdParserState {
 
     auto nest = [this](auto& ctx) {
       auto& rez = _attr(ctx);
-      nestings.emplace_back(std::move(rez));
+      code_fragments.emplace_back(std::move(rez));
     };
 
     auto fun = [this, &begin](auto& ctx) {
       auto& rez = _attr(ctx);
       // TODO: we can get begin from the context
       function_begins.push_back(begin);
-      nestings.emplace_back(std::move(rez));
+      code_fragments.emplace_back(std::move(rez));
     };
 
     auto var = [&current](auto& ctx) {
@@ -57,16 +57,16 @@ class StdParserState {
 
     auto sb = [this](auto& ctx) {
       auto& rez = _attr(ctx);
-      nestings.emplace_back(rules::ast::Namespace{std::move(rez)});
+      code_fragments.emplace_back(rules::ast::Namespace{std::move(rez)});
     };
 
     auto se = [&](auto&) {
-      if (nestings.size() < 2) {
+      if (code_fragments.size() < 2) {
         // NOTE: more closing brackets than opened
         throw std::runtime_error("extraneous closing brace ('}')");
       }
 
-      auto& v = nestings[nestings.size() - 2];
+      auto& v = code_fragments[code_fragments.size() - 2];
       std::visit(
           overloaded{
               [&](rules::ast::Namespace& arg) {
@@ -78,7 +78,7 @@ class StdParserState {
               },
           },
           v);
-      nestings.pop_back();
+      code_fragments.pop_back();
     };
 
     namespace x3 = boost::spirit::x3;
@@ -112,14 +112,14 @@ class StdParserState {
 
     auto nest = [this](auto& ctx) {
       auto& rez = _attr(ctx);
-      nestings.emplace_back(std::move(rez));
+      code_fragments.emplace_back(std::move(rez));
     };
 
     auto fun = [this, &begin](auto& ctx) {
       auto& rez = _attr(ctx);
       // TODO: we can get begin from the context
       function_begins.push_back(begin);
-      nestings.emplace_back(std::move(rez));
+      code_fragments.emplace_back(std::move(rez));
     };
 
     auto funSig = [&](auto& ctx) {
@@ -142,7 +142,7 @@ class StdParserState {
       includes.emplace(std::move(rez));
     };
 
-    auto se = [&](auto&) { this->close_nesting<rules::ast::Class>(); };
+    auto se = [&](auto&) { this->close_code_fragment<rules::ast::Class>(); };
 
     namespace x3 = boost::spirit::x3;
     bool parsed = x3::parse(
@@ -179,7 +179,9 @@ class StdParserState {
       current.set_enumerators(std::move(rez));
     };
 
-    auto se = [&](auto&) { this->close_nesting<rules::ast::Enumeration>(); };
+    auto se = [&](auto&) {
+      this->close_code_fragment<rules::ast::Enumeration>();
+    };
 
     namespace x3 = boost::spirit::x3;
     bool parsed = x3::parse(
@@ -196,13 +198,129 @@ class StdParserState {
   }
 
   template <class Source>
+  auto parse_inside_expression(Source& source,
+                               rules::ast::Expression& current) {
+    auto begin = source.begin();
+    auto end = source.end();
+
+    auto se = [this](auto&) { close_code_fragment<rules::ast::Expression>(); };
+
+    auto exp = [this](auto&) {
+      code_fragments.emplace_back(rules::ast::Expression{});
+    };
+
+    using Enclosing = rules::ast::ExpressionEnclosing;
+
+    auto round = [this](auto&) {
+      code_fragments.emplace_back(
+          rules::ast::Expression{Enclosing::ROUND, true});
+    };
+
+    auto curly = [this](auto&) {
+      code_fragments.emplace_back(
+          rules::ast::Expression{Enclosing::CURLY, true});
+    };
+
+    auto e = [&](auto&) { current.is_begin = false; };
+
+    namespace x3 = boost::spirit::x3;
+    bool parsed = false;
+    if (current.is_begin) {
+      switch (current.enclosing) {
+        case Enclosing::ROUND:
+          parsed =
+              x3::parse(begin, end,
+                        // rules begin
+                        rules::optionaly_space >>
+                            (rules::comment |
+                             // paren expression
+                             rules::parenthesis_begin[round] |
+                             rules::parenthesis_end[se] | rules::expression2[e])
+                        // rules end
+              );
+          break;
+        case Enclosing::CURLY:
+          parsed = x3::parse(
+              begin, end,
+              // rules begin
+              rules::optionaly_space >> (rules::comment | rules::curly_end[se] |
+                                         rules::expression2[e])
+              // rules end
+          );
+          break;
+        case Enclosing::NONE:
+          parsed =
+              x3::parse(begin, end,
+                        // rules begin
+                        rules::optionaly_space >>
+                            (rules::comment | rules::parenthesis_begin[round] |
+                             rules::statement_end[se] | rules::expression2[e])
+                        // rules end
+              );
+          break;
+      }
+    } else {
+      switch (current.enclosing) {
+        case Enclosing::ROUND:
+          parsed = x3::parse(
+              begin, end,
+              // rules begin
+              rules::optionaly_space >>
+                  (rules::comment |
+                   // paren expression
+                   rules::parenthesis_begin[round] |
+                   rules::parenthesis_end[se] | rules::curly_begin[curly] |
+                   (rules::operator_sep >>
+                    (rules::parenthesis_begin[round] | rules::expression2)[e]))
+              // rules end
+          );
+          break;
+        case Enclosing::CURLY:
+          parsed = x3::parse(
+              begin, end,
+              // rules begin
+              rules::optionaly_space >>
+                  (rules::comment |
+                   // paren expression
+                   rules::parenthesis_begin[round] | rules::curly_begin[curly] |
+                   rules::curly_end[se] |
+                   (rules::operator_sep >>
+                    (rules::parenthesis_begin[round] | rules::expression2)[e]))
+              // rules end
+          );
+          break;
+        case Enclosing::NONE:
+          parsed = x3::parse(
+              begin, end,
+              // rules begin
+              rules::optionaly_space >>
+                  (rules::statement_end[se] | rules::comment |
+                   rules::parenthesis_begin[round] | rules::curly_begin[curly] |
+                   (rules::operator_sep >>
+                    (rules::parenthesis_begin[round] | rules::expression2)[e]))
+              // rules end
+          );
+          break;
+      }
+    }
+
+    return parsed ? std::optional{Result{
+                        begin, make_string_view(source.begin(), begin)}}
+                  : std::nullopt;
+  }
+
+  template <class Source>
   auto parse_inside_function(Source& source, rules::ast::Function& current) {
     auto begin = source.begin();
     auto end = source.end();
 
     auto nest = [this](auto& ctx) {
       auto& rez = _attr(ctx);
-      nestings.emplace_back(std::move(rez));
+      code_fragments.emplace_back(std::move(rez));
+    };
+
+    auto exp = [this](auto&) {
+      code_fragments.emplace_back(rules::ast::Expression{});
     };
 
     auto inc = [this](auto& ctx) {
@@ -210,11 +328,11 @@ class StdParserState {
       includes.emplace(std::move(rez));
     };
 
-    auto sb = [&](auto&) { nestings.emplace_back(rules::ast::Scope{}); };
+    auto sb = [&](auto&) { code_fragments.emplace_back(rules::ast::Scope{}); };
 
     auto se = [&](auto&) {
       // TODO: remove function_begins when not needed
-      if (nestings.size() < 2 || function_begins.empty()) {
+      if (code_fragments.size() < 2 || function_begins.empty()) {
         // NOTE: more closing brackets than opened
         throw std::runtime_error("extraneous closing brace ('}')");
       }
@@ -222,7 +340,7 @@ class StdParserState {
       auto end = source.begin();
       auto start = std::any_cast<decltype(end)>(current_functions_start);
       current.body = std::string(start, end) + '\n';
-      auto& v = nestings[nestings.size() - 2];
+      auto& v = code_fragments[code_fragments.size() - 2];
       std::visit(
           overloaded{
               [&](rules::ast::Namespace& arg) {
@@ -237,24 +355,25 @@ class StdParserState {
               },
           },
           v);
-      nestings.pop_back();
+      code_fragments.pop_back();
       function_begins.pop_back();
     };
 
     namespace x3 = boost::spirit::x3;
-    bool parsed = x3::parse(
-        begin, end,
-        // rules begin
-        rules::optionaly_space >>
-            ((rules::class_or_struct >> rules::scope_begin)[nest] |
-             (rules::class_or_struct >> rules::statement_end) |
-             (rules::enumeration >> rules::scope_begin)[nest] |
-             (rules::enumeration >> rules::statement_end) |
-             rules::scope_begin[sb] | rules::scope_end[se] | rules::statement |
-             rules::include[inc] | rules::comment | rules::var |
-             rules::for_loop | rules::if_expression | rules::return_statement)
-        // rules end
-    );
+    bool parsed =
+        x3::parse(begin, end,
+                  // rules begin
+                  rules::optionaly_space >>
+                      ((rules::class_or_struct >> rules::scope_begin)[nest] |
+                       (rules::class_or_struct >> rules::statement_end) |
+                       (rules::enumeration >> rules::scope_begin)[nest] |
+                       (rules::enumeration >> rules::statement_end) |
+                       rules::scope_begin[sb] | rules::scope_end[se] |
+                       rules::include[inc] | rules::comment | rules::var |
+                       rules::for_loop | rules::if_expression |
+                       rules::return_statement | rules::expression2[exp])
+                  // rules end
+        );
 
     return parsed ? std::optional{Result{
                         begin, make_string_view(source.begin(), begin)}}
@@ -268,7 +387,7 @@ class StdParserState {
 
     auto nest = [this](auto& ctx) {
       auto& rez = _attr(ctx);
-      nestings.emplace_back(std::move(rez));
+      code_fragments.emplace_back(std::move(rez));
     };
 
     auto inc = [this](auto& ctx) {
@@ -276,14 +395,14 @@ class StdParserState {
       includes.emplace(std::move(rez));
     };
 
-    auto sb = [&](auto&) { nestings.emplace_back(rules::ast::Scope{}); };
+    auto sb = [&](auto&) { code_fragments.emplace_back(rules::ast::Scope{}); };
 
     auto se = [&](auto&) {
-      if (nestings.size() < 2) {
+      if (code_fragments.size() < 2) {
         // NOTE: more closing brackets than opened
         throw std::runtime_error("extraneous closing brace ('}')");
       }
-      auto& v = nestings[nestings.size() - 2];
+      auto& v = code_fragments[code_fragments.size() - 2];
       std::visit(
           overloaded{
               [&](rules::ast::Function&) {
@@ -295,7 +414,7 @@ class StdParserState {
               },
           },
           v);
-      nestings.pop_back();
+      code_fragments.pop_back();
     };
 
     namespace x3 = boost::spirit::x3;
@@ -319,8 +438,8 @@ class StdParserState {
   }
 
   void close_current_class() {
-    auto& c = std::get<rules::ast::Class>(nestings.back());
-    auto& v = nestings[nestings.size() - 2];
+    auto& c = std::get<rules::ast::Class>(code_fragments.back());
+    auto& v = code_fragments[code_fragments.size() - 2];
     std::visit(
         overloaded{
             [&](rules::ast::Namespace& arg) { arg.add_class(std::move(c)); },
@@ -333,8 +452,8 @@ class StdParserState {
   }
 
   void close_current_enum() {
-    auto& c = std::get<rules::ast::Enumeration>(nestings.back());
-    auto& v = nestings[nestings.size() - 2];
+    auto& c = std::get<rules::ast::Enumeration>(code_fragments.back());
+    auto& v = code_fragments[code_fragments.size() - 2];
     std::visit(
         overloaded{
             [&](rules::ast::Namespace& arg) { arg.add_enum(std::move(c)); },
@@ -355,7 +474,7 @@ class StdParserState {
    */
   template <class Source>
   auto parse(Source& source) {
-    auto& current_nesting = nestings.back();
+    auto& current_code_fragment = code_fragments.back();
     return std::visit(
         overloaded{
             [&](rules::ast::Namespace& arg) {
@@ -373,45 +492,51 @@ class StdParserState {
             [&](rules::ast::Enumeration& arg) {
               return parse_inside_enum(source, arg);
             },
+            [&](rules::ast::Expression& arg) {
+              return parse_inside_expression(source, arg);
+            },
         },
-        current_nesting);
+        current_code_fragment);
   }
 
   /**
-   * Add a new nesting
+   * Add a new code_fragment
    */
-  void open_new_nesting(Scopable&& arg) {
-    nestings.emplace_back(std::move(arg));
+  void open_new_code_fragment(CodeFragment&& arg) {
+    code_fragments.emplace_back(std::move(arg));
   }
 
   /**
-   * Return a constant view of all the nestings
+   * Return a constant view of all the code_fragments
    */
-  auto const& get_all_nestings() { return nestings; }
+  auto const& get_all_code_fragments() { return code_fragments; }
 
-  Scopable& get_current_nesting() { return nestings.back(); }
+  CodeFragment& get_current_code_fragment() { return code_fragments.back(); }
 
-  rules::ast::Namespace const& get_top_nesting() {
-    return std::get<rules::ast::Namespace>(nestings.front());
+  rules::ast::Namespace const& get_top_code_fragment() {
+    return std::get<rules::ast::Namespace>(code_fragments.front());
   }
 
-  // TODO add SFINAE for Scopable
-  template <class Nesting>
-  void close_nesting() {
-    if (nestings.size() < 2) {
+  // TODO add SFINAE for CodeFragment
+  template <class Fragment>
+  void close_code_fragment() {
+    if (code_fragments.size() < 2) {
       // NOTE: more closing brackets than opened
       throw std::runtime_error("extraneous closing brace ('}')");
     }
 
-    if constexpr (std::is_same<Nesting, rules::ast::Class>()) {
+    if constexpr (std::is_same<Fragment, rules::ast::Class>()) {
       close_current_class();
-    } else if constexpr (std::is_same<Nesting, rules::ast::Enumeration>()) {
+    } else if constexpr (std::is_same<Fragment, rules::ast::Enumeration>()) {
       close_current_enum();
+    } else if constexpr (std::is_same<Fragment, rules::ast::Expression>()) {
+      // NOTE: nothing to do for now
+      // update when we decide to store the expressions
     } else {
       // TODO: implement
     }
 
-    nestings.pop_back();
+    code_fragments.pop_back();
   }
 
   template <class Source>
@@ -540,8 +665,8 @@ class StdParser {
       }
     }
 
-    auto& nesting = parser.get_top_nesting();
-    auto& classes = nesting.get_all_classes();
+    auto& code_fragment = parser.get_top_code_fragment();
+    auto& classes = code_fragment.get_all_classes();
     if (classes.size() != 1) {
       return {begin, std::nullopt};
     }
@@ -585,28 +710,32 @@ class StdParser {
    */
   auto& get_all_includes() { return parser.get_all_includes(); }
 
-  // ========
-  // NESTINGS
-  // ========
+  // ==============
+  // CODE FRAGMENTS
+  // ==============
 
   /**
-   * Add a new nesting
+   * Add a new code_fragment
    */
-  void open_new_nesting(Scopable&& arg) {
-    parser.open_new_nesting(std::move(arg));
+  void open_new_code_fragment(CodeFragment&& arg) {
+    parser.open_new_code_fragment(std::move(arg));
   }
 
   /**
-   * Return a constant view of all the nestings
+   * Return a constant view of all the code_fragments
    */
-  auto const& get_all_nestings() { return parser.get_all_nestings(); }
+  auto const& get_all_code_fragments() {
+    return parser.get_all_code_fragments();
+  }
 
-  Scopable& get_current_nesting() { return parser.get_current_nesting(); }
+  CodeFragment& get_current_code_fragment() {
+    return parser.get_current_code_fragment();
+  }
 
-  // TODO: Constraint Nesting to Scopable
-  template <class Nesting>
-  void close_nesting() {
-    parser.close_nesting<Nesting>();
+  // TODO: Constraint Fragment to CodeFragment
+  template <class Fragment>
+  void close_code_fragment() {
+    parser.close_code_fragment<Fragment>();
   }
 };
 

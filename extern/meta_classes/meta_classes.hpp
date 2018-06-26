@@ -38,10 +38,11 @@ class MetaClassParser {
     std::string res;
     if (out) {
       // if inside a constexpr function add it as a meta function
-      const auto& current_nesting = std_parser.get_current_nesting();
+      const auto& current_code_fragment =
+          std_parser.get_current_code_fragment();
       using Fun = std_parser::rules::ast::Function;
-      if (std::holds_alternative<Fun>(current_nesting)) {
-        const Fun& fun = std::get<Fun>(current_nesting);
+      if (std::holds_alternative<Fun>(current_code_fragment)) {
+        const Fun& fun = std::get<Fun>(current_code_fragment);
         meta_classes.emplace(fun.name);
         inside_meta_class_function = true;
         res = {out->result.begin(), out->result.end()};
@@ -120,7 +121,7 @@ class MetaClassParser {
       if (class_bases) {
         cls.bases = std::move(class_bases->result);
       }
-      std_parser.open_new_nesting(std::move(cls));
+      std_parser.open_new_code_fragment(std::move(cls));
       is_parsed = true;
       current_meta_class = std::move(meta_name->result);
       current_meta_class_name = std::move(class_name->result);
@@ -193,11 +194,13 @@ class MetaClassParser {
       writer(out->result);
 
       // if end of function inside_meta_class_function = false;
-      auto& current_nesting = std_parser.get_current_nesting();
+      auto& current_code_fragment = std_parser.get_current_code_fragment();
       using Fun = std_parser::rules::ast::Function;
       using Scope = std_parser::rules::ast::Scope;
-      if (!std::holds_alternative<Fun>(current_nesting) &&
-          !std::holds_alternative<Scope>(current_nesting)) {
+      using Expression = std_parser::rules::ast::Expression;
+      if (!std::holds_alternative<Fun>(current_code_fragment) &&
+          !std::holds_alternative<Scope>(current_code_fragment) &&
+          !std::holds_alternative<Expression>(current_code_fragment)) {
         inside_meta_class_function = false;
       }
     }
@@ -206,22 +209,24 @@ class MetaClassParser {
   }
 
   /**
-   * Traverse the current nestings and try to find a class with our
+   * Traverse the current code_fragments and try to find a class with our
    * current_meta_class_name
    */
   bool is_still_inside_meta_class() {
     auto& std_parser = parent.template get_parser<Parent::std_parser_id>();
-    auto& nestings = std_parser.get_all_nestings();
+    auto& code_fragments = std_parser.get_all_code_fragments();
 
     using Class = std_parser::rules::ast::Class;
 
-    return std::any_of(nestings.begin(), nestings.end(), [this](auto& nesting) {
-      if (!std::holds_alternative<Class>(nesting)) {
-        return false;
-      }
-      auto class_nesting = std::get<Class>(nesting);
-      return class_nesting.name == current_meta_class_name;
-    });
+    return std::any_of(
+        code_fragments.begin(), code_fragments.end(),
+        [this](auto& code_fragment) {
+          if (!std::holds_alternative<Class>(code_fragment)) {
+            return false;
+          }
+          auto class_code_fragment = std::get<Class>(code_fragment);
+          return class_code_fragment.name == current_meta_class_name;
+        });
   }
 
   template <class Source>
@@ -235,9 +240,10 @@ class MetaClassParser {
 
     std::string output;
     using Class = std_parser::rules::ast::Class;
+    // TODO: check if this will get triggered if a method ends with };
     if (parsed && meta_process.ok()) {
-      auto& current_nesting = std_parser.get_current_nesting();
-      auto& cls = std::get<Class>(current_nesting);
+      auto& current_code_fragment = std_parser.get_current_code_fragment();
+      auto& cls = std::get<Class>(current_code_fragment);
       output =
           gen_meta_class(meta_process, current_meta_class, cls, std_parser);
     }
