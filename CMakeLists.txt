@@ -23,7 +23,9 @@ target_include_directories(tests PRIVATE
   ${PROJECT_SOURCE_DIR}/extern/static_reflection
   ${PROJECT_SOURCE_DIR}/extern/meta_classes/
   )
-find_package(Boost 1.67 REQUIRED COMPONENTS system)
+
+set(Boost_USE_STATIC_LIBS   ON)
+find_package(Boost 1.67 REQUIRED COMPONENTS filesystem)
 target_link_libraries(tests PRIVATE Catch Boost::boost)
 enable_testing()
 add_test(NAME test COMMAND tests)
@@ -88,6 +90,8 @@ function(preprocess target preprocessor_dir)
   target_include_directories(${target} BEFORE PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/include)
 endfunction()
 
+find_package(Threads REQUIRED)
+
 # Our main
 add_executable(main ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
 target_compile_features(main INTERFACE cxx_std_17)
@@ -96,6 +100,6 @@ target_include_directories(main PRIVATE
   ${PROJECT_SOURCE_DIR}/extern/static_reflection
   ${PROJECT_SOURCE_DIR}/extern/meta_classes/
   )
-target_link_libraries(main PRIVATE Boost::boost Boost::system -lstdc++fs -lpthread)
+target_link_libraries(main PRIVATE Boost::boost Boost::filesystem Threads::Threads -lstdc++fs)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)

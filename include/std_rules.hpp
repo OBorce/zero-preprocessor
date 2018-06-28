@@ -182,6 +182,7 @@ auto const template_values_def = '<' >> optionaly_space >>
 auto const type_def = -(type_qualifiers >> some_space) >> var_type >>
                       -(optionaly_space >> type_qualifiers);
 
+//TODO: delete most of this with the new expression refactor
 x3::rule<class argument> const argument = "argument";
 x3::rule<class optionaly_arguments> const optionaly_arguments =
     "optionaly_arguments";

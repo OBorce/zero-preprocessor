@@ -13,9 +13,11 @@
 #include <string_utils.hpp>
 
 namespace std_parser {
-using CodeFragment = std::variant<rules::ast::Namespace, rules::ast::Scope,
-                                  rules::ast::Class, rules::ast::Enumeration,
-                                  rules::ast::Function, rules::ast::Expression>;
+using CodeFragment =
+    std::variant<rules::ast::Namespace, rules::ast::Scope, rules::ast::Class,
+                 rules::ast::Enumeration, rules::ast::Function,
+                 rules::ast::Expression, rules::ast::RoundExpression,
+                 rules::ast::CurlyExpression>;
 
 class StdParserState {
   std::vector<CodeFragment> code_fragments = {rules::ast::Namespace{""}};
@@ -205,20 +207,59 @@ class StdParserState {
 
     auto se = [this](auto&) { close_code_fragment<rules::ast::Expression>(); };
 
-    auto exp = [this](auto&) {
-      code_fragments.emplace_back(rules::ast::Expression{});
-    };
-
-    using Enclosing = rules::ast::ExpressionEnclosing;
-
     auto round = [this](auto&) {
-      code_fragments.emplace_back(
-          rules::ast::Expression{Enclosing::ROUND, true});
+      code_fragments.emplace_back(rules::ast::RoundExpression{});
     };
 
     auto curly = [this](auto&) {
-      code_fragments.emplace_back(
-          rules::ast::Expression{Enclosing::CURLY, true});
+      code_fragments.emplace_back(rules::ast::CurlyExpression{});
+    };
+
+    auto e = [&](auto&) { current.is_begin = false; };
+
+    namespace x3 = boost::spirit::x3;
+    bool parsed = false;
+    // TODO: when is this even true?
+    if (current.is_begin) {
+      parsed = x3::parse(begin, end,
+                         // rules begin
+                         rules::optionaly_space >>
+                             (rules::comment | rules::parenthesis_begin[round] |
+                              rules::statement_end[se] | rules::expression2[e])
+                         // rules end
+      );
+    } else {
+      parsed = x3::parse(
+          begin, end,
+          // rules begin
+          rules::optionaly_space >>
+              (rules::statement_end[se] | rules::comment |
+               rules::parenthesis_begin[round] | rules::curly_begin[curly] |
+               (rules::operator_sep >>
+                (rules::parenthesis_begin[round] | rules::expression2)[e]))
+          // rules end
+      );
+    }
+
+    return parsed ? std::optional{Result{
+                        begin, make_string_view(source.begin(), begin)}}
+                  : std::nullopt;
+  }
+
+  template <class Source>
+  auto parse_inside_round_expression(Source& source,
+                                     rules::ast::RoundExpression& current) {
+    auto begin = source.begin();
+    auto end = source.end();
+
+    auto se = [this](auto&) { close_code_fragment<rules::ast::Expression>(); };
+
+    auto round = [this](auto&) {
+      code_fragments.emplace_back(rules::ast::RoundExpression{});
+    };
+
+    auto curly = [this](auto&) {
+      code_fragments.emplace_back(rules::ast::CurlyExpression{});
     };
 
     auto e = [&](auto&) { current.is_begin = false; };
@@ -226,82 +267,77 @@ class StdParserState {
     namespace x3 = boost::spirit::x3;
     bool parsed = false;
     if (current.is_begin) {
-      switch (current.enclosing) {
-        case Enclosing::ROUND:
-          parsed =
-              x3::parse(begin, end,
-                        // rules begin
-                        rules::optionaly_space >>
-                            (rules::comment |
-                             // paren expression
-                             rules::parenthesis_begin[round] |
-                             rules::parenthesis_end[se] | rules::expression2[e])
-                        // rules end
-              );
-          break;
-        case Enclosing::CURLY:
-          parsed = x3::parse(
-              begin, end,
-              // rules begin
-              rules::optionaly_space >> (rules::comment | rules::curly_end[se] |
-                                         rules::expression2[e])
-              // rules end
+      parsed =
+          x3::parse(begin, end,
+                    // rules begin
+                    rules::optionaly_space >>
+                        (rules::comment |
+                         // paren expression
+                         rules::parenthesis_begin[round] |
+                         rules::parenthesis_end[se] | rules::expression2[e])
+                    // rules end
           );
-          break;
-        case Enclosing::NONE:
-          parsed =
-              x3::parse(begin, end,
-                        // rules begin
-                        rules::optionaly_space >>
-                            (rules::comment | rules::parenthesis_begin[round] |
-                             rules::statement_end[se] | rules::expression2[e])
-                        // rules end
-              );
-          break;
-      }
     } else {
-      switch (current.enclosing) {
-        case Enclosing::ROUND:
-          parsed = x3::parse(
-              begin, end,
-              // rules begin
-              rules::optionaly_space >>
-                  (rules::comment |
-                   // paren expression
-                   rules::parenthesis_begin[round] |
-                   rules::parenthesis_end[se] | rules::curly_begin[curly] |
-                   (rules::operator_sep >>
-                    (rules::parenthesis_begin[round] | rules::expression2)[e]))
-              // rules end
-          );
-          break;
-        case Enclosing::CURLY:
-          parsed = x3::parse(
-              begin, end,
-              // rules begin
-              rules::optionaly_space >>
-                  (rules::comment |
-                   // paren expression
-                   rules::parenthesis_begin[round] | rules::curly_begin[curly] |
-                   rules::curly_end[se] |
-                   (rules::operator_sep >>
-                    (rules::parenthesis_begin[round] | rules::expression2)[e]))
-              // rules end
-          );
-          break;
-        case Enclosing::NONE:
-          parsed = x3::parse(
-              begin, end,
-              // rules begin
-              rules::optionaly_space >>
-                  (rules::statement_end[se] | rules::comment |
-                   rules::parenthesis_begin[round] | rules::curly_begin[curly] |
-                   (rules::operator_sep >>
-                    (rules::parenthesis_begin[round] | rules::expression2)[e]))
-              // rules end
-          );
-          break;
-      }
+      parsed = x3::parse(
+          begin, end,
+          // rules begin
+          rules::optionaly_space >>
+              (rules::comment |
+               // paren expression
+               rules::parenthesis_begin[round] | rules::parenthesis_end[se] |
+               rules::curly_begin[curly] |
+               (rules::operator_sep >>
+                (rules::parenthesis_begin[round] | rules::expression2)[e]))
+          // rules end
+      );
+    }
+
+    return parsed ? std::optional{Result{
+                        begin, make_string_view(source.begin(), begin)}}
+                  : std::nullopt;
+  }
+
+  template <class Source>
+  auto parse_inside_curly_expression(Source& source,
+                                     rules::ast::CurlyExpression& current) {
+    auto begin = source.begin();
+    auto end = source.end();
+
+    auto se = [this](auto&) { close_code_fragment<rules::ast::Expression>(); };
+
+    auto round = [this](auto&) {
+      code_fragments.emplace_back(rules::ast::RoundExpression{});
+    };
+
+    auto curly = [this](auto&) {
+      code_fragments.emplace_back(rules::ast::CurlyExpression{});
+    };
+
+    auto e = [&](auto&) { current.is_begin = false; };
+
+    namespace x3 = boost::spirit::x3;
+    bool parsed = false;
+    if (current.is_begin) {
+      parsed = x3::parse(
+          begin, end,
+          // rules begin
+          rules::optionaly_space >>
+              (rules::comment | rules::curly_end[se] | rules::expression2[e])
+          // rules end
+      );
+    } else {
+      parsed = x3::parse(
+          begin, end,
+          // rules begin
+          rules::optionaly_space >>
+              (rules::comment |
+               // paren expression
+               rules::parenthesis_begin[round] | rules::curly_begin[curly] |
+               rules::curly_end[se] |
+               (rules::operator_sep >>
+                (rules::parenthesis_begin[round] | rules::expression2)[e]))
+          // rules end
+      );
     }
 
     return parsed ? std::optional{Result{
@@ -495,6 +531,12 @@ class StdParserState {
             [&](rules::ast::Expression& arg) {
               return parse_inside_expression(source, arg);
             },
+            [&](rules::ast::RoundExpression& arg) {
+              return parse_inside_round_expression(source, arg);
+            },
+            [&](rules::ast::CurlyExpression& arg) {
+              return parse_inside_curly_expression(source, arg);
+            },
         },
         current_code_fragment);
   }
@@ -578,7 +620,7 @@ class StdParserState {
    * Return all the includes in the parsed file
    */
   auto& get_all_includes() { return includes; }
-};
+};  // namespace std_parser
 
 class StdParser {
   template <class Iter, class Id, class T, template <class, class> class Rule,

@@ -92,6 +92,7 @@ class MetaClassParser {
     bool is_known_meta_class =
         meta_name && meta_classes.count(meta_name->result);
     // NOTE: while used just to use break instead of goto
+    // Maybe use a lambda
     while (is_known_meta_class) {
       begin = meta_name->processed_to;
 
@@ -186,6 +187,23 @@ class MetaClassParser {
     return parsed ? std::optional{Result{begin, std::string()}} : std::nullopt;
   }
 
+  /**
+   * Traverse the current code_fragments and try to find a constexpr function
+   */
+  bool is_still_inside_constexpr_function() {
+    auto& std_parser = parent.template get_parser<Parent::std_parser_id>();
+    auto& code_fragments = std_parser.get_all_code_fragments();
+
+    using Fun = std_parser::rules::ast::Function;
+
+    return std::any_of(code_fragments.begin(), code_fragments.end(),
+                       [this](auto& code_fragment) {
+                         // TODO: when parsing a constexpr meta function save
+                         // it's name and check it here
+                         return std::holds_alternative<Fun>(code_fragment);
+                       });
+  }
+
   template <class Source, class Writer>
   auto parse_inside_constexpr_function(Source& source, Writer& writer) {
     auto& std_parser = parent.template get_parser<Parent::std_parser_id>();
@@ -193,14 +211,7 @@ class MetaClassParser {
     if (out) {
       writer(out->result);
 
-      // if end of function inside_meta_class_function = false;
-      auto& current_code_fragment = std_parser.get_current_code_fragment();
-      using Fun = std_parser::rules::ast::Function;
-      using Scope = std_parser::rules::ast::Scope;
-      using Expression = std_parser::rules::ast::Expression;
-      if (!std::holds_alternative<Fun>(current_code_fragment) &&
-          !std::holds_alternative<Scope>(current_code_fragment) &&
-          !std::holds_alternative<Expression>(current_code_fragment)) {
+      if (!is_still_inside_constexpr_function()) {
         inside_meta_class_function = false;
       }
     }
