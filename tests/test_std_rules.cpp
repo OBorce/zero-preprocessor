@@ -108,7 +108,7 @@ TEST_CASE("Parse valid expression", "[expression]") {
                                "a * b"s};
 
   for (auto& valid_expression : valid_expressions) {
-    REQUIRE_THAT(valid_expression, CanParse(rules::expression, "expression"));
+    REQUIRE_THAT(valid_expression, CanParse(rules::expression_old, "expression"));
   }
 }
 
@@ -128,7 +128,7 @@ TEST_CASE("Parse valid variables", "[var]") {
                         "some_Type var_a2 = foo(2) ;"s};
 
   for (auto& valid_var : valid_vars) {
-    REQUIRE_THAT(valid_var, CanParse(rules::var, "variable"));
+    REQUIRE_THAT(valid_var, CanParse(rules::var_old, "variable"));
   }
 }
 

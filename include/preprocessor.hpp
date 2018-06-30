@@ -86,7 +86,7 @@ class Preprocessor {
   template <typename Source>
   auto throw_unparsable_error(Source& source) {
     std::size_t remaining = std::distance(source.begin(), source.end());
-    std::size_t size = std::min(30ul, remaining);
+    std::size_t size = std::min<std::size_t>(30ul, remaining);
     std::string_view content = {&*source.begin(), size};
 
     std::string error_msg = "source can't be parsed by none of the parsers: ";

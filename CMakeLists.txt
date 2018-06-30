@@ -3,32 +3,10 @@ cmake_minimum_required(VERSION 3.0)
 set(CMAKE_CXX_STANDARD 17)
 project(zero_preprocessor)
 
-# Prepare "Catch" library for other executables TODO move catch inside project?
-set(CATCH_INCLUDE_DIR /usr/local/include/catch/)
-add_library(Catch INTERFACE)
-target_include_directories(Catch INTERFACE ${CATCH_INCLUDE_DIR})
-
-message("cur source dir " ${CMAKE_CURRENT_SOURCE_DIR})
-message("cur project dir " ${PROJECT_SOURCE_DIR})
-# Make test executable
-set(TEST_SOURCES
-  ${CMAKE_CURRENT_SOURCE_DIR}/tests/tests_main.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_std_rules.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_meta_classes_rules.cpp
-  #${CMAKE_CURRENT_SOURCE_DIR}/tests/test_std_parser.cpp
-  )
-add_executable(tests ${TEST_SOURCES})
-target_include_directories(tests PRIVATE
-  ${PROJECT_SOURCE_DIR}/include
-  ${PROJECT_SOURCE_DIR}/extern/static_reflection
-  ${PROJECT_SOURCE_DIR}/extern/meta_classes/
-  )
-
 set(Boost_USE_STATIC_LIBS   ON)
 find_package(Boost 1.67 REQUIRED COMPONENTS filesystem)
-target_link_libraries(tests PRIVATE Catch Boost::boost)
-enable_testing()
-add_test(NAME test COMMAND tests)
+
+add_subdirectory(tests)
 
 function(preprocess target preprocessor_dir)
   get_target_property(sources ${target} SOURCES)
@@ -96,9 +74,9 @@ find_package(Threads REQUIRED)
 add_executable(main ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
 target_compile_features(main INTERFACE cxx_std_17)
 target_include_directories(main PRIVATE
-  ${PROJECT_SOURCE_DIR}/include
-  ${PROJECT_SOURCE_DIR}/extern/static_reflection
-  ${PROJECT_SOURCE_DIR}/extern/meta_classes/
+  ${zero_preprocessor_SOURCE_DIR}/include
+  ${zero_preprocessor_SOURCE_DIR}/extern/static_reflection
+  ${zero_preprocessor_SOURCE_DIR}/extern/meta_classes/
   )
 target_link_libraries(main PRIVATE Boost::boost Boost::filesystem Threads::Threads -lstdc++fs)
 

@@ -22,7 +22,7 @@ struct UnqulifiedType {
   TemplateTypes template_types;
 };
 
-enum class TypeQualifier { CONST, CONSTEXPR, L_REF, R_REF, POINTER };
+enum class TypeQualifier { Const, Constexpr, L_Ref, R_Ref, Pointer };
 
 enum class MethodQualifier { NONE, L_REF, R_REF };
 

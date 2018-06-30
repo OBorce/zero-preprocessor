@@ -33,19 +33,19 @@ namespace meta {
 
 enum class Access { PUBLIC, PROTECTED, PRIVATE, UNSPECIFIED };
 
-enum class TypeQualifier { CONST, CONSTEXPR, L_REF, R_REF, POINTER };
+enum class TypeQualifier { Const, Constexpr, L_Ref, R_Ref, Pointer };
 
 std::string to_string(TypeQualifier q) {
   switch (q) {
-    case TypeQualifier::CONST:
+    case TypeQualifier::Const:
       return "const";
-    case TypeQualifier::CONSTEXPR:
+    case TypeQualifier::Constexpr:
       return "constexpr";
-    case TypeQualifier::L_REF:
+    case TypeQualifier::L_Ref:
       return "&";
-    case TypeQualifier::R_REF:
+    case TypeQualifier::R_Ref:
       return "&&";
-    case TypeQualifier::POINTER:
+    case TypeQualifier::Pointer:
       return "*";
   }
 
@@ -74,8 +74,8 @@ struct CppType {
 
   void make_constexpr() {
     if (std::find(left_qualifiers.begin(), left_qualifiers.end(),
-                  TypeQualifier::CONSTEXPR) != left_qualifiers.end()) {
-      left_qualifiers.insert(left_qualifiers.begin(), TypeQualifier::CONSTEXPR);
+                  TypeQualifier::Constexpr) != left_qualifiers.end()) {
+      left_qualifiers.insert(left_qualifiers.begin(), TypeQualifier::Constexpr);
     }
   }
 
@@ -160,11 +160,11 @@ struct Function {
       return false;
     }
 
-    if (qualifiers.front() != TypeQualifier::CONST) {
+    if (qualifiers.front() != TypeQualifier::Const) {
       return false;
     }
 
-    if (qualifiers.back() != TypeQualifier::L_REF) {
+    if (qualifiers.back() != TypeQualifier::L_Ref) {
       return false;
     }
 
@@ -187,7 +187,7 @@ struct Function {
       return false;
     }
 
-    if (param.right_qualifiers.front() != TypeQualifier::R_REF) {
+    if (param.right_qualifiers.front() != TypeQualifier::R_Ref) {
       return false;
     }
 
@@ -376,7 +376,7 @@ class type {
     // NOTE: if there is any generated ( -> ) based content
     // send it for parsing and update our internal state
     if (!internal->body.empty()) {
-      enum class ParsedResult { OK, ERROR };
+      enum class ParsedResult { OK, Error };
       std::cout << 1 << std::endl;
       auto str = to_string();
       std::cout << str.size() << std::endl;
@@ -384,7 +384,7 @@ class type {
       int out;
       std::cin >> out;
       auto result = static_cast<ParsedResult>(out);
-      if (result == ParsedResult::ERROR) {
+      if (result == ParsedResult::Error) {
         std::exit(EXIT_FAILURE);
       }
 

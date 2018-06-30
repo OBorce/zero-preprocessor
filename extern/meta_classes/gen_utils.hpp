@@ -220,7 +220,7 @@ void write_class(std_parser::rules::ast::Class& cls, Writer& writer) {
   write_bases(cls.protected_bases, AccessModifier::PRIVATE, writer);
 }
 
-enum class ParsedResult { OK, ERROR };
+enum class ParsedResult { OK, Error };
 
 template <typename StdParser>
 void handle_meta_process_request(MetaProcess& process, StdParser& std_parser,
@@ -230,10 +230,10 @@ void handle_meta_process_request(MetaProcess& process, StdParser& std_parser,
     process.output << static_cast<int>(ParsedResult::OK) << std::endl;
     write_class(*out.result, process.output);
   } else {
-    process.output << static_cast<int>(ParsedResult::ERROR) << std::endl;
+    process.output << static_cast<int>(ParsedResult::Error) << std::endl;
     std::cout << "can't parse: \n";
     std::size_t remaining = std::distance(out.processed_to, request.end());
-    std::size_t size = std::min(30ul, remaining);
+    std::size_t size = std::min<std::size_t>(30ul, remaining);
     std::string_view content = {&*out.processed_to, size};
     std::cout << content << std::endl;
 

@@ -40,9 +40,9 @@ static struct enum_class_ : x3::symbols<ast::EnumType> {
 
 static struct type_qualifier_ : x3::symbols<ast::TypeQualifier> {
   type_qualifier_() {
-    add("constexpr", ast::TypeQualifier::CONSTEXPR)(
-        "const", ast::TypeQualifier::CONST)("&&", ast::TypeQualifier::R_REF)(
-        "&", ast::TypeQualifier::L_REF)("*", ast::TypeQualifier::POINTER);
+    add("constexpr", ast::TypeQualifier::Constexpr)(
+        "const", ast::TypeQualifier::Const)("&&", ast::TypeQualifier::R_Ref)(
+        "&", ast::TypeQualifier::L_Ref)("*", ast::TypeQualifier::Pointer);
   }
 } type_qualifier;
 
@@ -101,7 +101,7 @@ auto const binary_operator_def =
     lit("+=") | '+' | "-=" | "->*" | "->" | '-' | ".*" | '.' | "*=" | '*' |
     "/=" | '/' | "%=" | '%' | ">>=" | ">>" | ">=" | '>' | "<<=" | "<<" | "<=" |
     '<' | "&&" | "&=" | '&' | "||" | "|=" | '|' | "~=" | '~' | "^=" | '^' |
-    "!=" | '!' | "==" | '=' | ',';
+    "!=" | '!' | "==" | '=';
 
 x3::rule<class all_overloadable_operators> const all_overloadable_operators =
     "all_overloadable_operators";
@@ -111,10 +111,15 @@ auto const all_overloadable_operators_def =
     '<' | "&&" | "&=" | '&' | "||" | "|=" | '|' | "~=" | '~' | "^=" | '^' |
     "!=" | '!' | "==" | '=' | call_operator;
 
+x3::rule<class operator_sep_old> const operator_sep_old = "operator_sep_old";
+auto const operator_sep_old_def = optionaly_space >>
+                                  // TODO: this makes 1.*foo() or a->23 valid
+                                  binary_operator >> optionaly_space;
+
 x3::rule<class operator_sep> const operator_sep = "operator_sep";
 auto const operator_sep_def = optionaly_space >>
                               // TODO: this makes 1.*foo() or a->23 valid
-                              binary_operator >> optionaly_space;
+                              (binary_operator | ',') >> optionaly_space;
 
 x3::rule<class scope_begin> const scope_begin = "scope_begin";
 auto const scope_begin_def = optionaly_space >> '{';
@@ -182,44 +187,46 @@ auto const template_values_def = '<' >> optionaly_space >>
 auto const type_def = -(type_qualifiers >> some_space) >> var_type >>
                       -(optionaly_space >> type_qualifiers);
 
-//TODO: delete most of this with the new expression refactor
+// TODO: delete most of this with the new expression refactor
 x3::rule<class argument> const argument = "argument";
 x3::rule<class optionaly_arguments> const optionaly_arguments =
     "optionaly_arguments";
 x3::rule<class function_call> const function_call = "function_call";
-x3::rule<class expression> const expression = "expression";
-x3::rule<class paren_expression> const paren_expression = "paren_expression";
-x3::rule<class optionaly_paren_expression> const optionaly_paren_expression =
-    "optionaly_paren_expression";
+x3::rule<class expression_old> const expression_old = "expression_old";
+x3::rule<class paren_expression_old> const paren_expression_old =
+    "paren_expression_old";
+x3::rule<class optionaly_paren_expression_old> const
+    optionaly_paren_expression_old = "optionaly_paren_expression_old";
 x3::rule<class init_list> const init_list = "init_list";
 x3::rule<class arg_init_list> const arg_init_list = "arg_init_list";
 
 // TODO: type here denotes a variable name
 // change it to variable_type that also covers ::var
 auto const argument_def = arg_init_list | function_call | var_type | number |
-                          char_literal | string_literal | paren_expression;
+                          char_literal | string_literal | paren_expression_old;
 
 auto const optionaly_arguments_def =
-    -((expression | init_list) % arg_separator);
+    -((expression_old | init_list) % arg_separator);
 
 auto const function_call_def = type >> optionaly_space >> '(' >>
                                optionaly_space >> optionaly_arguments >>
                                optionaly_space >> ')';
 // TODO: this allows prefix ++ on rvalues
-auto const expression_def = (-(prefix_operator >> optionaly_space) >>
-                             argument >> -(optionaly_space >> sufix_operator)) %
-                            operator_sep;
-auto const paren_expression_def =
-    '(' >> optionaly_space >> expression >> optionaly_space >> ')';
-auto const optionaly_paren_expression_def =
-    '(' >> optionaly_space >> -expression >> optionaly_space >> ')';
+auto const expression_old_def =
+    (-(prefix_operator >> optionaly_space) >> argument >>
+     -(optionaly_space >> sufix_operator)) %
+    operator_sep;
+auto const paren_expression_old_def =
+    '(' >> optionaly_space >> expression_old >> optionaly_space >> ')';
+auto const optionaly_paren_expression_old_def =
+    '(' >> optionaly_space >> -expression_old >> optionaly_space >> ')';
 auto const init_list_def =
     '{' >> optionaly_space >> optionaly_arguments >> optionaly_space >> '}';
 
 auto const arg_init_list_def = type >> optionaly_space >> init_list;
 
 x3::rule<class statement> const statement = "statement";
-auto const statement_def = optionaly_space >> expression >> statement_end;
+auto const statement_def = optionaly_space >> expression_old >> statement_end;
 
 x3::rule<class return_statement> const return_statement = "return_statement";
 auto const return_statement_def = "return" >> some_space >> statement;
@@ -248,9 +255,9 @@ auto const curly_begin_def = lit('{');
 x3::rule<class curly_end> const curly_end = "curly_end";
 auto const curly_end_def = lit('}');
 
-x3::rule<class expression2> const expression2 = "expression2";
-auto const expression2_def = -(prefix_operator >> optionaly_space) >>
-                             (type_or_name | literal);
+x3::rule<class expression> const expression = "expression";
+auto const expression_def = -(prefix_operator >> optionaly_space) >>
+                            (type_or_name | literal);
 
 // ============================================
 
@@ -266,33 +273,40 @@ x3::rule<class param_optionaly_default, ast::var> const
 auto const param_optionaly_default_def = optional_param >>
                                          -(optionaly_space >> '=' >>
                                            optionaly_space >>
-                                           (expression | init_list));
+                                           (expression_old | init_list));
 
 x3::rule<class constructor_init> const constructor_init = "constructor_init";
 auto const constructor_init_def = name >> optionaly_space >>
-                                  (init_list | optionaly_paren_expression);
+                                  (init_list | optionaly_paren_expression_old);
 
 // TODO: support for new / delete ?
-x3::rule<class var, ast::var> const var = "var";
-auto const var_def = param >> optionaly_space >>
-                     -(('=' >> optionaly_space >> expression) |
-                       (-('=' >> optionaly_space) >> init_list)) >>
-                     optionaly_space >> ';';
+x3::rule<class var_old, ast::var> const var_old = "var_old";
+auto const var_old_def = param >> optionaly_space >>
+                         -(('=' >> optionaly_space >> expression_old) |
+                           (-('=' >> optionaly_space) >> init_list)) >>
+                         optionaly_space >> ';';
+
+auto const var = [](auto& exp, auto& init) {
+  return param >> optionaly_space >>
+         (('=' >> optionaly_space >> expression)[exp] |
+          (-('=' >> optionaly_space) >> curly_begin)[init] | ';');
+};
 
 // TODO: support full for loop expressions?
 x3::rule<class for_loop> const for_loop = "for_loop";
 auto const for_loop_def =
     lit("for") >> optionaly_space >> '(' >> optionaly_space >>
-    (((var | ';') >> optionaly_space >> -expression >> optionaly_space >> ';' >>
-      optionaly_space >> -expression) |
-     (param >> optionaly_space >> ':' >> optionaly_space >> expression)) >>
+    (((var_old | ';') >> optionaly_space >> -expression_old >>
+      optionaly_space >> ';' >> optionaly_space >> -expression_old) |
+     (param >> optionaly_space >> ':' >> optionaly_space >> expression_old)) >>
     optionaly_space >> ')';
 
 x3::rule<class if_expression> const if_expression = "if_expression";
 auto const if_expression_def = lit("if") >> optionaly_space >>
                                -lit("constexpr") >> optionaly_space >>
-                               '(' >> optionaly_space >> -var >> optionaly_space
-                               >> expression >> optionaly_space >> ')';
+                               '(' >> optionaly_space >> -var_old
+                               >> optionaly_space >> expression_old
+                               >> optionaly_space >> ')';
 
 x3::rule<class optionaly_params, ast::params> const optionaly_params =
     "optionaly_params";
@@ -317,7 +331,7 @@ auto const template_parameters_def =
 x3::rule<class is_noexcept, bool> const is_noexcept = "is_noexcept";
 auto const is_noexcept_def = bool_attr(
     optionaly_space >> "noexcept" >> optionaly_space >>
-    -('(' >> optionaly_space >> expression >> optionaly_space >> ')'));
+    -('(' >> optionaly_space >> expression_old >> optionaly_space >> ')'));
 
 x3::rule<class function_signiture, ast::function_signiture> const
     function_signiture = "function_signiture";
@@ -326,6 +340,10 @@ auto const function_signiture_def =
     bool_attr(lit("constexpr") >> some_space) >> type >> some_space >> name
     >> optionaly_space >> '(' >> optionaly_space >> optionaly_params >>
     ')' >> is_noexcept;
+
+x3::rule<class function_start, ast::function_signiture> const function_start =
+    "function_start";
+auto const function_start_def = function_signiture >> scope_begin;
 
 x3::rule<class is_pure_virtual, bool> const is_pure_virtual = "is_pure_virtual";
 auto const is_pure_virtual_def =
@@ -398,20 +416,20 @@ auto const enumerators_def = name % arg_separator;
 BOOST_SPIRIT_DEFINE(
     some_space, optionaly_space, include, skip_line, comment, arg_separator,
     class_access_modifier, prefix_operator, sufix_operator, binary_operator,
-    all_overloadable_operators, operator_sep, call_operator, scope_begin,
-    scope_end, namespace_begin, statement_end, name, type_, type_qualifiers,
-    type, var_type, template_values, digits, integral, floating, number,
-    quoted_string, string_literal, char_literal, argument, optionaly_arguments,
-    function_call, expression, paren_expression, optionaly_paren_expression,
-    init_list, arg_init_list, optionaly_params, statement, return_statement,
-    type_or_name, literal, parenthesis_begin, parenthesis_end, curly_begin,
-    curly_end, expression2, param, optional_param, param_optionaly_default, var,
-    constructor_init, for_loop, if_expression, template_parameter,
-    template_parameters, is_noexcept, function_signiture, is_pure_virtual,
-    method_signiture, operator_signiture, constructor, class_inheritance);
+    all_overloadable_operators, operator_sep_old, operator_sep, call_operator,
+    scope_begin, scope_end, namespace_begin, statement_end, name, type_,
+    type_qualifiers, type, var_type, template_values, digits, integral,
+    floating, number, quoted_string, string_literal, char_literal, argument,
+    optionaly_arguments, function_call, expression_old, paren_expression_old,
+    optionaly_paren_expression_old, init_list, arg_init_list, optionaly_params,
+    statement, return_statement, type_or_name, literal, parenthesis_begin,
+    parenthesis_end, curly_begin, curly_end, expression, param, optional_param,
+    param_optionaly_default, var_old, constructor_init, for_loop, if_expression,
+    template_parameter, template_parameters, is_noexcept, function_signiture,
+    function_start, is_pure_virtual, method_signiture, operator_signiture);
 
-BOOST_SPIRIT_DEFINE(class_inheritances, class_or_struct, enumeration,
-                    enumerators);
+BOOST_SPIRIT_DEFINE(constructor, class_inheritance, class_inheritances,
+                    class_or_struct, enumeration, enumerators);
 }  // namespace std_parser::rules
 
 #endif  //! STD_RULES_H

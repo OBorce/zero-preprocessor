@@ -1,14 +1,13 @@
 #ifndef SOURCE_LOADER_H
 #define SOURCE_LOADER_H
-// TODO: update when moved to GCC 8
-#include <experimental/filesystem>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <optional>
 
 #include <source.hpp>
 
-namespace fs = std::experimental::filesystem;
+namespace fs = std::filesystem;
 
 namespace source {
 

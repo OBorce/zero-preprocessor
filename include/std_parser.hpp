@@ -52,6 +52,15 @@ class StdParserState {
       current.add_variable(std::move(rez));
     };
 
+    auto exp = [this](auto&) {
+      code_fragments.emplace_back(rules::ast::Expression{});
+    };
+
+    auto init = [this](auto&) {
+      code_fragments.emplace_back(rules::ast::Expression{});
+      code_fragments.emplace_back(rules::ast::CurlyExpression{});
+    };
+
     auto inc = [this](auto& ctx) {
       auto& rez = _attr(ctx);
       includes.emplace(std::move(rez));
@@ -98,7 +107,8 @@ class StdParserState {
                         (rules::enumeration >> rules::scope_begin)[nest] |
                         (rules::enumeration >> rules::statement_end) |
                         rules::namespace_begin[sb] | rules::scope_end[se] |
-                        rules::include[inc] | rules::comment | rules::var[var]))
+                        rules::include[inc] | rules::comment |
+                        rules::var(exp, init)[var]))
                   // rules end
         );
 
@@ -139,6 +149,15 @@ class StdParserState {
       current.add_variable(std::move(rez));
     };
 
+    auto exp = [this](auto&) {
+      code_fragments.emplace_back(rules::ast::Expression{});
+    };
+
+    auto init = [this](auto&) {
+      code_fragments.emplace_back(rules::ast::Expression{});
+      code_fragments.emplace_back(rules::ast::CurlyExpression{});
+    };
+
     auto inc = [this](auto& ctx) {
       auto& rez = _attr(ctx);
       includes.emplace(std::move(rez));
@@ -162,7 +181,7 @@ class StdParserState {
              (rules::enumeration >> rules::scope_begin)[nest] |
              (rules::enumeration >> rules::statement_end) |
              rules::scope_end[se] | rules::include[inc] | rules::comment |
-             rules::class_access_modifier[ac] | rules::var[var])
+             rules::class_access_modifier[ac] | rules::var(exp, init)[var])
         // rules end
     );
 
@@ -215,7 +234,7 @@ class StdParserState {
       code_fragments.emplace_back(rules::ast::CurlyExpression{});
     };
 
-    auto e = [&](auto&) { current.is_begin = false; };
+    auto exp = [&](auto&) { current.is_begin = false; };
 
     namespace x3 = boost::spirit::x3;
     bool parsed = false;
@@ -225,7 +244,7 @@ class StdParserState {
                          // rules begin
                          rules::optionaly_space >>
                              (rules::comment | rules::parenthesis_begin[round] |
-                              rules::statement_end[se] | rules::expression2[e])
+                              rules::statement_end[se] | rules::expression[exp])
                          // rules end
       );
     } else {
@@ -236,7 +255,7 @@ class StdParserState {
               (rules::statement_end[se] | rules::comment |
                rules::parenthesis_begin[round] | rules::curly_begin[curly] |
                (rules::operator_sep >>
-                (rules::parenthesis_begin[round] | rules::expression2)[e]))
+                (rules::parenthesis_begin[round] | rules::expression)))
           // rules end
       );
     }
@@ -262,7 +281,7 @@ class StdParserState {
       code_fragments.emplace_back(rules::ast::CurlyExpression{});
     };
 
-    auto e = [&](auto&) { current.is_begin = false; };
+    auto exp = [&](auto&) { current.is_begin = false; };
 
     namespace x3 = boost::spirit::x3;
     bool parsed = false;
@@ -274,7 +293,7 @@ class StdParserState {
                         (rules::comment |
                          // paren expression
                          rules::parenthesis_begin[round] |
-                         rules::parenthesis_end[se] | rules::expression2[e])
+                         rules::parenthesis_end[se] | rules::expression[exp])
                     // rules end
           );
     } else {
@@ -287,7 +306,7 @@ class StdParserState {
                rules::parenthesis_begin[round] | rules::parenthesis_end[se] |
                rules::curly_begin[curly] |
                (rules::operator_sep >>
-                (rules::parenthesis_begin[round] | rules::expression2)[e]))
+                (rules::parenthesis_begin[round] | rules::expression)[exp]))
           // rules end
       );
     }
@@ -313,7 +332,7 @@ class StdParserState {
       code_fragments.emplace_back(rules::ast::CurlyExpression{});
     };
 
-    auto e = [&](auto&) { current.is_begin = false; };
+    auto exp = [&](auto&) { current.is_begin = false; };
 
     namespace x3 = boost::spirit::x3;
     bool parsed = false;
@@ -322,7 +341,7 @@ class StdParserState {
           begin, end,
           // rules begin
           rules::optionaly_space >>
-              (rules::comment | rules::curly_end[se] | rules::expression2[e])
+              (rules::comment | rules::curly_end[se] | rules::expression[exp])
           // rules end
       );
     } else {
@@ -335,7 +354,7 @@ class StdParserState {
                rules::parenthesis_begin[round] | rules::curly_begin[curly] |
                rules::curly_end[se] |
                (rules::operator_sep >>
-                (rules::parenthesis_begin[round] | rules::expression2)[e]))
+                (rules::parenthesis_begin[round] | rules::expression)[exp]))
           // rules end
       );
     }
@@ -357,6 +376,11 @@ class StdParserState {
 
     auto exp = [this](auto&) {
       code_fragments.emplace_back(rules::ast::Expression{});
+    };
+
+    auto init = [this](auto&) {
+      code_fragments.emplace_back(rules::ast::Expression{});
+      code_fragments.emplace_back(rules::ast::CurlyExpression{});
     };
 
     auto inc = [this](auto& ctx) {
@@ -396,20 +420,20 @@ class StdParserState {
     };
 
     namespace x3 = boost::spirit::x3;
-    bool parsed =
-        x3::parse(begin, end,
-                  // rules begin
-                  rules::optionaly_space >>
-                      ((rules::class_or_struct >> rules::scope_begin)[nest] |
-                       (rules::class_or_struct >> rules::statement_end) |
-                       (rules::enumeration >> rules::scope_begin)[nest] |
-                       (rules::enumeration >> rules::statement_end) |
-                       rules::scope_begin[sb] | rules::scope_end[se] |
-                       rules::include[inc] | rules::comment | rules::var |
-                       rules::for_loop | rules::if_expression |
-                       rules::return_statement | rules::expression2[exp])
-                  // rules end
-        );
+    bool parsed = x3::parse(
+        begin, end,
+        // rules begin
+        rules::optionaly_space >>
+            ((rules::class_or_struct >> rules::scope_begin)[nest] |
+             (rules::class_or_struct >> rules::statement_end) |
+             (rules::enumeration >> rules::scope_begin)[nest] |
+             (rules::enumeration >> rules::statement_end) |
+             rules::scope_begin[sb] | rules::scope_end[se] |
+             rules::include[inc] | rules::comment | rules::var(exp, init) |
+             rules::for_loop | rules::if_expression | rules::return_statement |
+             rules::expression[exp])
+        // rules end
+    );
 
     return parsed ? std::optional{Result{
                         begin, make_string_view(source.begin(), begin)}}
@@ -429,6 +453,15 @@ class StdParserState {
     auto inc = [this](auto& ctx) {
       auto& rez = _attr(ctx);
       includes.emplace(std::move(rez));
+    };
+
+    auto exp = [this](auto&) {
+      code_fragments.emplace_back(rules::ast::Expression{});
+    };
+
+    auto init = [this](auto&) {
+      code_fragments.emplace_back(rules::ast::Expression{});
+      code_fragments.emplace_back(rules::ast::CurlyExpression{});
     };
 
     auto sb = [&](auto&) { code_fragments.emplace_back(rules::ast::Scope{}); };
@@ -463,7 +496,7 @@ class StdParserState {
              (rules::enumeration >> rules::scope_begin)[nest] |
              (rules::enumeration >> rules::statement_end) |
              rules::scope_begin[sb] | rules::scope_end[se] | rules::statement |
-             rules::include[inc] | rules::comment | rules::var |
+             rules::include[inc] | rules::comment | rules::var(exp, init) |
              rules::for_loop | rules::if_expression | rules::return_statement)
         // rules end
     );
@@ -603,7 +636,7 @@ class StdParserState {
 
       if (!parsed) {
         std::size_t remaining = std::distance(begin, end);
-        std::size_t size = std::min(30ul, remaining);
+        std::size_t size = std::min<std::size_t>(30ul, remaining);
         std::string_view content = {&*begin, size};
 
         std::string error_msg = "source can't be parsed by the std parser: ";
@@ -623,9 +656,9 @@ class StdParserState {
 };  // namespace std_parser
 
 class StdParser {
-  template <class Iter, class Id, class T, template <class, class> class Rule,
-            class Out = T>
-  auto try_parse_T(Iter begin, Iter end, Rule<Id, T> rule) {
+  template <class Iter, class Id, class T, bool B,
+            template <class, class, bool> class Rule, class Out = T>
+  auto try_parse_T(Iter begin, Iter end, Rule<Id, T, B> rule) {
     Out tmp;
     namespace x3 = boost::spirit::x3;
     bool parsed = x3::parse(begin, end,
@@ -641,10 +674,10 @@ class StdParser {
   /**
    * Used as a helper when we want to specify a different out type
    */
-  template <class Out, class Iter, class Id, class T,
-            template <class, class> class Rule>
-  auto try_parse_T(Iter begin, Iter end, Rule<Id, T> rule) {
-    return try_parse_T<Iter, Id, T, Rule, Out>(begin, end, rule);
+  template <class Out, class Iter, class Id, class T, bool B,
+            template <class, class, bool> class Rule>
+  auto try_parse_T(Iter begin, Iter end, Rule<Id, T, B> rule) {
+    return try_parse_T<Iter, Id, T, B, Rule, Out>(begin, end, rule);
   }
 
   StdParserState parser;
@@ -655,13 +688,7 @@ class StdParser {
 
   template <class Iter>
   auto try_parse_function(Iter begin, Iter end) {
-    return try_parse_T<rules::ast::Function>(
-        begin, end, rules::function_signiture >> rules::scope_begin);
-  }
-
-  template <class Iter>
-  auto try_parse_variable(Iter begin, Iter end) {
-    return try_parse_T(begin, end, rules::var);
+    return try_parse_T<rules::ast::Function>(begin, end, rules::function_start);
   }
 
   template <class Iter>
