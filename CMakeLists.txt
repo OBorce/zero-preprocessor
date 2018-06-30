@@ -80,4 +80,8 @@ target_include_directories(main PRIVATE
   )
 target_link_libraries(main PRIVATE Boost::boost Boost::filesystem Threads::Threads -lstdc++fs)
 
+if(MSVC)
+  set_target_properties(main PROPERTIES COMPILE_FLAGS "${CMAKE_CXX_FLAGS} /bigobj")
+endif()
+
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)

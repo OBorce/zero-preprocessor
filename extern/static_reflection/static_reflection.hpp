@@ -134,30 +134,33 @@ class StaticReflexParser {
     }
     out += "> {\n";
 
-    out += "constexpr inline static std::tuple public_data_members = {";
+    out +=
+        "constexpr inline static auto public_data_members = std::make_tuple(";
     append_members(out, c.public_members, c.name, class_templates);
-    out += "};\n";
+    out += ");\n";
 
-    out += "constexpr inline static std::tuple public_data_member_names = {";
+    out +=
+        "constexpr inline static auto public_data_member_names = "
+        "std::make_tuple(";
     append_names(out, c.public_members);
-    out += "};\n";
+    out += ");\n";
 
     out += "using public_data_member_types = std::tuple<";
     append_types(out, c.public_members, c.name, class_templates);
     out += ">;\n";
 
-    out += "constexpr inline static std::tuple data_members = {";
+    out += "constexpr inline static auto data_members = std::make_tuple(";
     auto data_members = c.public_members;
     data_members.insert(data_members.end(), c.protected_members.begin(),
                         c.protected_members.end());
     data_members.insert(data_members.end(), c.private_members.begin(),
                         c.private_members.end());
     append_members(out, data_members, c.name, class_templates);
-    out += "};\n";
+    out += ");\n";
 
-    out += "constexpr inline static std::tuple data_member_names = {";
+    out += "constexpr inline static auto data_member_names = std::make_tuple(";
     append_names(out, data_members);
-    out += "};\n";
+    out += ");\n";
 
     out += "using data_member_types = std::tuple<";
     append_types(out, data_members, c.name, class_templates);
@@ -220,7 +223,7 @@ class StaticReflexParser {
     out += c.name;
     out += "\";\n";
 
-    out += "constexpr static std::tuple enumerator_names = {";
+    out += "constexpr static auto enumerator_names = std::make_tuple(";
     for (auto& e : c.enumerators) {
       out += '\"';
       out += e;
@@ -232,9 +235,9 @@ class StaticReflexParser {
       out.pop_back();
     }
 
-    out += "};\n";
+    out += ");\n";
 
-    out += "constexpr static std::tuple enumerator_constants = {";
+    out += "constexpr static auto enumerator_constants = std::make_tuple(";
     for (auto& e : c.enumerators) {
       out += c.name;
       out += "::";
@@ -246,7 +249,7 @@ class StaticReflexParser {
       out.pop_back();
     }
 
-    out += "};\n";
+    out += ");\n";
 
     out +=
         "static constexpr auto object_type = \"reflect::ObjectType::ENUM\";\n";
