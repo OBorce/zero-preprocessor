@@ -26,12 +26,9 @@ add_subdirectory(${preprocessor_dir} ${preprocessor_build_dir} EXCLUDE_FROM_ALL)
 # preprocess our example target
 preprocess(example ${preprocessor_dir})
 ```
-Tested on GCC 7.3, 8.1 and Clang 6.0
+Tested on GCC 7.3, 8.1; Clang 6.0 and MSVC 15.8 preview 3
 
 Also beware of the Clang + libstdc++ std::variant bug.
-
-MSVC requires the new upcoming 15.8 preview 3 release
-https://developercommunity.visualstudio.com/content/problem/246689/c17-constexpr-static-tuple-as-class-data-member-us.html?childToView=264647#comment-264647
 
 ## Examples
 

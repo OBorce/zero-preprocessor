@@ -566,12 +566,9 @@ Function read_function() {
   std::size_t body_size;
   std::cin >> body_size;
   std::string body;
-  body.reserve(body_size);
-  std::string line;
-  while (body.size() < body_size) {
-    std::getline(std::cin, line);
-    body += line;
-    body += '\n';
+  if (body_size > 0) {
+    body.resize(body_size);
+    std::cin.read(body.data(), body_size);
   }
 
   return {std::move(return_type),

@@ -76,7 +76,14 @@ std::string gen_main(Container& meta_classes) {
   out += "};";
 
   out += R"main(
+#ifdef _WIN32
+#include <io.h>
+#include <fcntl.h>
+#endif
 int main(int argc, char* argv[]) {
+#ifdef _WIN32
+  _setmode( _fileno( stdout ),  _O_BINARY );
+#endif
   int mode;
   while (true) {
     std::cin >> mode;
@@ -156,7 +163,9 @@ void write_function(std_parser::rules::ast::Function const& fun,
 
   writer << fun.body.size() << '\n';
 
-  writer << fun.body << '\n';
+  if (!fun.body.empty()) {
+    writer << fun.body << '\n';
+  }
 }
 
 template <typename Writer>
@@ -262,12 +271,9 @@ std::string gen_meta_class(MetaProcess& process,
     output.clear();
     process.input >> status;
     process.input >> output_size;
-    output.reserve(output_size);
-    while (output.size() < output_size) {
-      std::getline(process.input, line);
-      output += line;
-      output += '\n';
-    }
+    ++output_size;
+    output.resize(output_size);
+    process.input.read(output.data(), output_size);
 
     switch (status) {
       case -1: {
