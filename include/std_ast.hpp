@@ -118,6 +118,7 @@ struct class_or_struct {
   class_bases bases;
 };
 
+template<char Ending = ';'>
 struct Expression {
   bool is_begin = false;
 };
@@ -126,6 +127,11 @@ struct RoundExpression {
 };
 struct CurlyExpression {
   bool is_begin = true;
+};
+
+enum class IfExpressionState { Begin, Expression, Done };
+struct IfExpression {
+  IfExpressionState state = IfExpressionState::Begin;
 };
 
 enum class EnumType { ENUM, ENUM_CLASS };

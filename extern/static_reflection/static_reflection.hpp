@@ -204,6 +204,8 @@ class StaticReflexParser {
       case std_parser::rules::ast::class_type::STRUCT:
         out += "reflect::ObjectType::STRUCT;";
         break;
+      default:
+        break;
     }
     out += "\";\n";
 

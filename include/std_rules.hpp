@@ -215,7 +215,7 @@ auto const function_call_def = type >> optionaly_space >> '(' >>
 auto const expression_old_def =
     (-(prefix_operator >> optionaly_space) >> argument >>
      -(optionaly_space >> sufix_operator)) %
-    operator_sep;
+    operator_sep_old;
 auto const paren_expression_old_def =
     '(' >> optionaly_space >> expression_old >> optionaly_space >> ')';
 auto const optionaly_paren_expression_old_def =
@@ -246,6 +246,11 @@ auto const literal_def = number | char_literal | string_literal;
 x3::rule<class parenthesis_begin> const parenthesis_begin = "parenthesis_begin";
 auto const parenthesis_begin_def = lit('(');
 
+x3::rule<class parenthesis_expr_begin> const parenthesis_expr_begin =
+    "parenthesis_expr_begin";
+auto const parenthesis_expr_begin_def = -(prefix_operator >> optionaly_space) >>
+                                        lit('(');
+
 x3::rule<class parenthesis_end> const parenthesis_end = "parenthesis_end";
 auto const parenthesis_end_def = lit(')');
 
@@ -256,8 +261,10 @@ x3::rule<class curly_end> const curly_end = "curly_end";
 auto const curly_end_def = lit('}');
 
 x3::rule<class expression> const expression = "expression";
-auto const expression_def = -(prefix_operator >> optionaly_space) >>
-                            (type_or_name | literal);
+auto const expression_def =
+    (-(prefix_operator >> optionaly_space) >> type_or_name >>
+     -(optionaly_space >> sufix_operator)) |
+    literal;
 
 // ============================================
 
@@ -301,12 +308,14 @@ auto const for_loop_def =
      (param >> optionaly_space >> ':' >> optionaly_space >> expression_old)) >>
     optionaly_space >> ')';
 
-x3::rule<class if_expression> const if_expression = "if_expression";
+x3::rule<class if_expression, ast::IfExpression> const if_expression =
+    "if_expression_old";
 auto const if_expression_def = lit("if") >> optionaly_space >>
                                -lit("constexpr") >> optionaly_space >>
-                               '(' >> optionaly_space >> -var_old
-                               >> optionaly_space >> expression_old
-                               >> optionaly_space >> ')';
+                               '(' >> x3::attr(ast::IfExpression{});
+
+//>> optionaly_space >> -var_old >> optionaly_space >> expression_old >>
+// optionaly_space >> ')';
 
 x3::rule<class optionaly_params, ast::params> const optionaly_params =
     "optionaly_params";
@@ -423,13 +432,15 @@ BOOST_SPIRIT_DEFINE(
     optionaly_arguments, function_call, expression_old, paren_expression_old,
     optionaly_paren_expression_old, init_list, arg_init_list, optionaly_params,
     statement, return_statement, type_or_name, literal, parenthesis_begin,
-    parenthesis_end, curly_begin, curly_end, expression, param, optional_param,
-    param_optionaly_default, var_old, constructor_init, for_loop, if_expression,
-    template_parameter, template_parameters, is_noexcept, function_signiture,
-    function_start, is_pure_virtual, method_signiture, operator_signiture);
+    parenthesis_expr_begin, parenthesis_end, curly_begin, curly_end, expression,
+    param, optional_param, param_optionaly_default, var_old, constructor_init,
+    for_loop, if_expression, template_parameter, template_parameters,
+    is_noexcept, function_signiture, function_start, is_pure_virtual,
+    method_signiture);
 
-BOOST_SPIRIT_DEFINE(constructor, class_inheritance, class_inheritances,
-                    class_or_struct, enumeration, enumerators);
+BOOST_SPIRIT_DEFINE(operator_signiture, constructor, class_inheritance,
+                    class_inheritances, class_or_struct, enumeration,
+                    enumerators);
 }  // namespace std_parser::rules
 
 #endif  //! STD_RULES_H

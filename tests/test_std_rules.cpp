@@ -83,7 +83,7 @@ TEST_CASE("Parse valid type", "[type]") {
   }
 }
 
-TEST_CASE("Parse valid expression", "[expression]") {
+TEST_CASE("Parse valid expression old", "[expression]") {
   std::array valid_expressions{"some_variable"s,
                                "a + b"s,
                                "(a)"s,
@@ -108,11 +108,12 @@ TEST_CASE("Parse valid expression", "[expression]") {
                                "a * b"s};
 
   for (auto& valid_expression : valid_expressions) {
-    REQUIRE_THAT(valid_expression, CanParse(rules::expression_old, "expression"));
+    REQUIRE_THAT(valid_expression,
+                 CanParse(rules::expression_old, "expression"));
   }
 }
 
-TEST_CASE("Parse valid variables", "[var]") {
+TEST_CASE("Parse valid variables old", "[var]") {
   std::array valid_vars{"int a;"s,
                         "std::string s{\"hello\"};"s,
                         "std::vector<int> v;"s,
@@ -163,21 +164,6 @@ TEST_CASE("Parse valid for loop", "[for_loop]") {
 
   for (auto& valid_for_loop : valid_for_loops) {
     REQUIRE_THAT(valid_for_loop, CanParse(rules::for_loop, "for_loop"));
-  }
-}
-
-TEST_CASE("Parse valid if expression", "[if_expression]") {
-  std::array valid_if_expressions{"if (true)"s,
-                                  "if(a || b)"s,
-                                  "if(a || !b)"s,
-                                  "if (!asd)"s,
-                                  "if (a.foo())"s,
-                                  "if constexpr (a && b)"s,
-                                  "if (int i = foo(); i)"s};
-
-  for (auto& valid_if_expression : valid_if_expressions) {
-    REQUIRE_THAT(valid_if_expression,
-                 CanParse(rules::if_expression, "if_expression"));
   }
 }
 

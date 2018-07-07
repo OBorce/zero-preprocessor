@@ -1,55 +1,153 @@
 #include <algorithm>
+#include <iostream>
 #include <iterator>
 #include <string>
 #include <string_view>
 
-#include <source.hpp>
 #include <std_parser.hpp>
 
 #include "catch.hpp"
 
-TEST_CASE("Parse a class", "[parser]") {
-  using namespace std_parser;
-  StdParser parser;
+using std::string_literals::operator""s;
+using namespace std_parser;
 
-  GIVEN("A source containing a class") {
-    Source source{R"c(class A{
-};)c"};
-    WHEN("Parsed by std_parser") {
-      auto result = parser.parse(source);
-      THEN("should put a class as it's current nesting") {
-        REQUIRE(result.has_value());
-        auto processed_to = (*result).processed_to;
+class CanParse : public Catch::MatcherBase<std::string> {
+  std::string rule_name;
+  std_parser::CodeFragment setup;
 
-        auto expected_parsed_till =
-            std::find(source.begin(), source.end(), '\n');
+ public:
+  CanParse(std::string_view name,
+           std_parser::CodeFragment setup = rules::ast::Namespace{"nsp"})
+      : rule_name{name}, setup{std::move(setup)} {}
 
-        REQUIRE(std::distance(source.begin(), processed_to) ==
-                std::distance(source.begin(), expected_parsed_till));
-        auto& current_nesting = parser.get_current_nesting();
+  // Performs the test for this matcher
+  virtual bool match(std::string const& str) const override {
+    StdParserState parser;
+    std_parser::CodeFragment tmp = setup;
+    parser.open_new_code_fragment(std::move(tmp));
 
-        REQUIRE(std::holds_alternative<rules::ast::Class>(current_nesting));
-      }
+    using Iter = decltype(str.begin());
+    struct {
+      Iter begin_;
+      Iter end_;
 
-      auto processed_to = (*result).processed_to;
-      auto parsed_characters = std::distance(source.begin(), processed_to);
-      source.advance(parsed_characters);
-      INFO("parsed " + std::to_string(parsed_characters));
-      WHEN("Parsed again") {
-        auto result = parser.parse(source);
-        THEN("should parse till the end and close the class") {
-          REQUIRE(result.has_value());
-          auto processed_to = (*result).processed_to;
-          auto parsed_characters = std::distance(source.begin(), processed_to);
-          INFO("parsed another " + std::to_string(parsed_characters));
-          source.advance(parsed_characters);
-          REQUIRE(source.is_finished());
-          auto& current_nesting = parser.get_current_nesting();
+      Iter begin() { return begin_; }
+      Iter end() { return end_; }
 
-          REQUIRE(
-              std::holds_alternative<rules::ast::Namespace>(current_nesting));
+      explicit operator bool() const { return begin_ != end_; }
+    } source{str.begin(), str.end()};
+
+    while (source) {
+      if (auto out = parser.parse(source)) {
+        source.begin_ = out->processed_to;
+      } else {
+        std::string left{source.begin_, source.end_};
+        auto& c = parser.get_all_code_fragments();
+        std::cout << "inside " << c.size() << " can't parse " << left
+                  << std::endl;
+        for (auto& v : c) {
+          std::visit(overloaded{[&](rules::ast::Namespace const& arg) {},
+                                [&](rules::ast::Class const& arg) {},
+                                [&](rules::ast::Function const& arg) {},
+                                [&](rules::ast::Scope const& arg) {},
+                                [&](rules::ast::Enumeration const& arg) {},
+                                [&](rules::ast::Expression<';'> const& arg) {
+                                  std::cout << "expression ; " << arg.is_begin
+                                            << std::endl;
+                                },
+                                [&](rules::ast::Expression<')'> const& arg) {
+                                  std::cout << "expression ) " << arg.is_begin
+                                            << std::endl;
+                                },
+                                [&](rules::ast::RoundExpression const& arg) {
+                                  std::cout << "round expression "
+                                            << arg.is_begin << std::endl;
+                                },
+                                [&](rules::ast::CurlyExpression const& arg) {
+                                  std::cout << "curly expression "
+                                            << arg.is_begin << std::endl;
+                                },
+                                [&](rules::ast::IfExpression const& arg) {}},
+                     v);
         }
+        return false;
       }
     }
+
+    return true;
+  }
+
+  virtual std::string describe() const override {
+    std::ostringstream ss;
+    ss << "Trying to be parsed as a/an " << rule_name;
+    return ss.str();
+  }
+};
+
+TEST_CASE("Parse valid variables", "[var]") {
+  std::array valid_vars{"int a;"s,
+                        "std::string s{\"hello\"};"s,
+                        "std::vector<int> v;"s,
+                        "int i = 0;"s,
+                        "std::vector<int> v {};"s,
+                        "std::vector<int> v {1, 2, 3};"s,
+                        "std::pair<int, float> v {1, 2.0f};"s,
+                        "std::pair<int, std::vector<char>> v {{}};"s,
+                        "std::pair<int, std::vector<char>> v {1, {}};"s,
+                        "std::pair<std::vector<char>, int> v {{}, 2};"s,
+                        "std::pair<int, std::vector<char>> v {{}, {}};"s,
+                        "std::array<int, 4> a;"s,
+                        "rules::ast::val v = 2;"s,
+                        "rules::ast::val v = {2, foo(a)};"s,
+                        "nsd::asd::varr v23 {2, 3 / 2, baz(1, 3)};"s,
+                        "some_Type var_a2 = foo(2) ;"s};
+
+  for (auto& valid_var : valid_vars) {
+    REQUIRE_THAT(valid_var, CanParse("variable", rules::ast::Function{}));
+  }
+}
+
+TEST_CASE("Parse valid if expression", "[if_expression]") {
+  std::array valid_if_expressions{"if (true)"s,
+                                  "if(a || b)"s,
+                                  "if(a || !b)"s,
+                                  "if (!asd)"s,
+                                  "if (a.foo())"s,
+                                  "if constexpr (a && b)"s,
+                                  "if (int i = foo(); i)"s};
+
+  for (auto& valid_if_expression : valid_if_expressions) {
+    REQUIRE_THAT(valid_if_expression,
+                 CanParse("if_expression", rules::ast::Function{}));
+  }
+}
+
+TEST_CASE("Parse valid expression", "[expression]") {
+  std::array valid_expressions{"some_variable"s,
+                               "a + b"s,
+                               "(a)"s,
+                               "i++"s,
+                               "i < 2"s,
+                               "'1'"s,
+                               "(a + (b))"s,
+                               "!foo(a + (b))"s,
+                               "(a && !(b || !c))"s,
+                               "(((a - b)) % c) * d"s,
+                               "d - (a) / ((b))"s,
+                               "std::min(a, b)"s,
+                               "foo(a + b, baz(c) * 2)"s,
+                               "(a * foo((b))) -c"s,
+                               "std::span{beg, end}"s,
+                               "std::string(\"hello\")"s,
+                               "baz(\"hello\", 3 + 2)"s,
+                               "a - b"s,
+                               "a && !b"s,
+                               "a.foo()"s,
+                               "a.foo(i, std::string{})"s,
+                               "a * b"s};
+
+  for (auto& valid_expression : valid_expressions) {
+    REQUIRE_THAT(valid_expression,
+                 CanParse("expression", rules::ast::Expression<';'>{true}));
   }
 }
