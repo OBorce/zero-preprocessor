@@ -404,7 +404,6 @@ class StdParserState {
 
     namespace x3 = boost::spirit::x3;
     bool parsed = false;
-    // TODO: when is this even true?
     switch (current.state) {
       case rules::ast::IfExpressionState::Begin:
         parsed = x3::parse(begin, end,
@@ -682,12 +681,10 @@ class StdParserState {
       close_current_class();
     } else if constexpr (std::is_same<Fragment, rules::ast::Enumeration>()) {
       close_current_enum();
-      //} else if constexpr (std::is_same<Fragment,
-      // rules::ast::Expression<';'>>()) {
-      // NOTE: nothing to do for now
-      // update when we decide to store the expressions
     } else {
       // TODO: implement
+      // NOTE: nothing to do for now
+      // update when we decide to store the expressions
     }
 
     code_fragments.pop_back();

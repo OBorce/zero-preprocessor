@@ -314,9 +314,6 @@ auto const if_expression_def = lit("if") >> optionaly_space >>
                                -lit("constexpr") >> optionaly_space >>
                                '(' >> x3::attr(ast::IfExpression{});
 
-//>> optionaly_space >> -var_old >> optionaly_space >> expression_old >>
-// optionaly_space >> ')';
-
 x3::rule<class optionaly_params, ast::params> const optionaly_params =
     "optionaly_params";
 auto const optionaly_params_def = -(param_optionaly_default % arg_separator);
