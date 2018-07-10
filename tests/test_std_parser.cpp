@@ -46,17 +46,26 @@ class CanParse : public Catch::MatcherBase<std::string> {
         std::cout << "inside " << c.size() << " can't parse " << left
                   << std::endl;
         for (auto& v : c) {
-          std::visit(overloaded{[&](rules::ast::Namespace const& arg) {},
-                                [&](rules::ast::Class const& arg) {},
-                                [&](rules::ast::Function const& arg) {},
-                                [&](rules::ast::Scope const& arg) {},
-                                [&](rules::ast::Enumeration const& arg) {},
-                                [&](rules::ast::Expression<';'> const& arg) {
-                                  std::cout << "expression ; " << arg.is_begin
-                                            << std::endl;
+          std::visit(overloaded{[&](rules::ast::Namespace const&) {
+                                  std::cout << "namespace " << std::endl;
                                 },
-                                [&](rules::ast::Expression<')'> const& arg) {
-                                  std::cout << "expression ) " << arg.is_begin
+                                [&](rules::ast::Class const&) {
+                                  std::cout << "class " << std::endl;
+                                },
+                                [&](rules::ast::Function const&) {
+                                  std::cout << "function " << std::endl;
+                                },
+                                [&](rules::ast::Scope const&) {
+                                  std::cout << "local scope " << std::endl;
+                                },
+                                [&](rules::ast::Enumeration const&) {
+                                  std::cout << "enum " << std::endl;
+                                },
+                                [&](rules::ast::Statement const&) {
+                                  std::cout << "Statement " << std::endl;
+                                },
+                                [&](rules::ast::Expression const& arg) {
+                                  std::cout << "expression " << arg.is_begin
                                             << std::endl;
                                 },
                                 [&](rules::ast::RoundExpression const& arg) {
@@ -67,7 +76,17 @@ class CanParse : public Catch::MatcherBase<std::string> {
                                   std::cout << "curly expression "
                                             << arg.is_begin << std::endl;
                                 },
-                                [&](rules::ast::IfExpression const& arg) {}},
+                                [&](rules::ast::Vars const& arg) {
+                                  std::cout << "vars "
+                                            << static_cast<int>(arg.state)
+                                            << std::endl;
+                                },
+                                [&](rules::ast::IfExpression const& arg) {
+                                  std::cout << "if expression "
+                                            << static_cast<int>(arg.state)
+                                            << std::endl;
+                                },
+                                [](auto&) {}},
                      v);
         }
         return false;
@@ -85,22 +104,29 @@ class CanParse : public Catch::MatcherBase<std::string> {
 };
 
 TEST_CASE("Parse valid variables", "[var]") {
-  std::array valid_vars{"int a;"s,
-                        "std::string s{\"hello\"};"s,
-                        "std::vector<int> v;"s,
-                        "int i = 0;"s,
-                        "std::vector<int> v {};"s,
-                        "std::vector<int> v {1, 2, 3};"s,
-                        "std::pair<int, float> v {1, 2.0f};"s,
-                        "std::pair<int, std::vector<char>> v {{}};"s,
-                        "std::pair<int, std::vector<char>> v {1, {}};"s,
-                        "std::pair<std::vector<char>, int> v {{}, 2};"s,
-                        "std::pair<int, std::vector<char>> v {{}, {}};"s,
-                        "std::array<int, 4> a;"s,
-                        "rules::ast::val v = 2;"s,
-                        "rules::ast::val v = {2, foo(a)};"s,
-                        "nsd::asd::varr v23 {2, 3 / 2, baz(1, 3)};"s,
-                        "some_Type var_a2 = foo(2) ;"s};
+  std::array valid_vars{
+      "int a;"s,
+      "std::string s{\"hello\"};"s,
+      "std::vector<int> v;"s,
+      "int i = 0;"s,
+      "int i, j;"s,
+      "int i = 2, j = 3;"s,
+      "int i, j = 3;"s,
+      "int i = 2, j;"s,
+      "int i = 2, j {3};"s,
+      "auto mem_ptr = reflect::get_pointer_v<currentMember>;"s,
+      "std::vector<int> v {};"s,
+      "std::vector<int> v {1, 2, 3};"s,
+      "std::pair<int, float> v {1, 2.0f};"s,
+      "std::pair<int, std::vector<char>> v {{}};"s,
+      "std::pair<int, std::vector<char>> v {1, {}};"s,
+      "std::pair<std::vector<char>, int> v {{}, 2};"s,
+      "std::pair<int, std::vector<char>> v {{}, {}};"s,
+      "std::array<int, 4> a;"s,
+      "rules::ast::val v = 2;"s,
+      "rules::ast::val v = {2, foo(a)};"s,
+      "nsd::asd::varr v23 {2, 3 / 2, baz(1, 3)};"s,
+      "some_Type var_a2 = foo(2) ;"s};
 
   for (auto& valid_var : valid_vars) {
     REQUIRE_THAT(valid_var, CanParse("variable", rules::ast::Function{}));
@@ -148,6 +174,6 @@ TEST_CASE("Parse valid expression", "[expression]") {
 
   for (auto& valid_expression : valid_expressions) {
     REQUIRE_THAT(valid_expression,
-                 CanParse("expression", rules::ast::Expression<';'>{true}));
+                 CanParse("expression", rules::ast::Expression{true}));
   }
 }

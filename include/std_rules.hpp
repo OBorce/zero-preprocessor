@@ -52,6 +52,7 @@ static struct method_qualifier_ : x3::symbols<ast::MethodQualifier> {
   }
 } method_qualifier;
 
+// TODO: replace with x3::matches[p]
 static auto bool_attr = [](auto p) {
   return (x3::omit[p] >> x3::attr(true)) | x3::attr(false);
 };
@@ -225,12 +226,6 @@ auto const init_list_def =
 
 auto const arg_init_list_def = type >> optionaly_space >> init_list;
 
-x3::rule<class statement> const statement = "statement";
-auto const statement_def = optionaly_space >> expression_old >> statement_end;
-
-x3::rule<class return_statement> const return_statement = "return_statement";
-auto const return_statement_def = "return" >> some_space >> statement;
-
 // TODO: new expression parsing
 // var_type >> ( {...} | (...) )
 // num | char | str
@@ -266,6 +261,10 @@ auto const expression_def =
      -(optionaly_space >> sufix_operator)) |
     literal;
 
+//TODO: return (a);
+x3::rule<class return_statement> const return_statement = "return_statement";
+auto const return_statement_def = "return" >> some_space >> expression;
+
 // ============================================
 
 x3::rule<class param, ast::var> const param = "param";
@@ -293,11 +292,16 @@ auto const var_old_def = param >> optionaly_space >>
                            (-('=' >> optionaly_space) >> init_list)) >>
                          optionaly_space >> ';';
 
+// TODO: delete this
 auto const var = [](auto& exp, auto& init) {
   return param >> optionaly_space >>
          (('=' >> optionaly_space >> expression)[exp] |
           (-('=' >> optionaly_space) >> curly_begin)[init] | ';');
 };
+
+x3::rule<class var_with_init, ast::var> const var_with_init = "var_with_init";
+auto const var_with_init_def = param >> optionaly_space >>
+                               &(lit('=') | '{' | ';');
 
 // TODO: support full for loop expressions?
 x3::rule<class for_loop> const for_loop = "for_loop";
@@ -419,25 +423,27 @@ x3::rule<class enumerators, std::vector<std::string>> const enumerators =
     "enumerators";
 auto const enumerators_def = name % arg_separator;
 
-BOOST_SPIRIT_DEFINE(
-    some_space, optionaly_space, include, skip_line, comment, arg_separator,
-    class_access_modifier, prefix_operator, sufix_operator, binary_operator,
-    all_overloadable_operators, operator_sep_old, operator_sep, call_operator,
-    scope_begin, scope_end, namespace_begin, statement_end, name, type_,
-    type_qualifiers, type, var_type, template_values, digits, integral,
-    floating, number, quoted_string, string_literal, char_literal, argument,
-    optionaly_arguments, function_call, expression_old, paren_expression_old,
-    optionaly_paren_expression_old, init_list, arg_init_list, optionaly_params,
-    statement, return_statement, type_or_name, literal, parenthesis_begin,
-    parenthesis_expr_begin, parenthesis_end, curly_begin, curly_end, expression,
-    param, optional_param, param_optionaly_default, var_old, constructor_init,
-    for_loop, if_expression, template_parameter, template_parameters,
-    is_noexcept, function_signiture, function_start, is_pure_virtual,
-    method_signiture);
+BOOST_SPIRIT_DEFINE(some_space, optionaly_space, include, skip_line, comment,
+                    arg_separator, class_access_modifier, prefix_operator,
+                    sufix_operator, binary_operator, all_overloadable_operators,
+                    operator_sep_old, operator_sep, call_operator, scope_begin,
+                    scope_end, namespace_begin, statement_end, name, type_,
+                    type_qualifiers, type, var_type, template_values, digits,
+                    integral, floating, number, quoted_string, string_literal,
+                    char_literal, argument, optionaly_arguments, function_call,
+                    expression_old, paren_expression_old,
+                    optionaly_paren_expression_old, init_list, arg_init_list,
+                    optionaly_params, return_statement, type_or_name, literal,
+                    parenthesis_begin, parenthesis_expr_begin, parenthesis_end,
+                    curly_begin, curly_end, expression, param, optional_param,
+                    param_optionaly_default, var_old, var_with_init,
+                    constructor_init, for_loop, if_expression,
+                    template_parameter, template_parameters, is_noexcept,
+                    function_signiture, function_start, is_pure_virtual);
 
-BOOST_SPIRIT_DEFINE(operator_signiture, constructor, class_inheritance,
-                    class_inheritances, class_or_struct, enumeration,
-                    enumerators);
+BOOST_SPIRIT_DEFINE(method_signiture, operator_signiture, constructor,
+                    class_inheritance, class_inheritances, class_or_struct,
+                    enumeration, enumerators);
 }  // namespace std_parser::rules
 
 #endif  //! STD_RULES_H

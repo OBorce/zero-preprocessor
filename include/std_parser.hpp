@@ -16,9 +16,9 @@ namespace std_parser {
 using CodeFragment =
     std::variant<rules::ast::Namespace, rules::ast::Scope, rules::ast::Class,
                  rules::ast::Enumeration, rules::ast::Function,
-                 rules::ast::Expression<';'>, rules::ast::Expression<')'>,
+                 rules::ast::Vars, rules::ast::Expression,
                  rules::ast::RoundExpression, rules::ast::CurlyExpression,
-                 rules::ast::IfExpression>;
+                 rules::ast::Statement, rules::ast::IfExpression>;
 
 class StdParserState {
   std::vector<CodeFragment> code_fragments = {rules::ast::Namespace{""}};
@@ -48,18 +48,9 @@ class StdParserState {
       code_fragments.emplace_back(std::move(rez));
     };
 
-    auto var = [&current](auto& ctx) {
+    auto var = [this](auto& ctx) {
       auto& rez = _attr(ctx);
-      current.add_variable(std::move(rez));
-    };
-
-    auto exp = [this](auto&) {
-      code_fragments.emplace_back(rules::ast::Expression<';'>{});
-    };
-
-    auto init = [this](auto&) {
-      code_fragments.emplace_back(rules::ast::Expression<';'>{});
-      code_fragments.emplace_back(rules::ast::CurlyExpression{});
+      code_fragments.emplace_back(rules::ast::Vars{std::move(rez)});
     };
 
     auto inc = [this](auto& ctx) {
@@ -84,7 +75,7 @@ class StdParserState {
               [&](rules::ast::Namespace& arg) {
                 arg.add_namespace(std::move(current));
               },
-              [](auto) {
+              [](auto&) {
                 /* NOTE: Can't have a namespace inside a class, function or a
                  * local scope*/
               },
@@ -94,24 +85,23 @@ class StdParserState {
     };
 
     namespace x3 = boost::spirit::x3;
-    bool parsed =
-        x3::parse(begin, end,
-                  // rules begin
-                  rules::some_space |
-                      (rules::optionaly_space >>
-                       ((rules::class_or_struct >> rules::scope_begin)[nest] |
-                        (rules::class_or_struct >> rules::statement_end) |
-                        (rules::function_signiture >> rules::scope_begin)[fun] |
-                        (rules::function_signiture >> rules::statement_end) |
-                        (rules::operator_signiture >> rules::scope_begin)[fun] |
-                        (rules::operator_signiture >> rules::statement_end) |
-                        (rules::enumeration >> rules::scope_begin)[nest] |
-                        (rules::enumeration >> rules::statement_end) |
-                        rules::namespace_begin[sb] | rules::scope_end[se] |
-                        rules::include[inc] | rules::comment |
-                        rules::var(exp, init)[var]))
-                  // rules end
-        );
+    bool parsed = x3::parse(
+        begin, end,
+        // rules begin
+        rules::some_space |
+            (rules::optionaly_space >>
+             ((rules::class_or_struct >> rules::scope_begin)[nest] |
+              (rules::class_or_struct >> rules::statement_end) |
+              (rules::function_signiture >> rules::scope_begin)[fun] |
+              (rules::function_signiture >> rules::statement_end) |
+              (rules::operator_signiture >> rules::scope_begin)[fun] |
+              (rules::operator_signiture >> rules::statement_end) |
+              (rules::enumeration >> rules::scope_begin)[nest] |
+              (rules::enumeration >> rules::statement_end) |
+              rules::namespace_begin[sb] | rules::scope_end[se] |
+              rules::include[inc] | rules::comment | rules::param[var]))
+        // rules end
+    );
 
     return parsed ? std::optional{Result{
                         begin, make_string_view(source.begin(), begin)}}
@@ -145,18 +135,9 @@ class StdParserState {
       current.set_access_modifier(rez);
     };
 
-    auto var = [&current](auto& ctx) {
+    auto var = [this](auto& ctx) {
       auto& rez = _attr(ctx);
-      current.add_variable(std::move(rez));
-    };
-
-    auto exp = [this](auto&) {
-      code_fragments.emplace_back(rules::ast::Expression<';'>{});
-    };
-
-    auto init = [this](auto&) {
-      code_fragments.emplace_back(rules::ast::Expression<';'>{});
-      code_fragments.emplace_back(rules::ast::CurlyExpression{});
+      code_fragments.emplace_back(rules::ast::Vars{std::move(rez)});
     };
 
     auto inc = [this](auto& ctx) {
@@ -182,7 +163,7 @@ class StdParserState {
              (rules::enumeration >> rules::scope_begin)[nest] |
              (rules::enumeration >> rules::statement_end) |
              rules::scope_end[se] | rules::include[inc] | rules::comment |
-             rules::class_access_modifier[ac] | rules::var(exp, init)[var])
+             rules::class_access_modifier[ac] | rules::param[var])
         // rules end
     );
 
@@ -219,15 +200,13 @@ class StdParserState {
                   : std::nullopt;
   }
 
-  template <class Source, char c>
+  template <class Source>
   auto parse_inside_expression(Source& source,
-                               rules::ast::Expression<c>& current) {
+                               rules::ast::Expression& current) {
     auto begin = source.begin();
     auto end = source.end();
 
-    auto se = [this](auto&) {
-      close_code_fragment<rules::ast::Expression<c>>();
-    };
+    auto se = [this](auto&) { close_code_fragment<rules::ast::Expression>(); };
 
     auto round = [this, &current](auto&) {
       current.is_begin = false;
@@ -249,7 +228,7 @@ class StdParserState {
                     // rules begin
                     rules::optionaly_space >>
                         (rules::comment | rules::parenthesis_expr_begin[round] |
-                         x3::char_(c)[se] | rules::expression[exp])
+                         rules::expression[exp])
                     // rules end
           );
     } else {
@@ -257,17 +236,27 @@ class StdParserState {
           begin, end,
           // rules begin
           rules::optionaly_space >>
-              (x3::char_(c)[se] | rules::comment |
-               rules::parenthesis_begin[round] | rules::curly_begin[curly] |
+              (rules::comment | rules::parenthesis_begin[round] |
+               rules::curly_begin[curly] |
                (rules::operator_sep >>
                 (rules::parenthesis_expr_begin[round] | rules::expression)))
           // rules end
       );
     }
 
-    return parsed ? std::optional{Result{
-                        begin, make_string_view(source.begin(), begin)}}
-                  : std::nullopt;
+    if (!parsed) {
+      auto curr = std::move(current);
+      code_fragments.pop_back();
+      if (auto rez = parse(source)) {
+        return rez;
+      } else {
+        code_fragments.emplace_back(std::move(curr));
+        return rez;
+      }
+    }
+
+    return std::optional{
+        Result{begin, make_string_view(source.begin(), begin)}};
   }
 
   template <class Source>
@@ -386,20 +375,18 @@ class StdParserState {
 
     auto round = [this, &current](auto&) {
       current.state = rules::ast::IfExpressionState::Done;
-      code_fragments.emplace_back(rules::ast::Expression<')'>{});
+      // TODO: delete template param ;
+      code_fragments.emplace_back(rules::ast::Expression{});
     };
 
-    auto next = [&](auto&) {
+    auto close = [this](auto&) {
+      close_code_fragment<rules::ast::IfExpression>();
+    };
+
+    auto var = [this, &current](auto& ctx) {
+      auto& rez = _attr(ctx);
       current.state = rules::ast::IfExpressionState::Expression;
-    };
-
-    auto init = [this](auto&) {
-      code_fragments.emplace_back(rules::ast::Expression<';'>{});
-      code_fragments.emplace_back(rules::ast::CurlyExpression{});
-    };
-
-    auto exp = [this](auto&) {
-      code_fragments.emplace_back(rules::ast::Expression<';'>{});
+      code_fragments.emplace_back(rules::ast::Vars{std::move(rez)});
     };
 
     namespace x3 = boost::spirit::x3;
@@ -409,21 +396,105 @@ class StdParserState {
         parsed = x3::parse(begin, end,
                            // rules begin
                            rules::optionaly_space >>
-                               (rules::comment | (rules::var(exp, init))[next] |
+                               (rules::comment | rules::var_with_init[var] |
                                 rules::expression[round])
                            // rules end
         );
         break;
       case rules::ast::IfExpressionState::Expression:
-        parsed = x3::parse(begin, end,
-                           // rules begin
-                           rules::optionaly_space >> rules::expression[round]
-                           // rules end
+        parsed = x3::parse(
+            begin, end,
+            // rules begin
+            rules::optionaly_space >>
+                (rules::expression[round] | rules::parenthesis_end[close])
+            // rules end
         );
         break;
       case rules::ast::IfExpressionState::Done:
-        close_code_fragment<rules::ast::IfExpression()>();
-        return parse(source);
+        parsed =
+            x3::parse(begin, end,
+                      // rules begin
+                      rules::optionaly_space >> rules::parenthesis_end[close]
+                      // rules end
+            );
+        break;
+    }
+
+    return parsed ? std::optional{Result{
+                        begin, make_string_view(source.begin(), begin)}}
+                  : std::nullopt;
+  }
+
+  template <class Source>
+  auto parse_inside_statement(Source& source, rules::ast::Statement&) {
+    auto begin = source.begin();
+    auto end = source.end();
+
+    auto se = [this](auto&) { close_code_fragment<rules::ast::Statement>(); };
+
+    namespace x3 = boost::spirit::x3;
+    bool parsed = x3::parse(begin, end,
+                            // rules begin
+                            rules::optionaly_space >> rules::statement_end[se]
+                            // rules end
+    );
+
+    return parsed ? std::optional{Result{
+                        begin, make_string_view(source.begin(), begin)}}
+                  : std::nullopt;
+  }
+
+  template <class Source>
+  auto parse_inside_var_definition(Source& source, rules::ast::Vars& current) {
+    auto begin = source.begin();
+    auto end = source.end();
+
+    auto se = [this](auto&) { close_code_fragment<rules::ast::Vars>(); };
+
+    auto exp = [this, &current](auto&) {
+      current.state = rules::ast::VarDefinition::Next;
+      code_fragments.emplace_back(rules::ast::Expression{});
+    };
+
+    auto init = [this, &current](auto&) {
+      current.state = rules::ast::VarDefinition::Next;
+      code_fragments.emplace_back(rules::ast::CurlyExpression{});
+    };
+
+    auto var = [&current](auto& ctx) {
+      auto& rez = _attr(ctx);
+      current.add_var(std::move(rez));
+      current.state = rules::ast::VarDefinition::Init;
+    };
+
+    namespace x3 = boost::spirit::x3;
+    bool parsed = false;
+
+    switch (current.state) {
+      case rules::ast::VarDefinition::Init:
+        parsed = x3::parse(
+            begin, end,
+            // rules begin
+            rules::optionaly_space >>
+                (rules::comment |
+                 (('=' >> rules::optionaly_space >> rules::expression)[exp] |
+                  (-('=' >> rules::optionaly_space) >>
+                   rules::curly_begin)[init] |
+                  (',' >> rules::optionaly_space >> rules::name)[var] |
+                  x3::char_(';')[se]))
+            // rules end
+        );
+        break;
+      case rules::ast::VarDefinition::Next:
+        parsed =
+            x3::parse(begin, end,
+                      // rules begin
+                      rules::optionaly_space >>
+                          (rules::comment |
+                           (',' >> rules::optionaly_space >> rules::name)[var] |
+                           x3::char_(';')[se])
+                      // rules end
+            );
         break;
     }
 
@@ -442,13 +513,14 @@ class StdParserState {
       code_fragments.emplace_back(std::move(rez));
     };
 
-    auto exp = [this](auto&) {
-      code_fragments.emplace_back(rules::ast::Expression<';'>{});
+    auto stm = [this](auto&) {
+      code_fragments.emplace_back(rules::ast::Statement{});
+      code_fragments.emplace_back(rules::ast::Expression{});
     };
 
-    auto init = [this](auto&) {
-      code_fragments.emplace_back(rules::ast::Expression<';'>{});
-      code_fragments.emplace_back(rules::ast::CurlyExpression{});
+    auto var = [this](auto& ctx) {
+      auto& rez = _attr(ctx);
+      code_fragments.emplace_back(rules::ast::Vars{std::move(rez)});
     };
 
     auto inc = [this](auto& ctx) {
@@ -477,7 +549,7 @@ class StdParserState {
               [&](rules::ast::Class& arg) {
                 arg.add_function(std::move(current));
               },
-              [](auto) {
+              [](auto&) {
                 /* NOTE: Can't have a function inside a function or local
                  * scope*/
               },
@@ -488,20 +560,21 @@ class StdParserState {
     };
 
     namespace x3 = boost::spirit::x3;
-    bool parsed = x3::parse(
-        begin, end,
-        // rules begin
-        rules::optionaly_space >>
-            ((rules::class_or_struct >> rules::scope_begin)[nest] |
-             (rules::class_or_struct >> rules::statement_end) |
-             (rules::enumeration >> rules::scope_begin)[nest] |
-             (rules::enumeration >> rules::statement_end) |
-             rules::scope_begin[sb] | rules::scope_end[se] |
-             rules::include[inc] | rules::comment | rules::var(exp, init) |
-             rules::for_loop | rules::if_expression[nest] |
-             rules::return_statement | rules::expression[exp])
-        // rules end
-    );
+    bool parsed =
+        x3::parse(begin, end,
+                  // rules begin
+                  rules::optionaly_space >>
+                      ((rules::class_or_struct >> rules::scope_begin)[nest] |
+                       (rules::class_or_struct >> rules::statement_end) |
+                       (rules::enumeration >> rules::scope_begin)[nest] |
+                       (rules::enumeration >> rules::statement_end) |
+                       rules::scope_begin[sb] | rules::scope_end[se] |
+                       rules::include[inc] | rules::comment |
+                       rules::return_statement[stm] | rules::param[var] |
+                       rules::for_loop | rules::if_expression[nest] |
+                       rules::expression[stm])
+                  // rules end
+        );
 
     return parsed ? std::optional{Result{
                         begin, make_string_view(source.begin(), begin)}}
@@ -523,13 +596,14 @@ class StdParserState {
       includes.emplace(std::move(rez));
     };
 
-    auto exp = [this](auto&) {
-      code_fragments.emplace_back(rules::ast::Expression<';'>{});
+    auto var = [this](auto& ctx) {
+      auto& rez = _attr(ctx);
+      code_fragments.emplace_back(rules::ast::Vars{std::move(rez)});
     };
 
-    auto init = [this](auto&) {
-      code_fragments.emplace_back(rules::ast::Expression<';'>{});
-      code_fragments.emplace_back(rules::ast::CurlyExpression{});
+    auto stm = [this](auto&) {
+      code_fragments.emplace_back(rules::ast::Statement{});
+      code_fragments.emplace_back(rules::ast::Expression{});
     };
 
     auto sb = [&](auto&) { code_fragments.emplace_back(rules::ast::Scope{}); };
@@ -545,7 +619,7 @@ class StdParserState {
               [&](rules::ast::Function&) {
                 // TODO: keep local scope inside function?
               },
-              [](auto) {
+              [](auto&) {
                 /* NOTE: Can't have a function inside a function or local
                  * scope*/
               },
@@ -564,9 +638,10 @@ class StdParserState {
                        (rules::enumeration >> rules::scope_begin)[nest] |
                        (rules::enumeration >> rules::statement_end) |
                        rules::scope_begin[sb] | rules::scope_end[se] |
-                       rules::statement | rules::include[inc] | rules::comment |
-                       rules::var(exp, init) | rules::for_loop |
-                       rules::if_expression[nest] | rules::return_statement)
+                       rules::include[inc] | rules::comment |
+                       rules::return_statement[stm] | rules::param[var] |
+                       rules::for_loop | rules::if_expression[nest] |
+                       rules::expression[stm])
                   // rules end
         );
 
@@ -582,7 +657,7 @@ class StdParserState {
         overloaded{
             [&](rules::ast::Namespace& arg) { arg.add_class(std::move(c)); },
             [&](rules::ast::Class& arg) { arg.add_class(std::move(c)); },
-            [](auto) {
+            [](auto&) {
               /* TODO: local classes inside functions or local scopes*/
             },
         },
@@ -596,7 +671,22 @@ class StdParserState {
         overloaded{
             [&](rules::ast::Namespace& arg) { arg.add_enum(std::move(c)); },
             [&](rules::ast::Class& arg) { arg.add_enum(std::move(c)); },
-            [](auto) {
+            [](auto&) {
+              /* TODO: local enums inside functions or local scopes*/
+            },
+        },
+        v);
+  }
+
+  void close_current_var_declaration() {
+    auto& c = std::get<rules::ast::Vars>(code_fragments.back());
+    auto& v = code_fragments[code_fragments.size() - 2];
+    std::visit(
+        overloaded{
+            [&](rules::ast::Class& arg) { arg.add_variables(c.variables); },
+            [&](rules::ast::Scope& arg) { arg.add_variables(c.variables); },
+            [&](rules::ast::Namespace& arg) { arg.add_variables(c.variables); },
+            [](auto&) {
               /* TODO: local enums inside functions or local scopes*/
             },
         },
@@ -633,10 +723,7 @@ class StdParserState {
                    [&](rules::ast::Enumeration& arg) {
                      return parse_inside_enum(source, arg);
                    },
-                   [&](rules::ast::Expression<';'>& arg) {
-                     return parse_inside_expression(source, arg);
-                   },
-                   [&](rules::ast::Expression<')'>& arg) {
+                   [&](rules::ast::Expression& arg) {
                      return parse_inside_expression(source, arg);
                    },
                    [&](rules::ast::RoundExpression& arg) {
@@ -644,6 +731,12 @@ class StdParserState {
                    },
                    [&](rules::ast::CurlyExpression& arg) {
                      return parse_inside_curly_expression(source, arg);
+                   },
+                   [&](rules::ast::Statement& arg) {
+                     return parse_inside_statement(source, arg);
+                   },
+                   [&](rules::ast::Vars& arg) {
+                     return parse_inside_var_definition(source, arg);
                    },
                    [&](rules::ast::IfExpression& arg) {
                      return parse_inside_if_expression(source, arg);
@@ -681,6 +774,8 @@ class StdParserState {
       close_current_class();
     } else if constexpr (std::is_same<Fragment, rules::ast::Enumeration>()) {
       close_current_enum();
+    } else if constexpr (std::is_same<Fragment, rules::ast::Vars>()) {
+      close_current_var_declaration();
     } else {
       // TODO: implement
       // NOTE: nothing to do for now

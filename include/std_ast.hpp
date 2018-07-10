@@ -37,6 +37,23 @@ struct var {
   std::string name;
 };
 
+/**
+ * Init is for the var initialization part,
+ * Next is for after next variabl
+ */
+enum class VarDefinition { Init, Next };
+struct Vars {
+  VarDefinition state = VarDefinition::Init;
+  std::vector<var> variables;
+
+  Vars(var&& v) : variables{std::move(v)} {}
+
+  void add_var(std::string&& name) {
+    auto type = variables.front().type;
+    variables.emplace_back(var{std::move(type), std::move(name)});
+  }
+};
+
 struct params {
   std::vector<var> parameters;
 };
@@ -118,7 +135,6 @@ struct class_or_struct {
   class_bases bases;
 };
 
-template<char Ending = ';'>
 struct Expression {
   bool is_begin = false;
 };
@@ -128,6 +144,8 @@ struct RoundExpression {
 struct CurlyExpression {
   bool is_begin = true;
 };
+
+struct Statement {};
 
 enum class IfExpressionState { Begin, Expression, Done };
 struct IfExpression {
@@ -324,6 +342,26 @@ struct Class {
         break;
     }
   }
+
+  void add_variables(std::vector<var>& vars) {
+    auto& current = [this]() -> auto& {
+      switch (state) {
+        case access_modifier::PUBLIC:
+          return public_members;
+        case access_modifier::PROTECTED:
+          return protected_members;
+        case access_modifier::PRIVATE:
+          return private_members;
+        default:
+          return unspecified_members;
+      }
+    }
+    ();
+
+    current.insert(current.end(), std::make_move_iterator(vars.begin()),
+                   std::make_move_iterator(vars.end()));
+    vars.clear();
+  }
 };
 
 class Scope {
@@ -339,6 +377,13 @@ class Scope {
   void add_variable(var&& var) {
     auto name = var.name;
     variables.emplace(name, std::move(var));
+  }
+
+  void add_variables(std::vector<var>& vars) {
+    for (auto& var : vars) {
+      add_variable(std::move(var));
+    }
+    vars.clear();
   }
 
   auto get_class(const std::string& name) const { return classes.at(name); }
@@ -374,6 +419,13 @@ class Namespace {
   void add_variable(var&& var) {
     auto name = var.name;
     variables.emplace(name, std::move(var));
+  }
+
+  void add_variables(std::vector<var>& vars) {
+    for (auto& var : vars) {
+      add_variable(std::move(var));
+    }
+    vars.clear();
   }
 
   void add_namespace(Namespace&& n) {

@@ -118,6 +118,7 @@ TEST_CASE("Parse valid variables old", "[var]") {
                         "std::string s{\"hello\"};"s,
                         "std::vector<int> v;"s,
                         "int i = 0;"s,
+                        "a && b;"s,
                         "std::vector<int> v {};"s,
                         "std::vector<int> v {1, 2, 3};"s,
                         "std::pair<int, float> v {1, 2.0f};"s,
@@ -130,26 +131,6 @@ TEST_CASE("Parse valid variables old", "[var]") {
 
   for (auto& valid_var : valid_vars) {
     REQUIRE_THAT(valid_var, CanParse(rules::var_old, "variable"));
-  }
-}
-
-TEST_CASE("Parse valid statements", "[statements]") {
-  std::array valid_statements{"a += 1;"s,
-                              "a = 2 + 3;"s,
-                              "a &= b == c;"s,
-                              "a -= std::min(2, b);"s,
-                              "std::foo(a + b, c);"s,
-                              "a &= b.value == c;"s,
-                              "a = b->valuec;"s,
-                              "a &= b->value == c;"s,
-                              "result &= a.*mem_ptr == b.*mem_ptr;"s,
-                              "a = *c;"s,
-                              "a = &c;"s,
-                              "std::cout << 2;"s,
-                              "std::cout << asd << 2 << std::endl;"s};
-
-  for (auto& valid_statement : valid_statements) {
-    REQUIRE_THAT(valid_statement, CanParse(rules::statement, "statement"));
   }
 }
 
