@@ -292,13 +292,6 @@ auto const var_old_def = param >> optionaly_space >>
                            (-('=' >> optionaly_space) >> init_list)) >>
                          optionaly_space >> ';';
 
-// TODO: delete this
-auto const var = [](auto& exp, auto& init) {
-  return param >> optionaly_space >>
-         (('=' >> optionaly_space >> expression)[exp] |
-          (-('=' >> optionaly_space) >> curly_begin)[init] | ';');
-};
-
 x3::rule<class var_with_init, ast::var> const var_with_init = "var_with_init";
 auto const var_with_init_def = param >> optionaly_space >>
                                &(lit('=') | '{' | ';');

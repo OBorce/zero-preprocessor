@@ -246,6 +246,7 @@ class StdParserState {
 
     if (!parsed) {
       auto curr = std::move(current);
+      //TODO: when expressions are saved fix this
       code_fragments.pop_back();
       if (auto rez = parse(source)) {
         return rez;
@@ -375,7 +376,6 @@ class StdParserState {
 
     auto round = [this, &current](auto&) {
       current.state = rules::ast::IfExpressionState::Done;
-      // TODO: delete template param ;
       code_fragments.emplace_back(rules::ast::Expression{});
     };
 
