@@ -148,6 +148,22 @@ TEST_CASE("Parse valid for loop", "[for_loop]") {
   }
 }
 
+TEST_CASE("Parse valid for lambda capture", "[lambda]") {
+  std::array valid_for_loops{"[]"s,
+                             "[&]"s,
+                             "[=]"s,
+                             "[=, &a]"s,
+                             "[&, &a]"s,
+                             "[=, a]"s,
+                             "[=, a, b]"s,
+                             "[=, this, b, &a]"s,
+                             "[&c, b, &d]"s};
+
+  for (auto& valid_for_loop : valid_for_loops) {
+    REQUIRE_THAT(valid_for_loop, CanParse(rules::lambda_capture, "lambda_capture"));
+  }
+}
+
 TEST_CASE("Parse valid function_signitures", "[function_signiture]") {
   std::array valid_function_signitures{
       "int a()"s,

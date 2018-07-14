@@ -104,7 +104,7 @@ Updated every week
 - [x] enum
 - [ ] union
 - [ ] constexpr functions
-- [ ] lambdas
+- [x] lambdas
 - [ ] C++17 structured binding declaration
 - [ ] C++14 functions with -> return type
 

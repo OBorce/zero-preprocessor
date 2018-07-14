@@ -226,47 +226,6 @@ auto const init_list_def =
 
 auto const arg_init_list_def = type >> optionaly_space >> init_list;
 
-// TODO: new expression parsing
-// var_type >> ( {...} | (...) )
-// num | char | str
-// ( ... )
-// lambda [] <> () {}
-
-x3::rule<class type_or_name> const type_or_name = "type_or_name";
-auto const type_or_name_def = var_type;
-
-x3::rule<class literal> const literal = "literal";
-auto const literal_def = number | char_literal | string_literal;
-
-x3::rule<class parenthesis_begin> const parenthesis_begin = "parenthesis_begin";
-auto const parenthesis_begin_def = lit('(');
-
-x3::rule<class parenthesis_expr_begin> const parenthesis_expr_begin =
-    "parenthesis_expr_begin";
-auto const parenthesis_expr_begin_def = -(prefix_operator >> optionaly_space) >>
-                                        lit('(');
-
-x3::rule<class parenthesis_end> const parenthesis_end = "parenthesis_end";
-auto const parenthesis_end_def = lit(')');
-
-x3::rule<class curly_begin> const curly_begin = "curly_begin";
-auto const curly_begin_def = lit('{');
-
-x3::rule<class curly_end> const curly_end = "curly_end";
-auto const curly_end_def = lit('}');
-
-x3::rule<class expression> const expression = "expression";
-auto const expression_def =
-    (-(prefix_operator >> optionaly_space) >> type_or_name >>
-     -(optionaly_space >> sufix_operator)) |
-    literal;
-
-//TODO: return (a);
-x3::rule<class return_statement> const return_statement = "return_statement";
-auto const return_statement_def = "return" >> some_space >> expression;
-
-// ============================================
-
 x3::rule<class param, ast::var> const param = "param";
 auto const param_def = type >> some_space >> name;
 
@@ -280,6 +239,84 @@ auto const param_optionaly_default_def = optional_param >>
                                          -(optionaly_space >> '=' >>
                                            optionaly_space >>
                                            (expression_old | init_list));
+
+x3::rule<class optionaly_params, ast::params> const optionaly_params =
+    "optionaly_params";
+auto const optionaly_params_def = -(param_optionaly_default % arg_separator);
+
+x3::rule<class is_noexcept, bool> const is_noexcept = "is_noexcept";
+auto const is_noexcept_def = bool_attr(
+    optionaly_space >> "noexcept" >> optionaly_space >>
+    -('(' >> optionaly_space >> expression_old >> optionaly_space >> ')'));
+
+// new expressions
+x3::rule<class type_or_name> const type_or_name = "type_or_name";
+auto const type_or_name_def = var_type;
+
+x3::rule<class literal> const literal = "literal";
+auto const literal_def = number | char_literal | string_literal;
+
+x3::rule<class parenthesis_begin> const parenthesis_begin = "parenthesis_begin";
+auto const parenthesis_begin_def = lit('(');
+
+x3::rule<class parenthesis_expr_begin, ast::RoundExpression> const
+    parenthesis_expr_begin = "parenthesis_expr_begin";
+auto const parenthesis_expr_begin_def =
+    -(prefix_operator >> optionaly_space) >>
+    lit('(') >> x3::attr(ast::RoundExpression{});
+
+x3::rule<class parenthesis_end> const parenthesis_end = "parenthesis_end";
+auto const parenthesis_end_def = lit(')');
+
+x3::rule<class curly_begin, ast::CurlyExpression> const curly_begin =
+    "curly_begin";
+auto const curly_begin_def = lit('{') >> x3::attr(ast::CurlyExpression{});
+
+x3::rule<class curly_end> const curly_end = "curly_end";
+auto const curly_end_def = lit('}');
+
+x3::rule<class capture_default> const capture_default = "capture_default";
+auto const capture_default_def = lit('=') |
+                                 '&' >> &(optionaly_space >> (lit(',') | ']'));
+
+x3::rule<class capture_params> const capture_params = "capture_params";
+auto const capture_params_def = (-lit('&') >> name) % arg_separator;
+
+x3::rule<class lambda_capture> const lambda_capture = "lambda_capture";
+auto const lambda_capture_def = lit('[') >> optionaly_space >>
+                                (']' | (((capture_default >> optionaly_space >>
+                                          -(',' >> optionaly_space >>
+                                            capture_params)) |
+                                         capture_params) >>
+                                        optionaly_space >> ']'));
+
+x3::rule<class lambda_specifiers> const lambda_specifiers = "lambda_specifiers";
+auto const lambda_specifiers_def = optionaly_space >> lit("mutable") |
+                                   "constexpr";
+
+x3::rule<class lambda, ast::Lambda> const lambda = "lambda";
+auto const lambda_def = x3::omit[lambda_capture] >> optionaly_space >>
+                        x3::omit[-('(' >> optionaly_space >> optionaly_params >>
+                                   ')' >> -lambda_specifiers >> is_noexcept)] >>
+                        optionaly_space >> '{' >>
+                        x3::attr(ast::Lambda{ast::LambdaState::Body});
+
+x3::rule<class expression,
+         std::variant<std::monostate, ast::RoundExpression, ast::Lambda>> const
+    expression = "expression";
+auto const expression_def =
+    ((-(prefix_operator >> optionaly_space) >> type_or_name >>
+      -(optionaly_space >> sufix_operator)) |
+     literal) |
+    lambda | parenthesis_expr_begin;
+
+// TODO: return (a);
+x3::rule<class return_statement,
+         std::variant<std::monostate, ast::RoundExpression, ast::Lambda>> const
+    return_statement = "return_statement";
+auto const return_statement_def = "return" >> some_space >> expression;
+
+// ============================================
 
 x3::rule<class constructor_init> const constructor_init = "constructor_init";
 auto const constructor_init_def = name >> optionaly_space >>
@@ -311,10 +348,6 @@ auto const if_expression_def = lit("if") >> optionaly_space >>
                                -lit("constexpr") >> optionaly_space >>
                                '(' >> x3::attr(ast::IfExpression{});
 
-x3::rule<class optionaly_params, ast::params> const optionaly_params =
-    "optionaly_params";
-auto const optionaly_params_def = -(param_optionaly_default % arg_separator);
-
 // TODO: need variadic templates
 x3::rule<class template_parameter, ast::TemplateParameter> const
     template_parameter = "template_parameter";
@@ -330,11 +363,6 @@ x3::rule<class template_parameters, ast::TemplateParameters> const
 auto const template_parameters_def =
     lit("template") >> optionaly_space >> '<' >> optionaly_space >>
     template_parameter % arg_separator >> optionaly_space >> '>';
-
-x3::rule<class is_noexcept, bool> const is_noexcept = "is_noexcept";
-auto const is_noexcept_def = bool_attr(
-    optionaly_space >> "noexcept" >> optionaly_space >>
-    -('(' >> optionaly_space >> expression_old >> optionaly_space >> ')'));
 
 x3::rule<class function_signiture, ast::function_signiture> const
     function_signiture = "function_signiture";
@@ -416,27 +444,26 @@ x3::rule<class enumerators, std::vector<std::string>> const enumerators =
     "enumerators";
 auto const enumerators_def = name % arg_separator;
 
-BOOST_SPIRIT_DEFINE(some_space, optionaly_space, include, skip_line, comment,
-                    arg_separator, class_access_modifier, prefix_operator,
-                    sufix_operator, binary_operator, all_overloadable_operators,
-                    operator_sep_old, operator_sep, call_operator, scope_begin,
-                    scope_end, namespace_begin, statement_end, name, type_,
-                    type_qualifiers, type, var_type, template_values, digits,
-                    integral, floating, number, quoted_string, string_literal,
-                    char_literal, argument, optionaly_arguments, function_call,
-                    expression_old, paren_expression_old,
-                    optionaly_paren_expression_old, init_list, arg_init_list,
-                    optionaly_params, return_statement, type_or_name, literal,
-                    parenthesis_begin, parenthesis_expr_begin, parenthesis_end,
-                    curly_begin, curly_end, expression, param, optional_param,
-                    param_optionaly_default, var_old, var_with_init,
-                    constructor_init, for_loop, if_expression,
-                    template_parameter, template_parameters, is_noexcept,
-                    function_signiture, function_start, is_pure_virtual);
+BOOST_SPIRIT_DEFINE(
+    some_space, optionaly_space, include, skip_line, comment, arg_separator,
+    class_access_modifier, prefix_operator, sufix_operator, binary_operator,
+    all_overloadable_operators, operator_sep_old, operator_sep, call_operator,
+    scope_begin, scope_end, namespace_begin, statement_end, name, type_,
+    type_qualifiers, type, var_type, template_values, digits, integral,
+    floating, number, quoted_string, string_literal, char_literal, argument,
+    optionaly_arguments, function_call, expression_old, paren_expression_old,
+    optionaly_paren_expression_old, init_list, arg_init_list, optionaly_params,
+    return_statement, type_or_name, literal, parenthesis_begin,
+    parenthesis_expr_begin, parenthesis_end, curly_begin, curly_end, expression,
+    capture_default, capture_params, lambda_capture, lambda_specifiers, lambda,
+    param, optional_param, param_optionaly_default, var_old, var_with_init,
+    constructor_init, for_loop, if_expression, template_parameter);
 
-BOOST_SPIRIT_DEFINE(method_signiture, operator_signiture, constructor,
-                    class_inheritance, class_inheritances, class_or_struct,
-                    enumeration, enumerators);
+BOOST_SPIRIT_DEFINE(template_parameters, is_noexcept, function_signiture,
+                    function_start, is_pure_virtual, method_signiture,
+                    operator_signiture, constructor, class_inheritance,
+                    class_inheritances, class_or_struct, enumeration,
+                    enumerators);
 }  // namespace std_parser::rules
 
 #endif  //! STD_RULES_H

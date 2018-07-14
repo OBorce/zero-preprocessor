@@ -113,7 +113,14 @@ TEST_CASE("Parse valid variables", "[var]") {
       "int i = 2, j = 3;"s,
       "int i, j = 3;"s,
       "int i = 2, j;"s,
+      "int i = 2 + 2, j;"s,
+      "int i = foo(2);"s,
+      "int i = foo(2) + 2 / 3 * (foo(a + 2, 3) - 4);"s,
       "int i = 2, j {3};"s,
+      "auto i = [] { return 0;};"s,
+      "auto i = [] (int j = 2) { return j + 2;};"s,
+      "auto i = [] (int j = 2) { return j + 2;}(2);"s,
+      "int i, j;"s,
       "auto mem_ptr = reflect::get_pointer_v<currentMember>;"s,
       "std::vector<int> v {};"s,
       "std::vector<int> v {1, 2, 3};"s,
@@ -140,6 +147,7 @@ TEST_CASE("Parse valid if expression", "[if_expression]") {
                                   "if (!asd)"s,
                                   "if (a.foo())"s,
                                   "if constexpr (a && b)"s,
+                                  "if (a.foo([](int i) { return i;})"s,
                                   "if (int i = foo(); i)"s};
 
   for (auto& valid_if_expression : valid_if_expressions) {

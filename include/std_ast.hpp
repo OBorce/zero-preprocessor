@@ -145,6 +145,11 @@ struct CurlyExpression {
   bool is_begin = true;
 };
 
+enum class LambdaState { Capture, Template, Arguments, Body };
+struct Lambda {
+  LambdaState state = LambdaState::Capture;
+};
+
 struct Statement {};
 
 enum class IfExpressionState { Begin, Expression, Done };
