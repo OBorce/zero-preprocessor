@@ -50,6 +50,7 @@ class StdParserState {
 
     auto var = [this](auto& ctx) {
       auto& rez = _attr(ctx);
+      code_fragments.emplace_back(rules::ast::Statement{});
       code_fragments.emplace_back(rules::ast::Vars{std::move(rez)});
     };
 
@@ -137,6 +138,7 @@ class StdParserState {
 
     auto var = [this](auto& ctx) {
       auto& rez = _attr(ctx);
+      code_fragments.emplace_back(rules::ast::Statement{});
       code_fragments.emplace_back(rules::ast::Vars{std::move(rez)});
     };
 
@@ -411,6 +413,7 @@ class StdParserState {
 
     auto var = [this](auto& ctx) {
       auto& rez = _attr(ctx);
+      code_fragments.emplace_back(rules::ast::Statement{});
       code_fragments.emplace_back(rules::ast::Vars{std::move(rez)});
     };
 
@@ -451,18 +454,9 @@ class StdParserState {
     auto begin = source.begin();
     auto end = source.end();
 
-    auto exp = [this, &current](auto& ctx) {
+    auto exp = [this, &current](auto&) {
       current.state = rules::ast::IfExpressionState::Done;
-      auto& rez = _attr(ctx);
-      std::visit(
-          overloaded{[&](std::monostate&) {
-                       code_fragments.emplace_back(rules::ast::Expression{});
-                     },
-                     [&](auto& state) {
-                       code_fragments.emplace_back(rules::ast::Expression{});
-                       code_fragments.emplace_back(std::move(state));
-                     }},
-          rez);
+      code_fragments.emplace_back(rules::ast::Expression{true});
     };
 
     auto close = [this](auto&) {
@@ -481,9 +475,9 @@ class StdParserState {
       case rules::ast::IfExpressionState::Begin:
         parsed = x3::parse(begin, end,
                            // rules begin
-                           rules::optionaly_space >>
+                           '(' >> rules::optionaly_space >>
                                (rules::comment | rules::var_with_init[var] |
-                                rules::expression[exp])
+                                &rules::expression[exp])
                            // rules end
         );
         break;
@@ -492,7 +486,8 @@ class StdParserState {
             begin, end,
             // rules begin
             rules::optionaly_space >>
-                (rules::expression[exp] | rules::parenthesis_end[close])
+                ((';' >> rules::optionaly_space >> &rules::expression)[exp] |
+                 rules::parenthesis_end[close])
             // rules end
         );
         break;
@@ -535,20 +530,9 @@ class StdParserState {
     auto begin = source.begin();
     auto end = source.end();
 
-    auto se = [this](auto&) { close_code_fragment<rules::ast::Vars>(); };
-
-    auto exp = [this, &current](auto& ctx) {
+    auto exp = [this, &current](auto&) {
       current.state = rules::ast::VarDefinition::Next;
-      auto& rez = _attr(ctx);
-      std::visit(
-          overloaded{[&](std::monostate&) {
-                       code_fragments.emplace_back(rules::ast::Expression{});
-                     },
-                     [&](auto& state) {
-                       code_fragments.emplace_back(rules::ast::Expression{});
-                       code_fragments.emplace_back(std::move(state));
-                     }},
-          rez);
+      code_fragments.emplace_back(rules::ast::Expression{true});
     };
 
     auto init = [this, &current](auto&) {
@@ -572,11 +556,10 @@ class StdParserState {
             // rules begin
             rules::optionaly_space >>
                 (rules::comment |
-                 (('=' >> rules::optionaly_space >> rules::expression)[exp] |
+                 (('=' >> rules::optionaly_space >> &rules::expression)[exp] |
                   (-('=' >> rules::optionaly_space) >>
                    rules::curly_begin)[init] |
-                  (',' >> rules::optionaly_space >> rules::name)[var] |
-                  x3::char_(';')[se]))
+                  (',' >> rules::optionaly_space >> rules::name)[var]))
             // rules end
         );
         break;
@@ -586,11 +569,24 @@ class StdParserState {
                       // rules begin
                       rules::optionaly_space >>
                           (rules::comment |
-                           (',' >> rules::optionaly_space >> rules::name)[var] |
-                           x3::char_(';')[se])
+                           (',' >> rules::optionaly_space >> rules::name)[var])
                       // rules end
             );
         break;
+    }
+
+    // TODO: exptract this
+    if (!parsed) {
+      auto curr = std::move(current);
+      code_fragments.pop_back();
+      if (auto rez = parse(source)) {
+        code_fragments.emplace_back(std::move(curr));
+        close_code_fragment<rules::ast::Vars>();
+        return rez;
+      } else {
+        code_fragments.emplace_back(std::move(curr));
+        return rez;
+      }
     }
 
     return parsed ? std::optional{Result{
@@ -623,6 +619,7 @@ class StdParserState {
 
     auto var = [this](auto& ctx) {
       auto& rez = _attr(ctx);
+      code_fragments.emplace_back(rules::ast::Statement{});
       code_fragments.emplace_back(rules::ast::Vars{std::move(rez)});
     };
 
@@ -701,6 +698,7 @@ class StdParserState {
 
     auto var = [this](auto& ctx) {
       auto& rez = _attr(ctx);
+      code_fragments.emplace_back(rules::ast::Statement{});
       code_fragments.emplace_back(rules::ast::Vars{std::move(rez)});
     };
 

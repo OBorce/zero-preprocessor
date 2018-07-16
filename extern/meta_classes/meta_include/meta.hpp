@@ -11,7 +11,7 @@
 #include <variant>
 #include <vector>
 
-static struct Compiler {
+static struct {
   void require(bool b, std::string_view msg) {
     if (!b) {
       std::cout << -1 << std::endl;
@@ -331,11 +331,12 @@ struct Base {
   }
 };
 
-struct VarOrBase {
-  std::variant<Var, Base> data;
+struct Object {
+  std::variant<Var, Base, Function> data;
 
-  VarOrBase(const Var& v) : data{v} {}
-  VarOrBase(const Base& b) : data{b} {}
+  Object(const Var& v) : data{v} {}
+  Object(const Base& b) : data{b} {}
+  Object(const Function& b) : data{b} {}
 };
 
 struct Type {
@@ -402,9 +403,10 @@ class type {
   auto const& variables() const { return internal->variables; }
 
   auto members_and_bases() const {
-    std::vector<VarOrBase> members_and_bases;
+    std::vector<Object> members_and_bases;
     members_and_bases.reserve(internal->bases.size() +
-                              internal->variables.size());
+                              internal->variables.size() +
+                              internal->methods.size());
 
     members_and_bases.insert(members_and_bases.end(), internal->bases.begin(),
                              internal->bases.end());
@@ -412,6 +414,9 @@ class type {
     members_and_bases.insert(members_and_bases.end(),
                              internal->variables.begin(),
                              internal->variables.end());
+
+    members_and_bases.insert(members_and_bases.end(), internal->methods.begin(),
+                             internal->methods.end());
 
     return members_and_bases;
   }
@@ -431,11 +436,13 @@ class type {
     return *this;
   }
 
-  auto& operator<<(VarOrBase& b) {
+  auto& operator<<(Object& b) {
     if (std::holds_alternative<Base>(b.data)) {
       internal->bases.push_back(std::get<Base>(b.data));
-    } else {
+    } else if (std::holds_alternative<Var>(b.data)) {
       internal->variables.push_back(std::get<Var>(b.data));
+    } else {
+      internal->methods.push_back(std::get<Function>(b.data));
     }
 
     return *this;

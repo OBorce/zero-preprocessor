@@ -148,6 +148,7 @@ TEST_CASE("Parse valid if expression", "[if_expression]") {
                                   "if (a.foo())"s,
                                   "if constexpr (a && b)"s,
                                   "if (a.foo([](int i) { return i;})"s,
+                                  "if (bool b = foo())"s,
                                   "if (int i = foo(); i)"s};
 
   for (auto& valid_if_expression : valid_if_expressions) {

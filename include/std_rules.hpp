@@ -345,8 +345,8 @@ auto const for_loop_def =
 x3::rule<class if_expression, ast::IfExpression> const if_expression =
     "if_expression_old";
 auto const if_expression_def = lit("if") >> optionaly_space >>
-                               -lit("constexpr") >> optionaly_space >>
-                               '(' >> x3::attr(ast::IfExpression{});
+                               -lit("constexpr") >> optionaly_space
+                               >> x3::attr(ast::IfExpression{});
 
 // TODO: need variadic templates
 x3::rule<class template_parameter, ast::TemplateParameter> const

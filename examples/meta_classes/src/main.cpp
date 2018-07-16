@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <iostream>
 #include <string>
 #include <tuple>
@@ -40,6 +41,46 @@ constexpr void base_class(meta::type target, const meta::type source) {
 
   compiler.require(source.variables().empty(),
                    "pure base classes may not contain data");
+}
+
+constexpr void basic_value (meta::type target, const meta::type source) {
+  for (auto m : source.members_and_bases())
+    ->(target) m;
+
+  auto fun_begin = source.functions().begin();
+  auto fun_end = source.functions().end();
+
+  if (find_if(fun_begin, fun_end, [](auto x) { return x.is_default_ctor(); }) !=
+      fun_end)
+    ->(target) { source.name()$ () = default; }
+
+  if (std::find_if(fun_begin, fun_end, [](auto x) {
+        return x.is_copy_ctor();
+      }) == fun_end)
+    ->(target) { source.name()$ (const source.name()$ & that) = default; }
+
+  if (std::find_if(fun_begin, fun_end, [](auto x) {
+        return x.is_move_ctor();
+      }) == fun_end)
+    ->(target) { source.name()$ ( source.name()$ && that) = default; }
+
+  if (std::find_if(fun_begin, fun_end, [](auto x) {
+        return x.is_copy_assignment();
+      }) == fun_end)
+    ->(target) { source.name()$ & operator=(const source.name()$ & that) = default; }
+
+  if (std::find_if(fun_begin, fun_end, [](auto x) {
+        return x.is_move_assignment();
+      }) == fun_end)
+    ->(target) { source.name()$ & operator=( source.name()$ && that) = default; }
+
+  for (auto f : source.functions()) {
+    compiler.require(
+        !f.is_protected() && !f.is_virtual(),
+        "a value type must not have a protected or virtual function");
+    compiler.require(!f.is_destructor() || !f.is_public(),
+                     "a value type must have a public destructor");
+  }
 }
 
 interface shape {
