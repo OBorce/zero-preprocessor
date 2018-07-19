@@ -256,14 +256,14 @@ auto const type_or_name_def = var_type;
 x3::rule<class literal> const literal = "literal";
 auto const literal_def = number | char_literal | string_literal;
 
-x3::rule<class parenthesis_begin> const parenthesis_begin = "parenthesis_begin";
-auto const parenthesis_begin_def = lit('(');
+x3::rule<class parenthesis_begin, ast::RoundExpression> const
+    parenthesis_begin = "parenthesis_begin";
+auto const parenthesis_begin_def = lit('(') >> x3::attr(ast::RoundExpression{});
 
 x3::rule<class parenthesis_expr_begin, ast::RoundExpression> const
     parenthesis_expr_begin = "parenthesis_expr_begin";
 auto const parenthesis_expr_begin_def =
-    -(prefix_operator >> optionaly_space) >>
-    lit('(') >> x3::attr(ast::RoundExpression{});
+    -(prefix_operator >> optionaly_space) >> parenthesis_begin;
 
 x3::rule<class parenthesis_end> const parenthesis_end = "parenthesis_end";
 auto const parenthesis_end_def = lit(')');
@@ -302,17 +302,19 @@ auto const lambda_def = x3::omit[lambda_capture] >> optionaly_space >>
                         x3::attr(ast::Lambda{ast::LambdaState::Body});
 
 x3::rule<class expression,
-         std::variant<std::monostate, ast::RoundExpression, ast::Lambda>> const
-    expression = "expression";
+         std::variant<std::monostate, ast::RoundExpression,
+                      ast::CurlyExpression, ast::Lambda>> const expression =
+    "expression";
 auto const expression_def =
     ((-(prefix_operator >> optionaly_space) >> type_or_name >>
-      -(optionaly_space >> sufix_operator)) |
-     literal) |
-    lambda | parenthesis_expr_begin;
+      -(optionaly_space >> sufix_operator)) >>
+     -(optionaly_space >> (parenthesis_begin | curly_begin))) |
+    literal | lambda | parenthesis_expr_begin;
 
 // TODO: return (a);
 x3::rule<class return_statement,
-         std::variant<std::monostate, ast::RoundExpression, ast::Lambda>> const
+         std::variant<std::monostate, ast::RoundExpression,
+                      ast::CurlyExpression, ast::Lambda>> const
     return_statement = "return_statement";
 auto const return_statement_def = "return" >> some_space >> expression;
 
