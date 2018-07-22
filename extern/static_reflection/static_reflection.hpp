@@ -23,7 +23,11 @@ x3::rule<class scope_end> const scope_end = "scope_end";
 auto const scope_end_def = optionaly_space >> '}' >> optionaly_space >>
                            lit(';');
 
-BOOST_SPIRIT_DEFINE(optionaly_space, scope_end);
+x3::rule<class reflexpr> const reflexpr = "reflexpr";
+auto const reflexpr_def =
+    optionaly_space >> "reflexpr" >> optionaly_space >> '(';
+
+BOOST_SPIRIT_DEFINE(optionaly_space, scope_end, reflexpr);
 }  // namespace rules
 
 namespace helper = std_parser::rules::ast;
@@ -32,6 +36,8 @@ template <class Parent>
 class StaticReflexParser {
   using Class = std_parser::rules::ast::Class;
   using Enumeration = std_parser::rules::ast::Enumeration;
+  using Expression = std_parser::rules::ast::Expression;
+  using RoundExpression = std_parser::rules::ast::RoundExpression;
   using var = std_parser::rules::ast::var;
 
   /**
@@ -93,7 +99,7 @@ class StaticReflexParser {
 
   // TODO: generate reflection for the current class
   // TODO: refactor this method extract to shorter ones
-  auto generate_class_reflection(Class& c) {
+  auto generate_reflection(Class& c) {
     std::string out;
     out.reserve(300);
     out += "\nfriend reflect::Reflect<";
@@ -196,7 +202,7 @@ class StaticReflexParser {
     out += c.name;
     out += "\";\n";
 
-    out += "static constexpr auto object_type = \"";
+    out += "static constexpr auto object_type = ";
     switch (c.type) {
       case std_parser::rules::ast::class_type::CLASS:
         out += "reflect::ObjectType::CLASS;";
@@ -207,14 +213,14 @@ class StaticReflexParser {
       default:
         break;
     }
-    out += "\";\n";
+    out += ";\n";
 
     out += "};";
 
     return out;
   }
 
-  auto generate_enum_reflection(Enumeration& c) {
+  auto generate_reflection(Enumeration& c) {
     std::string out;
     out.reserve(300);
     out += "\n};\n template <> struct reflect::Reflect<";
@@ -253,8 +259,7 @@ class StaticReflexParser {
 
     out += ");\n";
 
-    out +=
-        "static constexpr auto object_type = \"reflect::ObjectType::ENUM\";\n";
+    out += "static constexpr auto object_type = reflect::ObjectType::ENUM;\n";
 
     out += "constexpr static bool is_scoped_enum = ";
     out += c.is_scoped() ? "true;\n" : "false;\n";
@@ -275,42 +280,29 @@ class StaticReflexParser {
     return out;
   }
 
-  template <class V>
-  bool is_class(V v) {
-    return std::holds_alternative<Class>(v);
+  template <class Type, class V>
+  bool is_(V v) {
+    return std::holds_alternative<Type>(v);
   }
 
-  template <class V>
-  bool is_enum(V v) {
-    return std::holds_alternative<Enumeration>(v);
-  }
-
-  auto generate_class_reflection() {
+  template <class Type>
+  auto generate_reflection() {
     auto& std_parser = parent.template get_parser<Parent::std_parser_id>();
-    auto& current_class =
-        std::get<Class>(std_parser.get_current_code_fragment());
-    auto rez = generate_class_reflection(current_class);
-    std_parser.template close_code_fragment<Class>();
-    return rez;
-  }
-
-  auto generate_enum_reflection() {
-    auto& std_parser = parent.template get_parser<Parent::std_parser_id>();
-    auto& current_enum =
-        std::get<Enumeration>(std_parser.get_current_code_fragment());
-    auto rez = generate_enum_reflection(current_enum);
-    std_parser.template close_code_fragment<Enumeration>();
+    auto& current_type = std::get<Type>(std_parser.get_current_code_fragment());
+    auto rez = generate_reflection(current_type);
+    std_parser.template close_code_fragment<Type>();
     return rez;
   }
 
   // TODO: maybe use std::visit
   template <typename Iter>
-  auto generate_reflection(Iter begin) {
+  auto get_reflection(Iter begin) {
     auto& std_parser = parent.template get_parser<Parent::std_parser_id>();
-    return is_class(std_parser.get_current_code_fragment())
-               ? std::optional{Result{begin, generate_class_reflection()}}
-               : is_enum(std_parser.get_current_code_fragment())
-                     ? std::optional{Result{begin, generate_enum_reflection()}}
+    return is_<Class>(std_parser.get_current_code_fragment())
+               ? std::optional{Result{begin, generate_reflection<Class>()}}
+               : is_<Enumeration>(std_parser.get_current_code_fragment())
+                     ? std::optional{Result{begin,
+                                            generate_reflection<Enumeration>()}}
                      : std::nullopt;
   }
 
@@ -325,7 +317,49 @@ class StaticReflexParser {
     return parsed ? std::optional{begin} : std::nullopt;
   }
 
+  template <typename Source>
+  auto parse_reflexpr(Source& source) {
+    auto begin = source.begin();
+    auto end = source.end();
+
+    namespace x3 = boost::spirit::x3;
+    bool parsed = x3::parse(begin, end, rules::reflexpr);
+    return parsed ? std::optional{begin} : std::nullopt;
+  }
+
+  template <typename Source>
+  auto parse_end_reflexpr(Source& source) {
+    auto begin = source.begin();
+    auto end = source.end();
+
+    namespace x3 = boost::spirit::x3;
+    bool parsed = x3::parse(begin, end, rules::optionaly_space >> ')');
+    return parsed ? std::optional{begin} : std::nullopt;
+  }
+
+  template <typename Iter>
+  auto process_reflexpr(Iter it) {
+    auto& std_parser = parent.template get_parser<Parent::std_parser_id>();
+    auto& current = std::get<Expression>(std_parser.get_current_code_fragment());
+    //TODO: rename is_begin to state and use an enum to say expression or operator
+    current.is_begin = false;
+    std_parser.open_new_code_fragment(RoundExpression{});
+    in_reflexpr = true;
+    return std::optional{Result{it, std::string{"reflexpr<"}}};
+  }
+
+  template <typename Iter>
+  auto close_reflexpr(Iter it) {
+    auto& std_parser = parent.template get_parser<Parent::std_parser_id>();
+    std_parser.template close_code_fragment<RoundExpression>();
+    in_reflexpr = false;
+    return std::optional{Result{it, std::string{">"}}};
+  }
+
+  // DATA members
   Parent& parent;
+
+  bool in_reflexpr = false;
 
  public:
   // TODO: when supported in std=c++2a change to fixed length string
@@ -336,16 +370,30 @@ class StaticReflexParser {
   /**
    * A string to prepend to each file's start
    */
-  std::string get_prepend() {
-    return std::string(
-        "namespace reflect { template<class T> struct Reflect;}\n");
-  }
+  std::string get_prepend() { return "#include<reflect.hpp>\n"; }
 
   template <class Source>
-  auto parse(Source& source) {
-    // TODO: parse $reflexpr
-    auto end_of_scope = parse_end_of_scope(source);
-    return end_of_scope ? generate_reflection(*end_of_scope) : std::nullopt;
+  using Out = std::optional<
+      Result<decltype(std::declval<Source>().begin()), std::string>>;
+
+  template <class Source>
+  Out<Source> parse(Source& source) {
+    auto& std_parser = parent.template get_parser<Parent::std_parser_id>();
+    if (std_parser.template is_current_code_fragment<Class, Enumeration>()) {
+      auto end_of_scope = parse_end_of_scope(source);
+      return end_of_scope ? get_reflection(*end_of_scope) : std::nullopt;
+    } else if (std_parser.template is_current_code_fragment<Expression>()) {
+      auto begin_of_reflexpr = parse_reflexpr(source);
+      return begin_of_reflexpr ? process_reflexpr(*begin_of_reflexpr)
+                               : std::nullopt;
+    } else if (in_reflexpr &&
+               std_parser
+                   .template is_current_code_fragment<RoundExpression>()) {
+      auto end_of_reflexpr = parse_end_reflexpr(source);
+      return end_of_reflexpr ? close_reflexpr(*end_of_reflexpr) : std::nullopt;
+    }
+
+    return std::nullopt;
   }
 };
 }  // namespace static_reflection

@@ -252,8 +252,9 @@ class StdParserState {
       }
     }
 
-    return std::optional{
-        Result{begin, make_string_view(source.begin(), begin)}};
+    return parsed ? std::optional{Result{
+                        begin, make_string_view(source.begin(), begin)}}
+                  : std::nullopt;
   }
 
   template <class Source>
@@ -1052,6 +1053,13 @@ class StdParser {
 
   CodeFragment& get_current_code_fragment() {
     return parser.get_current_code_fragment();
+  }
+
+  // TODO: constrain Types as the types in the variant of CodeFragment
+  template <class... Types>
+  bool is_current_code_fragment() {
+    auto& current = parser.get_current_code_fragment();
+    return (std::holds_alternative<Types>(current) || ...);
   }
 
   // TODO: Constraint Fragment to CodeFragment

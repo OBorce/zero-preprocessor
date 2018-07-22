@@ -25,7 +25,7 @@ bool compare_data_members(const T& a, const T& b) {
 
 template <typename T>
 bool generic_equal(const T& a, const T& b) {
-  using metaT = reflexpr<T>;
+  using metaT = reflexpr(T);
   using members = reflect::get_public_data_members_t<metaT>;
   constexpr auto size = reflect::get_size_v<members>;
 
@@ -72,7 +72,7 @@ int main() {
 
   Bar bar{2, 4, "some string"};
 
-  using meta = reflexpr<Bar>;
+  using meta = reflexpr(Bar);
 
   auto class_name = reflect::get_name_v<meta>;
   std::cout << "reflected name is " << class_name << std::endl;
@@ -106,19 +106,19 @@ int main() {
             << bar.*ptr3 << std::endl;
 
   // inheritance
-  using metaB = reflexpr<B>;
+  using metaB = reflexpr(B);
   using bases = reflect::get_public_base_classes_t<metaB>;
   auto name = reflect::get_name_v<metaB>;
   std::cout << "type " << name << " has "
             << reflect::get_size_v<bases> << " public bases " << std::endl;
 
-  using base1 = reflexpr<reflect::get_element_t<0, bases>>;
+  using base1 = reflexpr(reflect::get_element_t<0, bases>);
   std::cout << "type " << name << " inherits from "
             << reflect::get_name_v<base1> << std::endl;
 
   // enums
 
-  using E_m = reflexpr<E>;
+  using E_m = reflexpr(E);
   using first_m = reflect::get_element_t<0, reflect::get_enumerators_t<E_m>>;
   std::cout << reflect::get_name_v<first_m> << std::endl; // prints "first"
 
