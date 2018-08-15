@@ -4,6 +4,7 @@
 #include <map>
 #include <string>
 #include <unordered_map>
+#include <variant>
 #include <vector>
 
 #include <boost/fusion/include/adapt_struct.hpp>
@@ -181,9 +182,14 @@ struct Enumeration {
   bool is_scoped() { return type == EnumType::ENUM_CLASS; }
 };
 
+class Scope;
+
+// TODO: add expressions and return statement
+using StatementVariant = std::variant<Vars, Scope>;
+
 struct Function {
   TemplateParameters template_parameters;
-  bool is_constexpr;
+  bool is_constexpr = false;
   bool is_virtual = false;
   Constructor constructor_type = Constructor::NOTHING;
   Type return_type;
@@ -194,6 +200,8 @@ struct Function {
   bool is_noexcept = false;
   bool is_override = false;
   bool is_pure_virtual = false;
+
+  std::vector<StatementVariant> statements;
 
   // NOTE: used in the generation of meta classes
   // contains everything inside the brackets of the function
@@ -374,21 +382,11 @@ class Scope {
   std::unordered_map<std::string, var> variables;
 
  public:
+  std::vector<StatementVariant> statements;
+
   void add_class(Class&& class_or_struct) {
     auto name = class_or_struct.name;
     classes.emplace(name, std::move(class_or_struct));
-  }
-
-  void add_variable(var&& var) {
-    auto name = var.name;
-    variables.emplace(name, std::move(var));
-  }
-
-  void add_variables(std::vector<var>& vars) {
-    for (auto& var : vars) {
-      add_variable(std::move(var));
-    }
-    vars.clear();
   }
 
   auto get_class(const std::string& name) const { return classes.at(name); }

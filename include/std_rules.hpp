@@ -311,7 +311,6 @@ auto const expression_def =
      -(optionaly_space >> (parenthesis_begin | curly_begin))) |
     literal | lambda | parenthesis_expr_begin;
 
-// TODO: return (a);
 x3::rule<class return_statement,
          std::variant<std::monostate, ast::RoundExpression,
                       ast::CurlyExpression, ast::Lambda>> const

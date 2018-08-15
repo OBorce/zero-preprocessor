@@ -63,7 +63,7 @@ Updated every week
 
 
 #### Static Reflection
-- [x] reflexpr<>
+- [x] reflexpr()
 - [x] reflect::get_name
 - [ ] reflect::get_display_name will need runtime string concatenation
 - [x] reflect::get_type

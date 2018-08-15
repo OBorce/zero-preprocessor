@@ -208,8 +208,6 @@ class StdParserState {
     auto begin = source.begin();
     auto end = source.end();
 
-    auto se = [this](auto&) { close_code_fragment<rules::ast::Expression>(); };
-
     auto exp = [this, &current](auto& ctx) {
       current.is_begin = false;
       auto& rez = _attr(ctx);
@@ -688,25 +686,7 @@ class StdParserState {
 
     auto sb = [&](auto&) { code_fragments.emplace_back(rules::ast::Scope{}); };
 
-    auto se = [&](auto&) {
-      if (code_fragments.size() < 2) {
-        // NOTE: more closing brackets than opened
-        throw std::runtime_error("extraneous closing brace ('}')");
-      }
-      auto& v = code_fragments[code_fragments.size() - 2];
-      std::visit(
-          overloaded{
-              [&](rules::ast::Function&) {
-                // TODO: keep local scope inside function?
-              },
-              [](auto&) {
-                /* NOTE: Can't have a function inside a function or local
-                 * scope*/
-              },
-          },
-          v);
-      code_fragments.pop_back();
-    };
+    auto se = [&](auto&) { close_code_fragment<rules::ast::Scope>(); };
 
     namespace x3 = boost::spirit::x3;
     bool parsed =
@@ -764,10 +744,33 @@ class StdParserState {
     std::visit(
         overloaded{
             [&](rules::ast::Class& arg) { arg.add_variables(c.variables); },
-            [&](rules::ast::Scope& arg) { arg.add_variables(c.variables); },
             [&](rules::ast::Namespace& arg) { arg.add_variables(c.variables); },
+            [&](rules::ast::Function& arg) {
+              arg.statements.emplace_back(std::move(c));
+            },
+            [&](rules::ast::Scope& arg) {
+              arg.statements.emplace_back(std::move(c));
+            },
             [](auto&) {
-              /* TODO: local enums inside functions or local scopes*/
+              /* other can't have variables*/
+            },
+        },
+        v);
+  }
+
+  void close_current_scope() {
+    auto& c = std::get<rules::ast::Scope>(code_fragments.back());
+    auto& v = code_fragments[code_fragments.size() - 2];
+    std::visit(
+        overloaded{
+            [&](rules::ast::Function& arg) {
+              arg.statements.emplace_back(std::move(c));
+            },
+            [&](rules::ast::Scope& arg) {
+              arg.statements.emplace_back(std::move(c));
+            },
+            [](auto&) {
+              /* other can't have local scopes*/
             },
         },
         v);
@@ -859,6 +862,8 @@ class StdParserState {
       close_current_enum();
     } else if constexpr (std::is_same<Fragment, rules::ast::Vars>()) {
       close_current_var_declaration();
+    } else if constexpr (std::is_same<Fragment, rules::ast::Scope>()) {
+      close_current_scope();
     } else {
       // TODO: implement
       // NOTE: nothing to do for now
