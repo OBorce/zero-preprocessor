@@ -211,7 +211,9 @@ class StdParserState {
     auto exp = [this, &current](auto& ctx) {
       current.is_begin = false;
       auto& rez = _attr(ctx);
-      std::visit(overloaded{[](std::monostate&) {},
+      std::visit(overloaded{[](rules::ast::Expression&) {
+                              // TODO: join expressions
+                            },
                             [&](auto& state) {
                               code_fragments.emplace_back(std::move(state));
                             }},
@@ -268,7 +270,9 @@ class StdParserState {
     auto exp = [this, &current](auto& ctx) {
       current.is_begin = false;
       auto& rez = _attr(ctx);
-      std::visit(overloaded{[](std::monostate&) {},
+      std::visit(overloaded{[](rules::ast::Expression&) {
+                              // TODO: join expressions
+                            },
                             [&](auto& state) {
                               code_fragments.emplace_back(std::move(state));
                             }},
@@ -321,7 +325,9 @@ class StdParserState {
     auto exp = [this, &current](auto& ctx) {
       current.is_begin = false;
       auto& rez = _attr(ctx);
-      std::visit(overloaded{[](std::monostate&) {},
+      std::visit(overloaded{[](rules::ast::Expression&) {
+                              // TODO: need to add it to this expression
+                            },
                             [&](auto& state) {
                               code_fragments.emplace_back(std::move(state));
                             }},
@@ -369,12 +375,7 @@ class StdParserState {
       code_fragments.emplace_back(rules::ast::Statement{});
       auto& rez = _attr(ctx);
       std::visit(
-          overloaded{[&](std::monostate&) {
-                       code_fragments.emplace_back(rules::ast::Expression{});
-                     },
-                     [&](auto& state) {
-                       code_fragments.emplace_back(std::move(state));
-                     }},
+          [&](auto& state) { code_fragments.emplace_back(std::move(state)); },
           rez);
     };
 
@@ -577,12 +578,7 @@ class StdParserState {
       code_fragments.emplace_back(rules::ast::Statement{});
       auto& rez = _attr(ctx);
       std::visit(
-          overloaded{[&](std::monostate&) {
-                       code_fragments.emplace_back(rules::ast::Expression{});
-                     },
-                     [&](auto& state) {
-                       code_fragments.emplace_back(std::move(state));
-                     }},
+          [&](auto& state) { code_fragments.emplace_back(std::move(state)); },
           rez);
     };
 
@@ -675,12 +671,7 @@ class StdParserState {
       code_fragments.emplace_back(rules::ast::Statement{});
       auto& rez = _attr(ctx);
       std::visit(
-          overloaded{[&](std::monostate&) {
-                       code_fragments.emplace_back(rules::ast::Expression{});
-                     },
-                     [&](auto& state) {
-                       code_fragments.emplace_back(std::move(state));
-                     }},
+          [&](auto& state) { code_fragments.emplace_back(std::move(state)); },
           rez);
     };
 

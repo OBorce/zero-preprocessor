@@ -3,6 +3,7 @@
 
 #include <map>
 #include <string>
+#include <type_traits>
 #include <unordered_map>
 #include <variant>
 #include <vector>
@@ -136,14 +137,57 @@ struct class_or_struct {
   class_bases bases;
 };
 
+using ExpressionVariant = std::variant<UnqulifiedType>;
+
 struct Expression {
   bool is_begin = false;
+
+  std::vector<ExpressionVariant> expressions;
+
+  Expression() = default;
+  Expression(bool is_begin) : is_begin{is_begin} {}
+  Expression(UnqulifiedType&& type) {
+    expressions.emplace_back(std::move(type));
+  }
 };
+
 struct RoundExpression {
   bool is_begin = true;
+
+  std::optional<UnqulifiedType> functor;
+
+  RoundExpression() = default;
+  RoundExpression(bool is_begin) : is_begin{is_begin} {}
+  RoundExpression(UnqulifiedType&& type) : functor{std::move(type)} {}
 };
 struct CurlyExpression {
   bool is_begin = true;
+
+  std::optional<UnqulifiedType> type;
+
+  CurlyExpression() = default;
+  CurlyExpression(bool is_begin) : is_begin{is_begin} {}
+  CurlyExpression(UnqulifiedType&& type) : type{std::move(type)} {}
+};
+
+/**
+ * Used as a bridge between an UnqulifiedType and the Expression
+ * Needed for the value_expression and expression rules
+ */
+struct ValueExpression {
+  UnqulifiedType type;
+  std::variant<RoundExpression, CurlyExpression, Expression> exp;
+
+  // TODO: maybe constraint it to variants that contain Expression
+  template <class... Ts>
+  operator std::variant<Ts...>() {
+    return std::visit(
+        [this](auto& exp) {
+          return std::variant<Ts...>(
+              std::remove_reference_t<decltype(exp)>{std::move(type)});
+        },
+        exp);
+  }
 };
 
 enum class LambdaState { Capture, Template, Arguments, Body };
@@ -458,6 +502,7 @@ BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::params, parameters)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::TemplateParameter, type, name)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::TemplateParameters,
                           template_parameters)
+BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::ValueExpression, type, exp)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::function_signiture,
                           template_parameters, is_constexpr, return_type, name,
                           parameters, is_noexcept)

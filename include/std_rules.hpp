@@ -87,6 +87,7 @@ auto const class_access_modifier_def =
 x3::rule<class arg_separator> const arg_separator = "arg_separator";
 auto const arg_separator_def = optionaly_space >> ',' >> optionaly_space;
 
+// TODO: emit an enum
 x3::rule<class prefix_operator> const prefix_operator = "prefix_operator";
 auto const prefix_operator_def = lit("++") | "--" | '*' | '&' | '!';
 
@@ -250,11 +251,15 @@ auto const is_noexcept_def = bool_attr(
     -('(' >> optionaly_space >> expression_old >> optionaly_space >> ')'));
 
 // new expressions
-x3::rule<class type_or_name> const type_or_name = "type_or_name";
+// TODO: remove this
+x3::rule<class type_or_name, ast::UnqulifiedType> const type_or_name =
+    "type_or_name";
 auto const type_or_name_def = var_type;
 
-x3::rule<class literal> const literal = "literal";
-auto const literal_def = number | char_literal | string_literal;
+// TODO: add a literal to the Expression
+x3::rule<class literal, ast::Expression> const literal = "literal";
+auto const literal_def = (number | char_literal | string_literal) >>
+                         x3::attr(ast::Expression{});
 
 x3::rule<class parenthesis_begin, ast::RoundExpression> const
     parenthesis_begin = "parenthesis_begin";
@@ -301,18 +306,27 @@ auto const lambda_def = x3::omit[lambda_capture] >> optionaly_space >>
                         optionaly_space >> '{' >>
                         x3::attr(ast::Lambda{ast::LambdaState::Body});
 
+x3::rule<class variable_expression, ast::UnqulifiedType> const
+    variable_expression = "variable_expression";
+auto const variable_expression_def = -(prefix_operator >> optionaly_space) >>
+                                     type_or_name >>
+                                     -(optionaly_space >> sufix_operator);
+
+x3::rule<class fce_expression, ast::ValueExpression> const fce_expression =
+    "fce_expression";
+auto const fce_expression_def = variable_expression >> optionaly_space >>
+                                (parenthesis_begin | curly_begin |
+                                 x3::attr(ast::Expression{}));
+
 x3::rule<class expression,
-         std::variant<std::monostate, ast::RoundExpression,
+         std::variant<ast::Expression, ast::RoundExpression,
                       ast::CurlyExpression, ast::Lambda>> const expression =
     "expression";
 auto const expression_def =
-    ((-(prefix_operator >> optionaly_space) >> type_or_name >>
-      -(optionaly_space >> sufix_operator)) >>
-     -(optionaly_space >> (parenthesis_begin | curly_begin))) |
-    literal | lambda | parenthesis_expr_begin;
+    fce_expression | literal | lambda | parenthesis_expr_begin;
 
 x3::rule<class return_statement,
-         std::variant<std::monostate, ast::RoundExpression,
+         std::variant<ast::Expression, ast::RoundExpression,
                       ast::CurlyExpression, ast::Lambda>> const
     return_statement = "return_statement";
 auto const return_statement_def = "return" >> some_space >> expression;
@@ -464,7 +478,7 @@ BOOST_SPIRIT_DEFINE(template_parameters, is_noexcept, function_signiture,
                     function_start, is_pure_virtual, method_signiture,
                     operator_signiture, constructor, class_inheritance,
                     class_inheritances, class_or_struct, enumeration,
-                    enumerators);
+                    enumerators, variable_expression, fce_expression);
 }  // namespace std_parser::rules
 
 #endif  //! STD_RULES_H
