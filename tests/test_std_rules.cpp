@@ -114,20 +114,20 @@ TEST_CASE("Parse valid expression old", "[expression]") {
 }
 
 TEST_CASE("Parse valid variables old", "[var]") {
-  std::array valid_vars{"int a;"s,
-                        "std::string s{\"hello\"};"s,
-                        "std::vector<int> v;"s,
-                        "int i = 0;"s,
-                        "a && b;"s,
-                        "std::vector<int> v {};"s,
-                        "std::vector<int> v {1, 2, 3};"s,
-                        "std::pair<int, float> v {1, 2.0f};"s,
-                        "std::pair<int, std::vector<char>> v {1, {}};"s,
-                        "std::array<int, 4> a;"s,
-                        "rules::ast::val v = 2;"s,
-                        "rules::ast::val v = {2, foo(a)};"s,
-                        "nsd::asd::varr v23 {2, 3, baz(1, 3)};"s,
-                        "some_Type var_a2 = foo(2) ;"s};
+  std::array valid_vars{"int a"s,
+                        "std::string s{\"hello\"}"s,
+                        "std::vector<int> v"s,
+                        "int i = 0"s,
+                        "a && b"s,
+                        "std::vector<int> v {}"s,
+                        "std::vector<int> v {1, 2, 3}"s,
+                        "std::pair<int, float> v {1, 2.0f}"s,
+                        "std::pair<int, std::vector<char>> v {1, {}}"s,
+                        "std::array<int, 4> a"s,
+                        "rules::ast::val v = 2"s,
+                        "rules::ast::val v = {2, foo(a)}"s,
+                        "nsd::asd::varr v23 {2, 3, baz(1, 3)}"s,
+                        "some_Type var_a2 = foo(2) "s};
 
   for (auto& valid_var : valid_vars) {
     REQUIRE_THAT(valid_var, CanParse(rules::var_old, "variable"));
@@ -145,6 +145,22 @@ TEST_CASE("Parse valid for loop", "[for_loop]") {
 
   for (auto& valid_for_loop : valid_for_loops) {
     REQUIRE_THAT(valid_for_loop, CanParse(rules::for_loop, "for_loop"));
+  }
+}
+
+TEST_CASE("Parse valid while loop", "[while_loop]") {
+  std::array valid_while_loops{"while (true)"s,
+                             "while(a && b)"s,
+                             "while(i < 10)"s,
+                             "while (std::getline(s, in))"s,
+                             "while (int i = get_n())"s,
+                             "while (k || p)"s,
+                             "while (k || p && s)"s,
+                             "while (k && p || s)"s,
+                             "while (k && p || s && t)"s};
+
+  for (auto& valid_while_loop : valid_while_loops) {
+    REQUIRE_THAT(valid_while_loop, CanParse(rules::while_loop, "while_loop"));
   }
 }
 

@@ -13,7 +13,7 @@ A prerequisite for this project is Boost 1.67
 ### Installing
 
 For now all you need to do is git clone the repo, add it as a sub_directory
- and call the function on the target you wish to include the translator for.
+ and call the function on the target you wish to include the preprocessor for.
 
 ```
 # add our preprocessor
@@ -92,7 +92,7 @@ Updated every week
 - [x] virtual/override methods
 - [ ] new/delete malloc/free
 - [x] for loop and ranged base for
-- [ ] while loop and else
+- [x] while loop and else
 - [x] type templates
 - [x] non-type templates
 - [ ] variadic templates

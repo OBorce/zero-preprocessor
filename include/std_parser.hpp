@@ -409,6 +409,7 @@ class StdParserState {
                        rules::include[inc] | rules::comment |
                        rules::return_statement[stm] | rules::param[var] |
                        rules::for_loop | rules::if_expression[nest] |
+                       rules::else_expression | rules::while_loop |
                        rules::expression[stm])
                   // rules end
         );
@@ -637,6 +638,7 @@ class StdParserState {
                        rules::include[inc] | rules::comment |
                        rules::return_statement[stm] | rules::param[var] |
                        rules::for_loop | rules::if_expression[nest] |
+                       rules::else_expression | rules::while_loop |
                        rules::expression[stm])
                   // rules end
         );
@@ -692,6 +694,7 @@ class StdParserState {
                        rules::include[inc] | rules::comment |
                        rules::return_statement[stm] | rules::param[var] |
                        rules::for_loop | rules::if_expression[nest] |
+                       rules::else_expression | rules::while_loop |
                        rules::expression[stm])
                   // rules end
         );

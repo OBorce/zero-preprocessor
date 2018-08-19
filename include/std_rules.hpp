@@ -342,7 +342,7 @@ x3::rule<class var_old, ast::var> const var_old = "var_old";
 auto const var_old_def = param >> optionaly_space >>
                          -(('=' >> optionaly_space >> expression_old) |
                            (-('=' >> optionaly_space) >> init_list)) >>
-                         optionaly_space >> ';';
+                         optionaly_space;
 
 x3::rule<class var_with_init, ast::var> const var_with_init = "var_with_init";
 auto const var_with_init_def = param >> optionaly_space >>
@@ -352,16 +352,25 @@ auto const var_with_init_def = param >> optionaly_space >>
 x3::rule<class for_loop> const for_loop = "for_loop";
 auto const for_loop_def =
     lit("for") >> optionaly_space >> '(' >> optionaly_space >>
-    (((var_old | ';') >> optionaly_space >> -expression_old >>
+    (((-var_old >> ';') >> optionaly_space >> -expression_old >>
       optionaly_space >> ';' >> optionaly_space >> -expression_old) |
      (param >> optionaly_space >> ':' >> optionaly_space >> expression_old)) >>
     optionaly_space >> ')';
+
+x3::rule<class while_loop> const while_loop = "while_loop";
+auto const while_loop_def =
+    lit("while") >> optionaly_space >> '(' >> optionaly_space >>
+    ((var_old >> &(optionaly_space >> ')')) | expression_old) >> optionaly_space
+    >> ')';
 
 x3::rule<class if_expression, ast::IfExpression> const if_expression =
     "if_expression_old";
 auto const if_expression_def = lit("if") >> optionaly_space >>
                                -lit("constexpr") >> optionaly_space
                                >> x3::attr(ast::IfExpression{});
+
+x3::rule<class else_expression> const else_expression = "else_expression";
+auto const else_expression_def = lit("else");
 
 // TODO: need variadic templates
 x3::rule<class template_parameter, ast::TemplateParameter> const
@@ -472,13 +481,14 @@ BOOST_SPIRIT_DEFINE(
     parenthesis_expr_begin, parenthesis_end, curly_begin, curly_end, expression,
     capture_default, capture_params, lambda_capture, lambda_specifiers, lambda,
     param, optional_param, param_optionaly_default, var_old, var_with_init,
-    constructor_init, for_loop, if_expression, template_parameter);
+    constructor_init, for_loop, while_loop, if_expression, else_expression);
 
-BOOST_SPIRIT_DEFINE(template_parameters, is_noexcept, function_signiture,
-                    function_start, is_pure_virtual, method_signiture,
-                    operator_signiture, constructor, class_inheritance,
-                    class_inheritances, class_or_struct, enumeration,
-                    enumerators, variable_expression, fce_expression);
+BOOST_SPIRIT_DEFINE(template_parameter, template_parameters, is_noexcept,
+                    function_signiture, function_start, is_pure_virtual,
+                    method_signiture, operator_signiture, constructor,
+                    class_inheritance, class_inheritances, class_or_struct,
+                    enumeration, enumerators, variable_expression,
+                    fce_expression);
 }  // namespace std_parser::rules
 
 #endif  //! STD_RULES_H
