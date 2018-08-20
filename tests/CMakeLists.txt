@@ -20,5 +20,4 @@ target_include_directories(tests PRIVATE
   )
 
 target_link_libraries(tests PRIVATE Catch Boost::boost)
-enable_testing()
 add_test(NAME test COMMAND tests)

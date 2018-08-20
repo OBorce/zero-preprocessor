@@ -6,7 +6,11 @@ project(zero_preprocessor)
 set(Boost_USE_STATIC_LIBS   ON)
 find_package(Boost 1.67 REQUIRED COMPONENTS filesystem)
 
-add_subdirectory(tests)
+option(BUILD_TESTING "Build the testing tree" ON)
+if(BUILD_TESTING AND (PROJECT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR))
+    enable_testing()
+    add_subdirectory(tests)
+endif()
 
 function(preprocess target preprocessor_dir)
   get_target_property(sources ${target} SOURCES)
