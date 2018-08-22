@@ -20,6 +20,7 @@
 #include <boost/process.hpp>
 
 namespace bp = boost::process;
+namespace std_ast = std_parser::rules::ast;
 
 namespace meta_classes {
 template <typename Parent>
@@ -58,6 +59,53 @@ class MetaClassParser {
                : std::nullopt;
   }
 
+  bool is_meta_param(std_ast::var const& var) {
+    // TODO: check for aliases when we can
+    auto const& type_name = var.type.type.name;
+    return type_name == std::vector<std::string>{"meta", "type"};
+  }
+
+  bool is_only_const(std_ast::var const& var) {
+    auto const& type = var.type;
+    auto const& lq = type.left_qualifiers;
+    auto const& rq = type.right_qualifiers;
+    if (lq.size() + rq.size() != 1) {
+      return false;
+    }
+
+    if (not lq.empty() and lq.front() == std_ast::TypeQualifier::Const) {
+      return true;
+    }
+
+    if (lq.front() == std_ast::TypeQualifier::Const) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * checks if it is a meta function
+   * needs to be constexpr,
+   * have 2 parameters of type meta::type
+   * and the second needs to be const
+   */
+  bool is_meta_function(std_ast::Function const& fun) {
+    bool is_constexpr_function = fun.is_constexpr;
+    if (not is_constexpr_function) {
+      return false;
+    }
+
+    auto const& params = fun.parameters.parameters;
+    bool has_two_parameters = params.size() == 2;
+    if (not has_two_parameters) {
+      return false;
+    }
+
+    return is_meta_param(params[0]) and is_meta_param(params[1]) and
+           is_only_const(params[1]);
+  }
+
   template <class Source, class Writer>
   auto parse_constexpr_function(Source& source, Writer& writer) {
     auto begin = source.begin();
@@ -67,12 +115,9 @@ class MetaClassParser {
     auto out = std_parser.try_parse_function(begin, end);
 
     if (out) {
-      auto res = out->result;
-      // TODO: check for params to be meta::type
-      bool is_constexpr_function = res.is_constexpr;
+      bool is_meta = is_meta_function(out->result);
 
-      return is_constexpr_function ? parse_meta_calss_function(source, writer)
-                                   : std::nullopt;
+      return is_meta ? parse_meta_calss_function(source, writer) : std::nullopt;
     }
 
     return make_result(out);

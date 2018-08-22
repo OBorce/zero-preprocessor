@@ -60,6 +60,7 @@ Updated every week
 - [ ] class and method templates
 - [x] __metaclass_finalization
 - [ ] AS & IS
+- [ ] use of normal user constexpr functions inside metaclass functions
 
 
 #### Static Reflection
@@ -103,7 +104,7 @@ Updated every week
 - [ ] C++17 namespaces n1::n2
 - [x] enum
 - [ ] union
-- [ ] constexpr functions
+- [x] constexpr functions
 - [x] lambdas
 - [ ] C++17 structured binding declaration
 - [ ] C++14 functions with -> return type
