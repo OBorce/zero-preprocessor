@@ -137,37 +137,100 @@ struct class_or_struct {
   class_bases bases;
 };
 
-using ExpressionVariant = std::variant<UnqulifiedType>;
-
-struct Expression {
-  bool is_begin = false;
-
-  std::vector<ExpressionVariant> expressions;
-
-  Expression() = default;
-  Expression(bool is_begin) : is_begin{is_begin} {}
-  Expression(UnqulifiedType&& type) {
-    expressions.emplace_back(std::move(type));
-  }
+enum class Operator {
+  PlusEq,
+  Plus,
+  ArrowDeref,
+  Arrow,
+  MinusEq,
+  Minus,
+  DotDeref,
+  Dot,
+  MultiplyEq,
+  Multiply,
+  DivideEq,
+  Divide,
+  ModuleEq,
+  Module,
+  RShiftEq,
+  RShift,
+  GtEq,
+  Gt,
+  LShiftEq,
+  LShift,
+  LtEq,
+  Lt,
+  And,
+  BitAndEq,
+  BitAnd,
+  Or,
+  BitOrEq,
+  BitOr,
+  TildeEq,
+  Tilde,
+  BitXorEq,
+  BitXor,
+  NotEq,
+  Not,
+  EqEq,
+  Eq
 };
+
+struct VariableExpression {
+  UnqulifiedType expression;
+};
+
+struct LiteralExpression {
+  // TODO: add the literal
+};
+
+struct RoundExpression;
+struct CurlyExpression;
+
+using ExpressionVariant = std::variant<VariableExpression, LiteralExpression,
+                                       RoundExpression, CurlyExpression>;
 
 struct RoundExpression {
-  bool is_begin = true;
-
   std::optional<UnqulifiedType> functor;
 
-  RoundExpression() = default;
-  RoundExpression(bool is_begin) : is_begin{is_begin} {}
-  RoundExpression(UnqulifiedType&& type) : functor{std::move(type)} {}
-};
-struct CurlyExpression {
-  bool is_begin = true;
+  std::vector<ExpressionVariant> expressions;
+  std::vector<Operator> operators;
 
+  RoundExpression() = default;
+  RoundExpression(UnqulifiedType&& type) : functor{std::move(type)} {}
+
+  bool is_begin() const { return expressions.size() <= operators.size(); }
+};
+
+struct CurlyExpression {
   std::optional<UnqulifiedType> type;
 
+  std::vector<ExpressionVariant> expressions;
+  std::vector<Operator> operators;
+
   CurlyExpression() = default;
-  CurlyExpression(bool is_begin) : is_begin{is_begin} {}
   CurlyExpression(UnqulifiedType&& type) : type{std::move(type)} {}
+
+  bool is_begin() const { return expressions.size() <= operators.size(); }
+};
+
+struct Expression {
+  std::vector<ExpressionVariant> expressions;
+  std::vector<Operator> operators;
+
+  Expression() = default;
+
+  Expression(VariableExpression&& type) {
+    expressions.push_back(std::move(type));
+  }
+
+  Expression(LiteralExpression&& type) {
+    expressions.emplace_back(std::move(type));
+  }
+
+  // TODO: think of a better name
+  // add contract that expressions size should never be < operators size
+  bool is_begin() const { return expressions.size() <= operators.size(); }
 };
 
 /**
@@ -176,7 +239,7 @@ struct CurlyExpression {
  */
 struct ValueExpression {
   UnqulifiedType type;
-  std::variant<RoundExpression, CurlyExpression, Expression> exp;
+  std::variant<RoundExpression, CurlyExpression, VariableExpression> exp;
 
   // TODO: maybe constraint it to variants that contain Expression
   template <class... Ts>

@@ -340,9 +340,8 @@ class StaticReflexParser {
   template <typename Iter>
   auto process_reflexpr(Iter it) {
     auto& std_parser = parent.template get_parser<Parent::std_parser_id>();
-    auto& current = std::get<Expression>(std_parser.get_current_code_fragment());
-    //TODO: rename is_begin to state and use an enum to say expression or operator
-    current.is_begin = false;
+    auto& current =
+        std::get<Expression>(std_parser.get_current_code_fragment());
     std_parser.open_new_code_fragment(RoundExpression{});
     in_reflexpr = true;
     return std::optional{Result{it, std::string{"reflexpr<"}}};

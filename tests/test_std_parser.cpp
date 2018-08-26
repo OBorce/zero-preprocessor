@@ -65,16 +65,16 @@ class CanParse : public Catch::MatcherBase<std::string> {
                                   std::cout << "Statement " << std::endl;
                                 },
                                 [&](rules::ast::Expression const& arg) {
-                                  std::cout << "expression " << arg.is_begin
+                                  std::cout << "expression " << arg.is_begin()
                                             << std::endl;
                                 },
                                 [&](rules::ast::RoundExpression const& arg) {
                                   std::cout << "round expression "
-                                            << arg.is_begin << std::endl;
+                                            << arg.is_begin() << std::endl;
                                 },
                                 [&](rules::ast::CurlyExpression const& arg) {
                                   std::cout << "curly expression "
-                                            << arg.is_begin << std::endl;
+                                            << arg.is_begin() << std::endl;
                                 },
                                 [&](rules::ast::Vars const& arg) {
                                   std::cout << "vars "
@@ -183,6 +183,6 @@ TEST_CASE("Parse valid expression", "[expression]") {
 
   for (auto& valid_expression : valid_expressions) {
     REQUIRE_THAT(valid_expression,
-                 CanParse("expression", rules::ast::Expression{true}));
+                 CanParse("expression", rules::ast::Expression{}));
   }
 }

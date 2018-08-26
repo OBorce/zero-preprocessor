@@ -209,10 +209,12 @@ class StdParserState {
     auto end = source.end();
 
     auto exp = [this, &current](auto& ctx) {
-      current.is_begin = false;
       auto& rez = _attr(ctx);
-      std::visit(overloaded{[](rules::ast::Expression&) {
-                              // TODO: join expressions
+      std::visit(overloaded{[&current](rules::ast::VariableExpression& e) {
+                              current.expressions.emplace_back(std::move(e));
+                            },
+                            [&current](rules::ast::LiteralExpression& e) {
+                              current.expressions.emplace_back(std::move(e));
                             },
                             [&](auto& state) {
                               code_fragments.emplace_back(std::move(state));
@@ -220,11 +222,14 @@ class StdParserState {
                  rez);
     };
 
-    auto beg = [&current](auto&) { current.is_begin = true; };
+    auto beg = [&current](auto& ctx) {
+      auto& rez = _attr(ctx);
+      current.operators.emplace_back(std::move(rez));
+    };
 
     namespace x3 = boost::spirit::x3;
     bool parsed = false;
-    if (current.is_begin) {
+    if (current.is_begin()) {
       parsed = x3::parse(
           begin, end,
           // rules begin
@@ -240,7 +245,7 @@ class StdParserState {
       );
     }
 
-    if (!parsed && !current.is_begin) {
+    if (!parsed && !current.is_begin()) {
       auto curr = std::move(current);
       // TODO: when expressions are saved fix this
       code_fragments.pop_back();
@@ -268,10 +273,12 @@ class StdParserState {
     };
 
     auto exp = [this, &current](auto& ctx) {
-      current.is_begin = false;
       auto& rez = _attr(ctx);
-      std::visit(overloaded{[](rules::ast::Expression&) {
-                              // TODO: join expressions
+      std::visit(overloaded{[&current](rules::ast::VariableExpression& e) {
+                              current.expressions.emplace_back(std::move(e));
+                            },
+                            [&current](rules::ast::LiteralExpression& e) {
+                              current.expressions.emplace_back(std::move(e));
                             },
                             [&](auto& state) {
                               code_fragments.emplace_back(std::move(state));
@@ -279,11 +286,14 @@ class StdParserState {
                  rez);
     };
 
-    auto beg = [&current](auto&) { current.is_begin = true; };
+    auto beg = [&current](auto& ctx) {
+      auto& rez = _attr(ctx);
+      current.operators.emplace_back(std::move(rez));
+    };
 
     namespace x3 = boost::spirit::x3;
     bool parsed = false;
-    if (current.is_begin) {
+    if (current.is_begin()) {
       parsed = x3::parse(begin, end,
                          // rules begin
                          rules::optionaly_space >>
@@ -317,16 +327,17 @@ class StdParserState {
     };
 
     auto nest = [this, &current](auto& ctx) {
-      current.is_begin = false;
       auto& rez = _attr(ctx);
       code_fragments.emplace_back(std::move(rez));
     };
 
     auto exp = [this, &current](auto& ctx) {
-      current.is_begin = false;
       auto& rez = _attr(ctx);
-      std::visit(overloaded{[](rules::ast::Expression&) {
-                              // TODO: need to add it to this expression
+      std::visit(overloaded{[&current](rules::ast::VariableExpression& e) {
+                              current.expressions.emplace_back(std::move(e));
+                            },
+                            [&current](rules::ast::LiteralExpression& e) {
+                              current.expressions.emplace_back(std::move(e));
                             },
                             [&](auto& state) {
                               code_fragments.emplace_back(std::move(state));
@@ -334,11 +345,14 @@ class StdParserState {
                  rez);
     };
 
-    auto beg = [&current](auto&) { current.is_begin = true; };
+    auto beg = [&current](auto& ctx) {
+      auto& rez = _attr(ctx);
+      current.operators.emplace_back(std::move(rez));
+    };
 
     namespace x3 = boost::spirit::x3;
     bool parsed = false;
-    if (current.is_begin) {
+    if (current.is_begin()) {
       parsed = x3::parse(begin, end,
                          // rules begin
                          rules::optionaly_space >>
@@ -427,7 +441,7 @@ class StdParserState {
 
     auto exp = [this, &current](auto&) {
       current.state = rules::ast::IfExpressionState::Done;
-      code_fragments.emplace_back(rules::ast::Expression{true});
+      code_fragments.emplace_back(rules::ast::Expression{});
     };
 
     auto close = [this](auto&) {
@@ -503,7 +517,7 @@ class StdParserState {
 
     auto exp = [this, &current](auto&) {
       current.state = rules::ast::VarDefinition::Next;
-      code_fragments.emplace_back(rules::ast::Expression{true});
+      code_fragments.emplace_back(rules::ast::Expression{});
     };
 
     auto init = [this, &current](auto&) {
@@ -770,6 +784,48 @@ class StdParserState {
         v);
   }
 
+  void close_current_round_expression() {
+    auto& c = std::get<rules::ast::RoundExpression>(code_fragments.back());
+    auto& v = code_fragments[code_fragments.size() - 2];
+    std::visit(
+        overloaded{
+            [&](rules::ast::Expression& arg) {
+              arg.expressions.emplace_back(std::move(c));
+            },
+            [&](rules::ast::RoundExpression& arg) {
+              arg.expressions.emplace_back(std::move(c));
+            },
+            [&](rules::ast::CurlyExpression& arg) {
+              arg.expressions.emplace_back(std::move(c));
+            },
+            [](auto&) {
+              /* other can't have round expressions*/
+            },
+        },
+        v);
+  }
+
+  void close_current_curly_expression() {
+    auto& c = std::get<rules::ast::CurlyExpression>(code_fragments.back());
+    auto& v = code_fragments[code_fragments.size() - 2];
+    std::visit(
+        overloaded{
+            [&](rules::ast::Expression& arg) {
+              arg.expressions.emplace_back(std::move(c));
+            },
+            [&](rules::ast::RoundExpression& arg) {
+              arg.expressions.emplace_back(std::move(c));
+            },
+            [&](rules::ast::CurlyExpression& arg) {
+              arg.expressions.emplace_back(std::move(c));
+            },
+            [](auto&) {
+              /* other can't have curly expressions*/
+            },
+        },
+        v);
+  }
+
   template <class T>
   using Iter = decltype(std::declval<T>().begin());
 
@@ -858,6 +914,12 @@ class StdParserState {
       close_current_var_declaration();
     } else if constexpr (std::is_same<Fragment, rules::ast::Scope>()) {
       close_current_scope();
+    } else if constexpr (std::is_same<Fragment,
+                                      rules::ast::RoundExpression>()) {
+      close_current_round_expression();
+    } else if constexpr (std::is_same<Fragment,
+                                      rules::ast::CurlyExpression>()) {
+      close_current_curly_expression();
     } else {
       // TODO: implement
       // NOTE: nothing to do for now

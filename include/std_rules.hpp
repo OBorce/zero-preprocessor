@@ -52,6 +52,29 @@ static struct method_qualifier_ : x3::symbols<ast::MethodQualifier> {
   }
 } method_qualifier;
 
+static struct binary_operator_ : x3::symbols<ast::Operator> {
+  binary_operator_() {
+    add("+=", ast::Operator::PlusEq)("+", ast::Operator::Plus)(
+        "-=", ast::Operator::MinusEq)("->*", ast::Operator::ArrowDeref)(
+        "->", ast::Operator::Arrow)("-", ast::Operator::Minus)(
+        ".*", ast::Operator::DotDeref)(".", ast::Operator::Dot)(
+        "*=", ast::Operator::MultiplyEq)("*", ast::Operator::Multiply)(
+        "/=", ast::Operator::DivideEq)("/", ast::Operator::Divide)(
+        "%=", ast::Operator::ModuleEq)("%", ast::Operator::Module)(
+        ">>=", ast::Operator::RShiftEq)(">>", ast::Operator::RShift)(
+        ">=", ast::Operator::GtEq)(">", ast::Operator::Gt)(
+        "<<=", ast::Operator::LShiftEq)("<<", ast::Operator::LShift)(
+        "<=", ast::Operator::LtEq)("<", ast::Operator::Lt)(
+        "&&", ast::Operator::And)("&=", ast::Operator::BitAndEq)(
+        "&", ast::Operator::BitAnd)("||", ast::Operator::Or)(
+        "|=", ast::Operator::BitOrEq)("|", ast::Operator::BitOr)(
+        "~=", ast::Operator::TildeEq)("~", ast::Operator::Tilde)(
+        "^=", ast::Operator::BitXorEq)("^", ast::Operator::BitXor)(
+        "!=", ast::Operator::NotEq)("!", ast::Operator::Not)(
+        "==", ast::Operator::EqEq)("=", ast::Operator::Eq);
+  }
+} binary_operator;
+
 // TODO: replace with x3::matches[p]
 static auto bool_attr = [](auto p) {
   return (x3::omit[p] >> x3::attr(true)) | x3::attr(false);
@@ -98,12 +121,14 @@ x3::rule<class call_operator> const call_operator = "call_operator";
 auto const call_operator_def =
     (lit('(') >> optionaly_space >> ')') | (lit('[') >> optionaly_space >> ']');
 
+/*
 x3::rule<class binary_operator> const binary_operator = "binary_operator";
 auto const binary_operator_def =
-    lit("+=") | '+' | "-=" | "->*" | "->" | '-' | ".*" | '.' | "*=" | '*' |
-    "/=" | '/' | "%=" | '%' | ">>=" | ">>" | ">=" | '>' | "<<=" | "<<" | "<=" |
-    '<' | "&&" | "&=" | '&' | "||" | "|=" | '|' | "~=" | '~' | "^=" | '^' |
-    "!=" | '!' | "==" | '=';
+lit("+=") | '+' | "-=" | "->*" | "->" | '-' | ".*" | '.' | "*=" | '*' |
+"/=" | '/' | "%=" | '%' | ">>=" | ">>" | ">=" | '>' | "<<=" | "<<" | "<=" |
+'<' | "&&" | "&=" | '&' | "||" | "|=" | '|' | "~=" | '~' | "^=" | '^' |
+"!=" | '!' | "==" | '=';
+*/
 
 x3::rule<class all_overloadable_operators> const all_overloadable_operators =
     "all_overloadable_operators";
@@ -116,9 +141,9 @@ auto const all_overloadable_operators_def =
 x3::rule<class operator_sep_old> const operator_sep_old = "operator_sep_old";
 auto const operator_sep_old_def = optionaly_space >>
                                   // TODO: this makes 1.*foo() or a->23 valid
-                                  binary_operator >> optionaly_space;
+                                  x3::omit[binary_operator] >> optionaly_space;
 
-x3::rule<class operator_sep> const operator_sep = "operator_sep";
+x3::rule<class operator_sep, ast::Operator> const operator_sep = "operator_sep";
 auto const operator_sep_def = optionaly_space >>
                               // TODO: this makes 1.*foo() or a->23 valid
                               (binary_operator | ',') >> optionaly_space;
@@ -257,9 +282,9 @@ x3::rule<class type_or_name, ast::UnqulifiedType> const type_or_name =
 auto const type_or_name_def = var_type;
 
 // TODO: add a literal to the Expression
-x3::rule<class literal, ast::Expression> const literal = "literal";
+x3::rule<class literal, ast::LiteralExpression> const literal = "literal";
 auto const literal_def = (number | char_literal | string_literal) >>
-                         x3::attr(ast::Expression{});
+                         x3::attr(ast::LiteralExpression{});
 
 x3::rule<class parenthesis_begin, ast::RoundExpression> const
     parenthesis_begin = "parenthesis_begin";
@@ -316,19 +341,19 @@ x3::rule<class fce_expression, ast::ValueExpression> const fce_expression =
     "fce_expression";
 auto const fce_expression_def = variable_expression >> optionaly_space >>
                                 (parenthesis_begin | curly_begin |
-                                 x3::attr(ast::Expression{}));
+                                 x3::attr(ast::VariableExpression{}));
 
 x3::rule<class expression,
-         std::variant<ast::Expression, ast::RoundExpression,
-                      ast::CurlyExpression, ast::Lambda>> const expression =
-    "expression";
+         std::variant<ast::VariableExpression, ast::LiteralExpression,
+                      ast::RoundExpression, ast::CurlyExpression,
+                      ast::Lambda>> const expression = "expression";
 auto const expression_def =
     fce_expression | literal | lambda | parenthesis_expr_begin;
 
 x3::rule<class return_statement,
-         std::variant<ast::Expression, ast::RoundExpression,
-                      ast::CurlyExpression, ast::Lambda>> const
-    return_statement = "return_statement";
+         std::variant<ast::VariableExpression, ast::LiteralExpression,
+                      ast::RoundExpression, ast::CurlyExpression,
+                      ast::Lambda>> const return_statement = "return_statement";
 auto const return_statement_def = "return" >> some_space >> expression;
 
 // ============================================
@@ -470,7 +495,7 @@ auto const enumerators_def = name % arg_separator;
 
 BOOST_SPIRIT_DEFINE(
     some_space, optionaly_space, include, skip_line, comment, arg_separator,
-    class_access_modifier, prefix_operator, sufix_operator, binary_operator,
+    class_access_modifier, prefix_operator, sufix_operator,
     all_overloadable_operators, operator_sep_old, operator_sep, call_operator,
     scope_begin, scope_end, namespace_begin, statement_end, name, type_,
     type_qualifiers, type, var_type, template_values, digits, integral,
