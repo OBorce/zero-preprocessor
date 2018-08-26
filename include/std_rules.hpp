@@ -121,15 +121,6 @@ x3::rule<class call_operator> const call_operator = "call_operator";
 auto const call_operator_def =
     (lit('(') >> optionaly_space >> ')') | (lit('[') >> optionaly_space >> ']');
 
-/*
-x3::rule<class binary_operator> const binary_operator = "binary_operator";
-auto const binary_operator_def =
-lit("+=") | '+' | "-=" | "->*" | "->" | '-' | ".*" | '.' | "*=" | '*' |
-"/=" | '/' | "%=" | '%' | ">>=" | ">>" | ">=" | '>' | "<<=" | "<<" | "<=" |
-'<' | "&&" | "&=" | '&' | "||" | "|=" | '|' | "~=" | '~' | "^=" | '^' |
-"!=" | '!' | "==" | '=';
-*/
-
 x3::rule<class all_overloadable_operators> const all_overloadable_operators =
     "all_overloadable_operators";
 auto const all_overloadable_operators_def =
