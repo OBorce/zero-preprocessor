@@ -186,9 +186,10 @@ struct LiteralExpression {
 
 struct RoundExpression;
 struct CurlyExpression;
+struct Lambda;
 
 using ExpressionVariant = std::variant<VariableExpression, LiteralExpression,
-                                       RoundExpression, CurlyExpression>;
+                                       RoundExpression, CurlyExpression, Lambda>;
 
 struct RoundExpression {
   std::optional<UnqulifiedType> functor;
@@ -214,6 +215,19 @@ struct CurlyExpression {
   bool is_begin() const { return expressions.size() <= operators.size(); }
 };
 
+class Scope;
+struct Statement;
+struct ReturnStatement;
+
+using StatementVariant = std::variant<Vars, Scope, Statement, ReturnStatement>;
+
+enum class LambdaState { Capture, Template, Arguments, Body };
+struct Lambda {
+  LambdaState state = LambdaState::Capture;
+
+  std::vector<StatementVariant> statements;
+};
+
 struct Expression {
   std::vector<ExpressionVariant> expressions;
   std::vector<Operator> operators;
@@ -227,6 +241,10 @@ struct Expression {
   Expression(LiteralExpression&& type) {
     expressions.emplace_back(std::move(type));
   }
+
+  explicit Expression(RoundExpression&& e) : expressions{std::move(e)} {}
+  explicit Expression(CurlyExpression&& e) : expressions{std::move(e)} {}
+  explicit Expression(Lambda&& e) : expressions{std::move(e)} {}
 
   // TODO: think of a better name
   // add contract that expressions size should never be < operators size
@@ -253,12 +271,13 @@ struct ValueExpression {
   }
 };
 
-enum class LambdaState { Capture, Template, Arguments, Body };
-struct Lambda {
-  LambdaState state = LambdaState::Capture;
+struct Statement {
+  Expression expression;
 };
 
-struct Statement {};
+struct ReturnStatement {
+  Expression expression;
+};
 
 enum class IfExpressionState { Begin, Expression, Done };
 struct IfExpression {
@@ -289,10 +308,6 @@ struct Enumeration {
   bool is_scoped() { return type == EnumType::ENUM_CLASS; }
 };
 
-class Scope;
-
-// TODO: add expressions and return statement
-using StatementVariant = std::variant<Vars, Scope>;
 
 struct Function {
   TemplateParameters template_parameters;

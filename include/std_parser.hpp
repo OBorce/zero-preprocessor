@@ -7,6 +7,7 @@
 #include <unordered_set>
 #include <variant>
 
+#include <detect.hpp>
 #include <overloaded.hpp>
 #include <result.hpp>
 #include <std_rules.hpp>
@@ -18,7 +19,8 @@ using CodeFragment =
                  rules::ast::Enumeration, rules::ast::Function,
                  rules::ast::Vars, rules::ast::Expression, rules::ast::Lambda,
                  rules::ast::RoundExpression, rules::ast::CurlyExpression,
-                 rules::ast::Statement, rules::ast::IfExpression>;
+                 rules::ast::Statement, rules::ast::ReturnStatement,
+                 rules::ast::IfExpression>;
 
 class StdParserState {
   std::vector<CodeFragment> code_fragments = {rules::ast::Namespace{""}};
@@ -250,9 +252,11 @@ class StdParserState {
       // TODO: when expressions are saved fix this
       code_fragments.pop_back();
       if (auto rez = parse(source)) {
+        code_fragments.push_back(std::move(curr));
+        close_code_fragment<rules::ast::Expression>();
         return rez;
       } else {
-        code_fragments.emplace_back(std::move(curr));
+        code_fragments.push_back(std::move(curr));
         return rez;
       }
     }
@@ -393,6 +397,14 @@ class StdParserState {
           rez);
     };
 
+    auto rstm = [this](auto& ctx) {
+      code_fragments.emplace_back(rules::ast::ReturnStatement{});
+      auto& rez = _attr(ctx);
+      std::visit(
+          [&](auto& state) { code_fragments.emplace_back(std::move(state)); },
+          rez);
+    };
+
     auto var = [this](auto& ctx) {
       auto& rez = _attr(ctx);
       code_fragments.emplace_back(rules::ast::Statement{});
@@ -421,7 +433,7 @@ class StdParserState {
                        (rules::scope_end[se] >> rules::optionaly_space >>
                         -(rules::parenthesis_begin[nest])) |
                        rules::include[inc] | rules::comment |
-                       rules::return_statement[stm] | rules::param[var] |
+                       rules::return_statement[rstm] | rules::param[var] |
                        rules::for_loop | rules::if_expression[nest] |
                        rules::else_expression | rules::while_loop |
                        rules::expression[stm])
@@ -491,12 +503,12 @@ class StdParserState {
                   : std::nullopt;
   }
 
-  template <class Source>
-  auto parse_inside_statement(Source& source, rules::ast::Statement&) {
+  template <class Source, class Statement>
+  auto parse_inside_statement(Source& source, Statement&) {
     auto begin = source.begin();
     auto end = source.end();
 
-    auto se = [this](auto&) { close_code_fragment<rules::ast::Statement>(); };
+    auto se = [this](auto&) { close_code_fragment<Statement>(); };
 
     namespace x3 = boost::spirit::x3;
     bool parsed = x3::parse(begin, end,
@@ -565,11 +577,11 @@ class StdParserState {
       auto curr = std::move(current);
       code_fragments.pop_back();
       if (auto rez = parse(source)) {
-        code_fragments.emplace_back(std::move(curr));
+        code_fragments.push_back(std::move(curr));
         close_code_fragment<rules::ast::Vars>();
         return rez;
       } else {
-        code_fragments.emplace_back(std::move(curr));
+        code_fragments.push_back(std::move(curr));
         return rez;
       }
     }
@@ -591,6 +603,14 @@ class StdParserState {
 
     auto stm = [this](auto& ctx) {
       code_fragments.emplace_back(rules::ast::Statement{});
+      auto& rez = _attr(ctx);
+      std::visit(
+          [&](auto& state) { code_fragments.emplace_back(std::move(state)); },
+          rez);
+    };
+
+    auto rstm = [this](auto& ctx) {
+      code_fragments.emplace_back(rules::ast::ReturnStatement{});
       auto& rez = _attr(ctx);
       std::visit(
           [&](auto& state) { code_fragments.emplace_back(std::move(state)); },
@@ -650,7 +670,7 @@ class StdParserState {
                        (rules::enumeration >> rules::statement_end) |
                        rules::scope_begin[sb] | rules::scope_end[se] |
                        rules::include[inc] | rules::comment |
-                       rules::return_statement[stm] | rules::param[var] |
+                       rules::return_statement[rstm] | rules::param[var] |
                        rules::for_loop | rules::if_expression[nest] |
                        rules::else_expression | rules::while_loop |
                        rules::expression[stm])
@@ -691,6 +711,14 @@ class StdParserState {
           rez);
     };
 
+    auto rstm = [this](auto& ctx) {
+      code_fragments.emplace_back(rules::ast::ReturnStatement{});
+      auto& rez = _attr(ctx);
+      std::visit(
+          [&](auto& state) { code_fragments.emplace_back(std::move(state)); },
+          rez);
+    };
+
     auto sb = [&](auto&) { code_fragments.emplace_back(rules::ast::Scope{}); };
 
     auto se = [&](auto&) { close_code_fragment<rules::ast::Scope>(); };
@@ -706,7 +734,7 @@ class StdParserState {
                        (rules::enumeration >> rules::statement_end) |
                        rules::scope_begin[sb] | rules::scope_end[se] |
                        rules::include[inc] | rules::comment |
-                       rules::return_statement[stm] | rules::param[var] |
+                       rules::return_statement[rstm] | rules::param[var] |
                        rules::for_loop | rules::if_expression[nest] |
                        rules::else_expression | rules::while_loop |
                        rules::expression[stm])
@@ -784,46 +812,77 @@ class StdParserState {
         v);
   }
 
-  void close_current_round_expression() {
-    auto& c = std::get<rules::ast::RoundExpression>(code_fragments.back());
-    auto& v = code_fragments[code_fragments.size() - 2];
+  template <class Expression>
+  void move_expression(CodeFragment& cf, Expression&& e) {
     std::visit(
         overloaded{
             [&](rules::ast::Expression& arg) {
-              arg.expressions.emplace_back(std::move(c));
+              arg.expressions.emplace_back(std::move(e));
             },
             [&](rules::ast::RoundExpression& arg) {
-              arg.expressions.emplace_back(std::move(c));
+              arg.expressions.emplace_back(std::move(e));
             },
             [&](rules::ast::CurlyExpression& arg) {
-              arg.expressions.emplace_back(std::move(c));
+              arg.expressions.emplace_back(std::move(e));
+            },
+            [&](rules::ast::Statement& arg) {
+              arg.expression = rules::ast::Expression(std::move(e));
+            },
+            [&](rules::ast::ReturnStatement& arg) {
+              arg.expression = rules::ast::Expression(std::move(e));
             },
             [](auto&) {
               /* other can't have round expressions*/
             },
         },
-        v);
+        cf);
   }
 
-  void close_current_curly_expression() {
-    auto& c = std::get<rules::ast::CurlyExpression>(code_fragments.back());
-    auto& v = code_fragments[code_fragments.size() - 2];
+  template <class Expression>
+  void close_current_expression() {
+    auto& expression = std::get<Expression>(code_fragments.back());
+    auto& variant_code_fragment = code_fragments[code_fragments.size() - 2];
+    move_expression(variant_code_fragment, expression);
+  }
+
+  void close_current_expression() {
+    auto& expression = std::get<rules::ast::Expression>(code_fragments.back());
+    auto& variant_code_fragment = code_fragments[code_fragments.size() - 2];
     std::visit(
         overloaded{
-            [&](rules::ast::Expression& arg) {
-              arg.expressions.emplace_back(std::move(c));
+            [&](rules::ast::Statement& arg) {
+              arg.expression = std::move(expression);
             },
-            [&](rules::ast::RoundExpression& arg) {
-              arg.expressions.emplace_back(std::move(c));
-            },
-            [&](rules::ast::CurlyExpression& arg) {
-              arg.expressions.emplace_back(std::move(c));
+            [&](rules::ast::ReturnStatement& arg) {
+              arg.expression = std::move(expression);
             },
             [](auto&) {
-              /* other can't have curly expressions*/
+              /* other can't have expressions*/
             },
         },
-        v);
+        variant_code_fragment);
+  }
+
+  template <class Statement>
+  void close_current_statement() {
+    auto& statement = std::get<Statement>(code_fragments.back());
+    auto& variant_code_fragment = code_fragments[code_fragments.size() - 2];
+    std::visit(
+        overloaded{
+            [&](rules::ast::Function& arg) {
+              arg.statements.emplace_back(std::move(statement));
+            },
+            [&](rules::ast::Scope& arg) {
+              arg.statements.emplace_back(std::move(statement));
+            },
+            [&](rules::ast::Lambda& arg) {
+              arg.statements.emplace_back(std::move(statement));
+            },
+            [](auto&) {
+              /* other can't have statements*/
+            },
+        },
+        variant_code_fragment);
   }
 
   template <class T>
@@ -871,6 +930,9 @@ class StdParserState {
                    [&](rules::ast::Statement& arg) {
                      return parse_inside_statement(source, arg);
                    },
+                   [&](rules::ast::ReturnStatement& arg) {
+                     return parse_inside_statement(source, arg);
+                   },
                    [&](rules::ast::Vars& arg) {
                      return parse_inside_var_definition(source, arg);
                    },
@@ -914,12 +976,18 @@ class StdParserState {
       close_current_var_declaration();
     } else if constexpr (std::is_same<Fragment, rules::ast::Scope>()) {
       close_current_scope();
-    } else if constexpr (std::is_same<Fragment,
-                                      rules::ast::RoundExpression>()) {
-      close_current_round_expression();
-    } else if constexpr (std::is_same<Fragment,
-                                      rules::ast::CurlyExpression>()) {
-      close_current_curly_expression();
+    } else if constexpr (is_one_of<Fragment, rules::ast::RoundExpression,
+                                   rules::ast::CurlyExpression,
+                                   rules::ast::Lambda>) {
+      close_current_expression<Fragment>();
+    } else if constexpr (std::is_same<Fragment, rules::ast::Expression>()) {
+      close_current_expression();
+    } else if constexpr (is_one_of<Fragment, rules::ast::Statement,
+                                   rules::ast::ReturnStatement>) {
+      close_current_statement<Fragment>();
+    } else if constexpr (is_one_of<Fragment, rules::ast::Statement,
+                                   rules::ast::ReturnStatement>) {
+      close_current_statement<Fragment>();
     } else {
       // TODO: implement
       // NOTE: nothing to do for now

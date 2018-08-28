@@ -38,4 +38,7 @@ using detected_or = detail::detector<Default, void, Op, Args...>;
 
 template <template <class...> class Op, class... Args>
 constexpr bool is_detected_v = is_detected<Op, Args...>::value;
+
+template <typename F, typename... Ts>
+constexpr bool is_one_of = std::disjunction_v<std::is_same<F, Ts>...>;
 #endif  //! DETECT_H
