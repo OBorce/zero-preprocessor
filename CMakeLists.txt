@@ -72,6 +72,49 @@ function(preprocess target preprocessor_dir)
   target_include_directories(${target} BEFORE PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/include)
 endfunction()
 
+# used for preprocessing of a single file with the compiler-explorer
+function(compiler_explorer_preprocess target preprocessor_dir src)
+  # get all the includes for the source
+  add_custom_command(
+    OUTPUT ${src}_target
+    COMMAND touch ${CMAKE_CURRENT_BINARY_DIR}/out/includes.txt
+    BYPRODUCTS includes.txt
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    COMMENT "Checking includes for ${src}"
+    )
+
+  # generate the meta for all the includes and the source
+  add_custom_command(
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/meta_out/main.cpp
+    COMMAND main 2
+    ${CMAKE_SOURCE_DIR}/${src}
+    ${CMAKE_CURRENT_BINARY_DIR}/out/includes.txt
+    ${CMAKE_CURRENT_BINARY_DIR}/meta_out
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    DEPENDS main ${src}_target
+    COMMENT "Generating meta classes for ${src}"
+    )
+
+  add_executable(meta ${CMAKE_CURRENT_BINARY_DIR}/meta_out/main.cpp)
+  target_include_directories(meta PRIVATE
+    ${preprocessor_dir}/extern/meta_classes/meta_include
+    ${CMAKE_CURRENT_BINARY_DIR}/meta_out
+    ${preprocessor_dir}/extern/static_reflection/out_include
+    )
+
+  # finally preprocess the source
+  add_custom_command(
+    OUTPUT ${src}
+    COMMAND main 3
+    ${CMAKE_SOURCE_DIR}/${src}
+    ${CMAKE_CURRENT_BINARY_DIR}/${src}
+    ${CMAKE_CURRENT_BINARY_DIR}/out/includes.txt
+    $<TARGET_FILE:meta>
+    DEPENDS ${CMAKE_SOURCE_DIR}/${src} main meta
+    )
+endfunction()
+
+
 find_package(Threads REQUIRED)
 
 # Our main
