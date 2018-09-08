@@ -320,7 +320,7 @@ auto const lambda_def = x3::omit[lambda_capture] >> optionaly_space >>
                         x3::omit[-('(' >> optionaly_space >> optionaly_params >>
                                    ')' >> -lambda_specifiers >> is_noexcept)] >>
                         optionaly_space >> '{' >>
-                        x3::attr(ast::Lambda{ast::LambdaState::Body});
+                        x3::attr(ast::Lambda{ast::LambdaState::Body, {}, {}});
 
 x3::rule<class variable_expression, ast::UnqulifiedType> const
     variable_expression = "variable_expression";

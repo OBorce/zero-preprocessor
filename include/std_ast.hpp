@@ -1,6 +1,7 @@
 #ifndef STD_AST_H
 #define STD_AST_H
 
+#include <cstdint>
 #include <map>
 #include <string>
 #include <type_traits>
@@ -11,6 +12,12 @@
 #include <boost/fusion/include/adapt_struct.hpp>
 
 namespace std_parser::rules::ast {
+
+struct SourceLocation {
+  uint16_t row = 0;
+  uint16_t col = 0;
+};
+
 using Type_ = std::vector<std::string>;
 
 struct Type;
@@ -47,6 +54,8 @@ enum class VarDefinition { Init, Next };
 struct Vars {
   VarDefinition state = VarDefinition::Init;
   std::vector<var> variables;
+
+  SourceLocation loc;
 
   Vars(var&& v) : variables{std::move(v)} {}
 
@@ -188,14 +197,17 @@ struct RoundExpression;
 struct CurlyExpression;
 struct Lambda;
 
-using ExpressionVariant = std::variant<VariableExpression, LiteralExpression,
-                                       RoundExpression, CurlyExpression, Lambda>;
+using ExpressionVariant =
+    std::variant<VariableExpression, LiteralExpression, RoundExpression,
+                 CurlyExpression, Lambda>;
 
 struct RoundExpression {
   std::optional<UnqulifiedType> functor;
 
   std::vector<ExpressionVariant> expressions;
   std::vector<Operator> operators;
+
+  SourceLocation loc;
 
   RoundExpression() = default;
   RoundExpression(UnqulifiedType&& type) : functor{std::move(type)} {}
@@ -208,6 +220,8 @@ struct CurlyExpression {
 
   std::vector<ExpressionVariant> expressions;
   std::vector<Operator> operators;
+
+  SourceLocation loc;
 
   CurlyExpression() = default;
   CurlyExpression(UnqulifiedType&& type) : type{std::move(type)} {}
@@ -226,21 +240,20 @@ struct Lambda {
   LambdaState state = LambdaState::Capture;
 
   std::vector<StatementVariant> statements;
+
+  SourceLocation loc;
 };
 
 struct Expression {
   std::vector<ExpressionVariant> expressions;
   std::vector<Operator> operators;
 
+  SourceLocation loc;
+
   Expression() = default;
 
-  Expression(VariableExpression&& type) {
-    expressions.push_back(std::move(type));
-  }
-
-  Expression(LiteralExpression&& type) {
-    expressions.emplace_back(std::move(type));
-  }
+  Expression(VariableExpression&& type) : expressions{std::move(type)} {}
+  Expression(LiteralExpression&& type) : expressions{std::move(type)} {}
 
   explicit Expression(RoundExpression&& e) : expressions{std::move(e)} {}
   explicit Expression(CurlyExpression&& e) : expressions{std::move(e)} {}
@@ -273,15 +286,21 @@ struct ValueExpression {
 
 struct Statement {
   Expression expression;
+
+  SourceLocation loc;
 };
 
 struct ReturnStatement {
   Expression expression;
+
+  SourceLocation loc;
 };
 
 enum class IfExpressionState { Begin, Expression, Done };
 struct IfExpression {
   IfExpressionState state = IfExpressionState::Begin;
+
+  SourceLocation loc;
 };
 
 enum class EnumType { ENUM, ENUM_CLASS };
@@ -298,6 +317,8 @@ struct Enumeration {
   Type_ as;
   std::vector<std::string> enumerators;
 
+  SourceLocation loc;
+
   Enumeration(enum_&& e)
       : type{e.type}, name{std::move(e.name)}, as{std::move(e.as)} {}
 
@@ -307,7 +328,6 @@ struct Enumeration {
 
   bool is_scoped() { return type == EnumType::ENUM_CLASS; }
 };
-
 
 struct Function {
   TemplateParameters template_parameters;
@@ -324,6 +344,8 @@ struct Function {
   bool is_pure_virtual = false;
 
   std::vector<StatementVariant> statements;
+
+  SourceLocation loc;
 
   // NOTE: used in the generation of meta classes
   // contains everything inside the brackets of the function
@@ -396,6 +418,8 @@ struct Class {
   std::vector<var> protected_members;
   std::vector<var> private_members;
   std::vector<var> unspecified_members;
+
+  SourceLocation loc;
 
   Class(class_or_struct&& cs)
       : type{cs.type},
@@ -504,6 +528,7 @@ class Scope {
   std::unordered_map<std::string, var> variables;
 
  public:
+  SourceLocation loc;
   std::vector<StatementVariant> statements;
 
   void add_class(Class&& class_or_struct) {
@@ -523,6 +548,7 @@ class Namespace {
   std::map<std::string, Namespace> nested_namespaces;
 
  public:
+  SourceLocation loc;
   Namespace(const std::string& name) : name{name} {}
   Namespace(std::string&& name) : name{std::move(name)} {}
 

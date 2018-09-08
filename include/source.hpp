@@ -16,6 +16,9 @@ class Source {
 
   std::size_t processed_till = 0;
 
+  std::uint32_t rows_processed = 0;
+  std::uint32_t column = 0;
+
  public:
   // Constructor
   Source(std::string_view source, std::string_view name)
@@ -28,17 +31,32 @@ class Source {
    */
   bool is_finished() { return processed_till == source.size(); }
 
+  // allow us to for loop the unprocessed part of the source
+
+  auto begin() const { return source.cbegin() + processed_till; }
+
+  auto end() const { return source.cend(); }
+
+  auto get_row() const { return rows_processed; }
+
+  auto get_column() const { return column; }
+
   /**
    * Advances for num_characters
    * marks the number of characters as processed
    */
-  void advance(std::size_t num_characters) { processed_till += num_characters; }
+  void advance(std::size_t num_characters) {
+    constexpr char new_line = '\n';
+    auto from = begin();
+    auto to = from + num_characters;
+    rows_processed += std::count(from, to, new_line);
 
-  // allow us to for loop the unprocessed part of the source
+    auto r_to = std::reverse_iterator{from};
+    auto r_from = std::reverse_iterator{to};
+    column = std::distance(std::find(r_from, r_to, new_line), r_to);
 
-  auto begin() { return source.cbegin() + processed_till; }
-
-  auto end() { return source.cend(); }
+    processed_till += num_characters;
+  }
 
   auto& get_name() { return name; }
 };

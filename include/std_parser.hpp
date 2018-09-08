@@ -23,7 +23,38 @@ using CodeFragment =
                  rules::ast::IfExpression>;
 
 class StdParserState {
-  std::vector<CodeFragment> code_fragments = {rules::ast::Namespace{""}};
+  class {
+    std::vector<CodeFragment> code_fragments = {rules::ast::Namespace{""}};
+    rules::ast::SourceLocation current_location = {0, 0};
+
+   public:
+    void set_location(rules::ast::SourceLocation l) { current_location = l; }
+
+    auto size() const { return code_fragments.size(); }
+
+    auto& get_code_fragments() { return code_fragments; }
+
+    // TODO: maybe do a real emplace_back but watch out for implicit conversions
+    void emplace_back(CodeFragment&& cf) {
+      std::visit([this](auto& f) { f.loc = current_location; }, cf);
+      code_fragments.emplace_back(std::move(cf));
+    }
+
+    void push_back(CodeFragment&& cf) {
+      std::visit([this](auto& f) { f.loc = current_location; }, cf);
+      code_fragments.emplace_back(std::move(cf));
+    }
+
+    void pop_back() { code_fragments.pop_back(); }
+
+    auto& front() { return code_fragments.front(); }
+
+    auto& back() { return code_fragments.back(); }
+
+    auto& operator[](std::size_t i) { return code_fragments[i]; }
+  } ast_state;
+
+  // TODO: includes should be merged with CodeFragment
   std::unordered_set<std::string> includes;
 
   // some iterator pointing to the start of the function's body
@@ -40,20 +71,20 @@ class StdParserState {
 
     auto nest = [this](auto& ctx) {
       auto& rez = _attr(ctx);
-      code_fragments.emplace_back(std::move(rez));
+      ast_state.emplace_back(std::move(rez));
     };
 
     auto fun = [this, &begin](auto& ctx) {
       auto& rez = _attr(ctx);
       // TODO: we can get begin from the context
       function_begins.push_back(begin);
-      code_fragments.emplace_back(std::move(rez));
+      ast_state.emplace_back(std::move(rez));
     };
 
     auto var = [this](auto& ctx) {
       auto& rez = _attr(ctx);
-      code_fragments.emplace_back(rules::ast::Statement{});
-      code_fragments.emplace_back(rules::ast::Vars{std::move(rez)});
+      ast_state.emplace_back(rules::ast::Statement{});
+      ast_state.emplace_back(rules::ast::Vars{std::move(rez)});
     };
 
     auto inc = [this](auto& ctx) {
@@ -63,16 +94,16 @@ class StdParserState {
 
     auto sb = [this](auto& ctx) {
       auto& rez = _attr(ctx);
-      code_fragments.emplace_back(rules::ast::Namespace{std::move(rez)});
+      ast_state.emplace_back(rules::ast::Namespace{std::move(rez)});
     };
 
     auto se = [&](auto&) {
-      if (code_fragments.size() < 2) {
+      if (ast_state.size() < 2) {
         // NOTE: more closing brackets than opened
         throw std::runtime_error("extraneous closing brace ('}')");
       }
 
-      auto& v = code_fragments[code_fragments.size() - 2];
+      auto& v = ast_state[ast_state.size() - 2];
       std::visit(
           overloaded{
               [&](rules::ast::Namespace& arg) {
@@ -84,7 +115,7 @@ class StdParserState {
               },
           },
           v);
-      code_fragments.pop_back();
+      ast_state.pop_back();
     };
 
     namespace x3 = boost::spirit::x3;
@@ -118,14 +149,14 @@ class StdParserState {
 
     auto nest = [this](auto& ctx) {
       auto& rez = _attr(ctx);
-      code_fragments.emplace_back(std::move(rez));
+      ast_state.emplace_back(std::move(rez));
     };
 
     auto fun = [this, &begin](auto& ctx) {
       auto& rez = _attr(ctx);
       // TODO: we can get begin from the context
       function_begins.push_back(begin);
-      code_fragments.emplace_back(std::move(rez));
+      ast_state.emplace_back(std::move(rez));
     };
 
     auto funSig = [&](auto& ctx) {
@@ -140,8 +171,8 @@ class StdParserState {
 
     auto var = [this](auto& ctx) {
       auto& rez = _attr(ctx);
-      code_fragments.emplace_back(rules::ast::Statement{});
-      code_fragments.emplace_back(rules::ast::Vars{std::move(rez)});
+      ast_state.emplace_back(rules::ast::Statement{});
+      ast_state.emplace_back(rules::ast::Vars{std::move(rez)});
     };
 
     auto inc = [this](auto& ctx) {
@@ -219,7 +250,7 @@ class StdParserState {
                               current.expressions.emplace_back(std::move(e));
                             },
                             [&](auto& state) {
-                              code_fragments.emplace_back(std::move(state));
+                              ast_state.emplace_back(std::move(state));
                             }},
                  rez);
     };
@@ -250,13 +281,13 @@ class StdParserState {
     if (!parsed && !current.is_begin()) {
       auto curr = std::move(current);
       // TODO: when expressions are saved fix this
-      code_fragments.pop_back();
+      ast_state.pop_back();
       if (auto rez = parse(source)) {
-        code_fragments.push_back(std::move(curr));
+        ast_state.push_back(std::move(curr));
         close_code_fragment<rules::ast::Expression>();
         return rez;
       } else {
-        code_fragments.push_back(std::move(curr));
+        ast_state.push_back(std::move(curr));
         return rez;
       }
     }
@@ -285,7 +316,7 @@ class StdParserState {
                               current.expressions.emplace_back(std::move(e));
                             },
                             [&](auto& state) {
-                              code_fragments.emplace_back(std::move(state));
+                              ast_state.emplace_back(std::move(state));
                             }},
                  rez);
     };
@@ -332,7 +363,7 @@ class StdParserState {
 
     auto nest = [this, &current](auto& ctx) {
       auto& rez = _attr(ctx);
-      code_fragments.emplace_back(std::move(rez));
+      ast_state.emplace_back(std::move(rez));
     };
 
     auto exp = [this, &current](auto& ctx) {
@@ -344,7 +375,7 @@ class StdParserState {
                               current.expressions.emplace_back(std::move(e));
                             },
                             [&](auto& state) {
-                              code_fragments.emplace_back(std::move(state));
+                              ast_state.emplace_back(std::move(state));
                             }},
                  rez);
     };
@@ -386,29 +417,27 @@ class StdParserState {
 
     auto nest = [this](auto& ctx) {
       auto& rez = _attr(ctx);
-      code_fragments.emplace_back(std::move(rez));
+      ast_state.emplace_back(std::move(rez));
     };
 
     auto stm = [this](auto& ctx) {
-      code_fragments.emplace_back(rules::ast::Statement{});
+      ast_state.emplace_back(rules::ast::Statement{});
       auto& rez = _attr(ctx);
-      std::visit(
-          [&](auto& state) { code_fragments.emplace_back(std::move(state)); },
-          rez);
+      std::visit([&](auto& state) { ast_state.emplace_back(std::move(state)); },
+                 rez);
     };
 
     auto rstm = [this](auto& ctx) {
-      code_fragments.emplace_back(rules::ast::ReturnStatement{});
+      ast_state.emplace_back(rules::ast::ReturnStatement{});
       auto& rez = _attr(ctx);
-      std::visit(
-          [&](auto& state) { code_fragments.emplace_back(std::move(state)); },
-          rez);
+      std::visit([&](auto& state) { ast_state.emplace_back(std::move(state)); },
+                 rez);
     };
 
     auto var = [this](auto& ctx) {
       auto& rez = _attr(ctx);
-      code_fragments.emplace_back(rules::ast::Statement{});
-      code_fragments.emplace_back(rules::ast::Vars{std::move(rez)});
+      ast_state.emplace_back(rules::ast::Statement{});
+      ast_state.emplace_back(rules::ast::Vars{std::move(rez)});
     };
 
     auto inc = [this](auto& ctx) {
@@ -416,7 +445,7 @@ class StdParserState {
       includes.emplace(std::move(rez));
     };
 
-    auto sb = [&](auto&) { code_fragments.emplace_back(rules::ast::Scope{}); };
+    auto sb = [&](auto&) { ast_state.emplace_back(rules::ast::Scope{}); };
 
     auto se = [this](auto&) { close_code_fragment<rules::ast::Lambda>(); };
 
@@ -453,7 +482,7 @@ class StdParserState {
 
     auto exp = [this, &current](auto&) {
       current.state = rules::ast::IfExpressionState::Done;
-      code_fragments.emplace_back(rules::ast::Expression{});
+      ast_state.emplace_back(rules::ast::Expression{});
     };
 
     auto close = [this](auto&) {
@@ -463,7 +492,7 @@ class StdParserState {
     auto var = [this, &current](auto& ctx) {
       auto& rez = _attr(ctx);
       current.state = rules::ast::IfExpressionState::Expression;
-      code_fragments.emplace_back(rules::ast::Vars{std::move(rez)});
+      ast_state.emplace_back(rules::ast::Vars{std::move(rez)});
     };
 
     namespace x3 = boost::spirit::x3;
@@ -529,12 +558,12 @@ class StdParserState {
 
     auto exp = [this, &current](auto&) {
       current.state = rules::ast::VarDefinition::Next;
-      code_fragments.emplace_back(rules::ast::Expression{});
+      ast_state.emplace_back(rules::ast::Expression{});
     };
 
     auto init = [this, &current](auto&) {
       current.state = rules::ast::VarDefinition::Next;
-      code_fragments.emplace_back(rules::ast::CurlyExpression{});
+      ast_state.emplace_back(rules::ast::CurlyExpression{});
     };
 
     auto var = [&current](auto& ctx) {
@@ -575,13 +604,13 @@ class StdParserState {
     // TODO: exptract this
     if (!parsed) {
       auto curr = std::move(current);
-      code_fragments.pop_back();
+      ast_state.pop_back();
       if (auto rez = parse(source)) {
-        code_fragments.push_back(std::move(curr));
+        ast_state.push_back(std::move(curr));
         close_code_fragment<rules::ast::Vars>();
         return rez;
       } else {
-        code_fragments.push_back(std::move(curr));
+        ast_state.push_back(std::move(curr));
         return rez;
       }
     }
@@ -598,29 +627,27 @@ class StdParserState {
 
     auto nest = [this](auto& ctx) {
       auto& rez = _attr(ctx);
-      code_fragments.emplace_back(std::move(rez));
+      ast_state.emplace_back(std::move(rez));
     };
 
     auto stm = [this](auto& ctx) {
-      code_fragments.emplace_back(rules::ast::Statement{});
+      ast_state.emplace_back(rules::ast::Statement{});
       auto& rez = _attr(ctx);
-      std::visit(
-          [&](auto& state) { code_fragments.emplace_back(std::move(state)); },
-          rez);
+      std::visit([&](auto& state) { ast_state.emplace_back(std::move(state)); },
+                 rez);
     };
 
     auto rstm = [this](auto& ctx) {
-      code_fragments.emplace_back(rules::ast::ReturnStatement{});
+      ast_state.emplace_back(rules::ast::ReturnStatement{});
       auto& rez = _attr(ctx);
-      std::visit(
-          [&](auto& state) { code_fragments.emplace_back(std::move(state)); },
-          rez);
+      std::visit([&](auto& state) { ast_state.emplace_back(std::move(state)); },
+                 rez);
     };
 
     auto var = [this](auto& ctx) {
       auto& rez = _attr(ctx);
-      code_fragments.emplace_back(rules::ast::Statement{});
-      code_fragments.emplace_back(rules::ast::Vars{std::move(rez)});
+      ast_state.emplace_back(rules::ast::Statement{});
+      ast_state.emplace_back(rules::ast::Vars{std::move(rez)});
     };
 
     auto inc = [this](auto& ctx) {
@@ -628,11 +655,11 @@ class StdParserState {
       includes.emplace(std::move(rez));
     };
 
-    auto sb = [&](auto&) { code_fragments.emplace_back(rules::ast::Scope{}); };
+    auto sb = [&](auto&) { ast_state.emplace_back(rules::ast::Scope{}); };
 
     auto se = [&](auto&) {
       // TODO: remove function_begins when not needed
-      if (code_fragments.size() < 2 || function_begins.empty()) {
+      if (ast_state.size() < 2 || function_begins.empty()) {
         // NOTE: more closing brackets than opened
         throw std::runtime_error("extraneous closing brace ('}')");
       }
@@ -640,7 +667,7 @@ class StdParserState {
       auto end = source.begin();
       auto start = std::any_cast<decltype(end)>(current_functions_start);
       current.body = std::string(start, end) + '\n';
-      auto& v = code_fragments[code_fragments.size() - 2];
+      auto& v = ast_state[ast_state.size() - 2];
       std::visit(
           overloaded{
               [&](rules::ast::Namespace& arg) {
@@ -655,7 +682,7 @@ class StdParserState {
               },
           },
           v);
-      code_fragments.pop_back();
+      ast_state.pop_back();
       function_begins.pop_back();
     };
 
@@ -689,7 +716,7 @@ class StdParserState {
 
     auto nest = [this](auto& ctx) {
       auto& rez = _attr(ctx);
-      code_fragments.emplace_back(std::move(rez));
+      ast_state.emplace_back(std::move(rez));
     };
 
     auto inc = [this](auto& ctx) {
@@ -699,27 +726,25 @@ class StdParserState {
 
     auto var = [this](auto& ctx) {
       auto& rez = _attr(ctx);
-      code_fragments.emplace_back(rules::ast::Statement{});
-      code_fragments.emplace_back(rules::ast::Vars{std::move(rez)});
+      ast_state.emplace_back(rules::ast::Statement{});
+      ast_state.emplace_back(rules::ast::Vars{std::move(rez)});
     };
 
     auto stm = [this](auto& ctx) {
-      code_fragments.emplace_back(rules::ast::Statement{});
+      ast_state.emplace_back(rules::ast::Statement{});
       auto& rez = _attr(ctx);
-      std::visit(
-          [&](auto& state) { code_fragments.emplace_back(std::move(state)); },
-          rez);
+      std::visit([&](auto& state) { ast_state.emplace_back(std::move(state)); },
+                 rez);
     };
 
     auto rstm = [this](auto& ctx) {
-      code_fragments.emplace_back(rules::ast::ReturnStatement{});
+      ast_state.emplace_back(rules::ast::ReturnStatement{});
       auto& rez = _attr(ctx);
-      std::visit(
-          [&](auto& state) { code_fragments.emplace_back(std::move(state)); },
-          rez);
+      std::visit([&](auto& state) { ast_state.emplace_back(std::move(state)); },
+                 rez);
     };
 
-    auto sb = [&](auto&) { code_fragments.emplace_back(rules::ast::Scope{}); };
+    auto sb = [&](auto&) { ast_state.emplace_back(rules::ast::Scope{}); };
 
     auto se = [&](auto&) { close_code_fragment<rules::ast::Scope>(); };
 
@@ -747,8 +772,8 @@ class StdParserState {
   }
 
   void close_current_class() {
-    auto& c = std::get<rules::ast::Class>(code_fragments.back());
-    auto& v = code_fragments[code_fragments.size() - 2];
+    auto& c = std::get<rules::ast::Class>(ast_state.back());
+    auto& v = ast_state[ast_state.size() - 2];
     std::visit(
         overloaded{
             [&](rules::ast::Namespace& arg) { arg.add_class(std::move(c)); },
@@ -761,8 +786,8 @@ class StdParserState {
   }
 
   void close_current_enum() {
-    auto& c = std::get<rules::ast::Enumeration>(code_fragments.back());
-    auto& v = code_fragments[code_fragments.size() - 2];
+    auto& c = std::get<rules::ast::Enumeration>(ast_state.back());
+    auto& v = ast_state[ast_state.size() - 2];
     std::visit(
         overloaded{
             [&](rules::ast::Namespace& arg) { arg.add_enum(std::move(c)); },
@@ -775,8 +800,8 @@ class StdParserState {
   }
 
   void close_current_var_declaration() {
-    auto& c = std::get<rules::ast::Vars>(code_fragments.back());
-    auto& v = code_fragments[code_fragments.size() - 2];
+    auto& c = std::get<rules::ast::Vars>(ast_state.back());
+    auto& v = ast_state[ast_state.size() - 2];
     std::visit(
         overloaded{
             [&](rules::ast::Class& arg) { arg.add_variables(c.variables); },
@@ -795,8 +820,8 @@ class StdParserState {
   }
 
   void close_current_scope() {
-    auto& c = std::get<rules::ast::Scope>(code_fragments.back());
-    auto& v = code_fragments[code_fragments.size() - 2];
+    auto& c = std::get<rules::ast::Scope>(ast_state.back());
+    auto& v = ast_state[ast_state.size() - 2];
     std::visit(
         overloaded{
             [&](rules::ast::Function& arg) {
@@ -840,14 +865,14 @@ class StdParserState {
 
   template <class Expression>
   void close_current_expression() {
-    auto& expression = std::get<Expression>(code_fragments.back());
-    auto& variant_code_fragment = code_fragments[code_fragments.size() - 2];
+    auto& expression = std::get<Expression>(ast_state.back());
+    auto& variant_code_fragment = ast_state[ast_state.size() - 2];
     move_expression(variant_code_fragment, expression);
   }
 
   void close_current_expression() {
-    auto& expression = std::get<rules::ast::Expression>(code_fragments.back());
-    auto& variant_code_fragment = code_fragments[code_fragments.size() - 2];
+    auto& expression = std::get<rules::ast::Expression>(ast_state.back());
+    auto& variant_code_fragment = ast_state[ast_state.size() - 2];
     std::visit(
         overloaded{
             [&](rules::ast::Statement& arg) {
@@ -865,8 +890,8 @@ class StdParserState {
 
   template <class Statement>
   void close_current_statement() {
-    auto& statement = std::get<Statement>(code_fragments.back());
-    auto& variant_code_fragment = code_fragments[code_fragments.size() - 2];
+    auto& statement = std::get<Statement>(ast_state.back());
+    auto& variant_code_fragment = ast_state[ast_state.size() - 2];
     std::visit(
         overloaded{
             [&](rules::ast::Function& arg) {
@@ -898,7 +923,10 @@ class StdParserState {
    */
   template <class Source>
   std::optional<Result<Iter<Source>, std::string_view>> parse(Source& source) {
-    auto& current_code_fragment = code_fragments.back();
+    // FIXME: can't always get the row and column since we can parse from a
+    // string ast_state.set_location({source.get_row(), source.get_column()});
+
+    auto& current_code_fragment = ast_state.back();
     return std::visit(
         overloaded{[&](rules::ast::Namespace& arg) {
                      return parse_inside_namespace(source, arg);
@@ -946,24 +974,27 @@ class StdParserState {
    * Add a new code_fragment
    */
   void open_new_code_fragment(CodeFragment&& arg) {
-    code_fragments.emplace_back(std::move(arg));
+    // TODO: add source location?? or already has source location set
+    ast_state.emplace_back(std::move(arg));
   }
 
   /**
    * Return a constant view of all the code_fragments
    */
-  auto const& get_all_code_fragments() { return code_fragments; }
+  auto const& get_all_code_fragments() {
+    return ast_state.get_code_fragments();
+  }
 
-  CodeFragment& get_current_code_fragment() { return code_fragments.back(); }
+  CodeFragment& get_current_code_fragment() { return ast_state.back(); }
 
   rules::ast::Namespace const& get_top_code_fragment() {
-    return std::get<rules::ast::Namespace>(code_fragments.front());
+    return std::get<rules::ast::Namespace>(ast_state.front());
   }
 
   // TODO add SFINAE for CodeFragment
   template <class Fragment>
   void close_code_fragment() {
-    if (code_fragments.size() < 2) {
+    if (ast_state.size() < 2) {
       // NOTE: more closing brackets than opened
       throw std::runtime_error("extraneous closing brace ('}')");
     }
@@ -994,7 +1025,7 @@ class StdParserState {
       // update when we decide to store the expressions
     }
 
-    code_fragments.pop_back();
+    ast_state.pop_back();
   }
 
   template <class Source>
