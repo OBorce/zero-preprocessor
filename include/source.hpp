@@ -16,8 +16,8 @@ class Source {
 
   std::size_t processed_till = 0;
 
-  std::uint32_t rows_processed = 0;
-  std::uint32_t column = 0;
+  std::uint16_t rows_processed = 0;
+  std::uint16_t column = 0;
 
  public:
   // Constructor

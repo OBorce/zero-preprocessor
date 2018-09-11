@@ -923,8 +923,7 @@ class StdParserState {
    */
   template <class Source>
   std::optional<Result<Iter<Source>, std::string_view>> parse(Source& source) {
-    // FIXME: can't always get the row and column since we can parse from a
-    // string ast_state.set_location({source.get_row(), source.get_column()});
+    ast_state.set_location({source.get_row(), source.get_column()});
 
     auto& current_code_fragment = ast_state.back();
     return std::visit(
@@ -1133,6 +1132,13 @@ class StdParser {
     struct {
       Iter begin_;
       Iter end_;
+
+      //NOTE: no source location for generated code
+      std::uint16_t row = 0;
+      std::uint16_t col = 0;
+
+      auto get_row() { return row; }
+      auto get_column() { return col; }
 
       Iter begin() { return begin_; }
       Iter end() { return end_; }

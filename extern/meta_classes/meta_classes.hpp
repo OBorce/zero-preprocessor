@@ -202,12 +202,8 @@ class MetaClassParser {
     if (out) {
       return out;
     }
-    out = parse_meta_class(source);
-    if (out) {
-      return out;
-    }
 
-    return parse_include(source, writer);
+    return parse_meta_class(source);
   }
 
   template <class Source, class Writer>
@@ -387,7 +383,8 @@ class MetaClassParser {
       return parse_inside_meta_class(source);
     }
 
-    return parse_meta(source, writer);
+    auto meta = parse_meta(source, writer);
+    return meta ? meta : parse_include(source, writer);
   }
 
   void finish_preprocess() {

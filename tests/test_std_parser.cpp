@@ -31,6 +31,13 @@ class CanParse : public Catch::MatcherBase<std::string> {
       Iter begin_;
       Iter end_;
 
+      //TODO: maybe add an advance function
+      std::uint16_t row = 0;
+      std::uint16_t col = 0;
+
+      auto get_row() { return row; }
+      auto get_column() { return col; }
+
       Iter begin() { return begin_; }
       Iter end() { return end_; }
 
