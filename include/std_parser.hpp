@@ -51,6 +51,8 @@ class StdParserState {
 
     auto& back() { return code_fragments.back(); }
 
+    auto get_location() const { return current_location; }
+
     auto& operator[](std::size_t i) { return code_fragments[i]; }
   } ast_state;
 
@@ -119,23 +121,22 @@ class StdParserState {
     };
 
     namespace x3 = boost::spirit::x3;
-    bool parsed = x3::parse(
-        begin, end,
-        // rules begin
-        rules::some_space |
-            (rules::optionaly_space >>
-             ((rules::class_or_struct >> rules::scope_begin)[nest] |
-              (rules::class_or_struct >> rules::statement_end) |
-              (rules::function_signiture >> rules::scope_begin)[fun] |
-              (rules::function_signiture >> rules::statement_end) |
-              (rules::operator_signiture >> rules::scope_begin)[fun] |
-              (rules::operator_signiture >> rules::statement_end) |
-              (rules::enumeration >> rules::scope_begin)[nest] |
-              (rules::enumeration >> rules::statement_end) |
-              rules::namespace_begin[sb] | rules::scope_end[se] |
-              rules::include[inc] | rules::comment | rules::param[var]))
-        // rules end
-    );
+    bool parsed =
+        x3::parse(begin, end,
+                  // rules begin
+                  rules::some_space |
+                      ((rules::class_or_struct >> rules::scope_begin)[nest] |
+                       (rules::class_or_struct >> rules::statement_end) |
+                       (rules::function_signiture >> rules::scope_begin)[fun] |
+                       (rules::function_signiture >> rules::statement_end) |
+                       (rules::operator_signiture >> rules::scope_begin)[fun] |
+                       (rules::operator_signiture >> rules::statement_end) |
+                       (rules::enumeration >> rules::scope_begin)[nest] |
+                       (rules::enumeration >> rules::statement_end) |
+                       rules::namespace_begin[sb] | rules::scope_end[se] |
+                       rules::include[inc] | rules::comment | rules::param[var])
+                  // rules end
+        );
 
     return parsed ? std::optional{Result{
                         begin, make_string_view(source.begin(), begin)}}
@@ -161,11 +162,13 @@ class StdParserState {
 
     auto funSig = [&](auto& ctx) {
       auto& rez = _attr(ctx);
+      rez.loc = ast_state.get_location();
       current.add_function(std::move(rez));
     };
 
     auto ac = [&](auto& ctx) {
       auto& rez = _attr(ctx);
+      auto loc = ast_state.get_location();
       current.set_access_modifier(rez);
     };
 
@@ -186,7 +189,7 @@ class StdParserState {
     bool parsed = x3::parse(
         begin, end,
         // rules begin
-        rules::optionaly_space >>
+        rules::some_space |
             ((rules::class_or_struct >> rules::scope_begin)[nest] |
              (rules::class_or_struct >> rules::statement_end) |
              (rules::method_signiture >> rules::scope_begin)[fun] |
@@ -453,7 +456,7 @@ class StdParserState {
     bool parsed =
         x3::parse(begin, end,
                   // rules begin
-                  rules::optionaly_space >>
+                  rules::some_space |
                       ((rules::class_or_struct >> rules::scope_begin)[nest] |
                        (rules::class_or_struct >> rules::statement_end) |
                        (rules::enumeration >> rules::scope_begin)[nest] |
@@ -566,7 +569,7 @@ class StdParserState {
       ast_state.emplace_back(rules::ast::CurlyExpression{});
     };
 
-    auto var = [&current](auto& ctx) {
+    auto var = [this, &current](auto& ctx) {
       auto& rez = _attr(ctx);
       current.add_var(std::move(rez));
       current.state = rules::ast::VarDefinition::Init;
@@ -690,7 +693,7 @@ class StdParserState {
     bool parsed =
         x3::parse(begin, end,
                   // rules begin
-                  rules::optionaly_space >>
+                  rules::some_space |
                       ((rules::class_or_struct >> rules::scope_begin)[nest] |
                        (rules::class_or_struct >> rules::statement_end) |
                        (rules::enumeration >> rules::scope_begin)[nest] |
@@ -752,7 +755,7 @@ class StdParserState {
     bool parsed =
         x3::parse(begin, end,
                   // rules begin
-                  rules::optionaly_space >>
+                  rules::some_space |
                       ((rules::class_or_struct >> rules::scope_begin)[nest] |
                        (rules::class_or_struct >> rules::statement_end) |
                        (rules::enumeration >> rules::scope_begin)[nest] |
@@ -1133,7 +1136,7 @@ class StdParser {
       Iter begin_;
       Iter end_;
 
-      //NOTE: no source location for generated code
+      // NOTE: no source location for generated code
       std::uint16_t row = 0;
       std::uint16_t col = 0;
 

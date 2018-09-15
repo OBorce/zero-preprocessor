@@ -16,7 +16,7 @@ class Source {
 
   std::size_t processed_till = 0;
 
-  std::uint16_t rows_processed = 0;
+  std::uint16_t rows_processed = 1;
   std::uint16_t column = 0;
 
  public:
@@ -51,9 +51,9 @@ class Source {
     auto to = from + num_characters;
     rows_processed += std::count(from, to, new_line);
 
-    auto r_to = std::reverse_iterator{from};
-    auto r_from = std::reverse_iterator{to};
-    column = std::distance(std::find(r_from, r_to, new_line), r_to);
+    auto r_to = std::make_reverse_iterator(from);
+    auto r_from = std::make_reverse_iterator(to);
+    column = std::distance(r_from, std::find(r_from, r_to, new_line)) + 1;
 
     processed_till += num_characters;
   }

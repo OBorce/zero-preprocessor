@@ -44,6 +44,7 @@ struct Type {
 struct var {
   Type type;
   std::string name;
+  SourceLocation loc;
 };
 
 /**
@@ -61,7 +62,7 @@ struct Vars {
 
   void add_var(std::string&& name) {
     auto type = variables.front().type;
-    variables.emplace_back(var{std::move(type), std::move(name)});
+    variables.push_back(var{std::move(type), std::move(name), loc});
   }
 };
 
@@ -87,6 +88,8 @@ struct function_signiture {
   std::string name;
   params parameters;
   bool is_noexcept;
+
+  SourceLocation loc;
 };
 
 struct operator_signiture {
@@ -97,6 +100,8 @@ struct operator_signiture {
   params parameters;
   bool is_noexcept;
   bool is_pure_virtual;
+
+  SourceLocation loc;
 };
 
 struct method_signiture {
@@ -111,6 +116,8 @@ struct method_signiture {
   bool is_noexcept;
   bool is_override;
   bool is_pure_virtual;
+
+  SourceLocation loc;
 };
 
 enum class Constructor { CONSTRUCTOR, DESTRUCTOR, NOTHING };
@@ -124,6 +131,8 @@ struct constructor {
   params parameters;
   bool is_noexcept;
   bool is_pure_virtual;
+
+  SourceLocation loc;
 };
 
 enum class class_type { CLASS, STRUCT, META_CLASS };
@@ -359,7 +368,8 @@ struct Function {
         return_type{std::move(fun.return_type)},
         name{std::move(fun.name)},
         parameters{std::move(fun.parameters)},
-        is_noexcept{fun.is_noexcept} {}
+        is_noexcept{fun.is_noexcept},
+        loc{fun.loc} {}
 
   Function(method_signiture&& fun)
       : template_parameters{std::move(fun.template_parameters)},
@@ -372,7 +382,8 @@ struct Function {
         qualifier{fun.qualifier},
         is_noexcept{fun.is_noexcept},
         is_override{fun.is_override},
-        is_pure_virtual{fun.is_pure_virtual} {}
+        is_pure_virtual{fun.is_pure_virtual},
+        loc{fun.loc} {}
 
   Function(constructor&& fun)
       : template_parameters{std::move(fun.template_parameters)},
@@ -383,7 +394,8 @@ struct Function {
         name{std::move(fun.name)},
         parameters{std::move(fun.parameters)},
         is_noexcept{fun.is_noexcept},
-        is_pure_virtual{fun.is_pure_virtual} {}
+        is_pure_virtual{fun.is_pure_virtual},
+        loc{fun.loc} {}
 
   Function(operator_signiture&& fun)
       : template_parameters{std::move(fun.template_parameters)},
@@ -393,7 +405,8 @@ struct Function {
         name{"op"},
         parameters{std::move(fun.parameters)},
         is_noexcept{fun.is_noexcept},
-        is_pure_virtual{fun.is_pure_virtual} {}
+        is_pure_virtual{fun.is_pure_virtual},
+        loc{fun.loc} {}
 };
 
 struct Class {

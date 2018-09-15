@@ -21,6 +21,23 @@ static struct {
     }
   }
 
+  template<class T>
+  void require(bool b, std::string_view msg, T& t) {
+    if (!b) {
+      std::cout << -1 << std::endl;
+      std::string msg_with_loc = "<source>:";
+      auto loc = t.loc;
+      msg_with_loc += std::to_string(loc.row);
+      msg_with_loc += ':';
+      msg_with_loc += std::to_string(loc.col);
+      msg_with_loc += ": ";
+      msg_with_loc += msg;
+      std::cout << msg_with_loc.size() << std::endl;
+      std::cout << msg_with_loc << std::endl;
+      std::exit(EXIT_FAILURE);
+    }
+  }
+
   void error(std::string_view msg) {
     std::cout << -1 << std::endl;
     std::cout << msg.size() << std::endl;
@@ -65,6 +82,11 @@ std::string to_string(Access a) {
   }
 }
 
+struct SourceLocation {
+  uint16_t row = 0;
+  uint16_t col = 0;
+};
+
 struct CppType {
   std::vector<TypeQualifier> left_qualifiers;
   std::string type;
@@ -104,6 +126,7 @@ struct Var {
   CppType var_type;
   std::string name;
   Access access = Access::UNSPECIFIED;
+  SourceLocation loc;
 
   auto const& type() { return var_type; }
 
@@ -130,6 +153,7 @@ enum class Constructor { CONSTRUCTOR, DESTRUCTOR, NOTHING };
 enum class MethodQualifier { NONE, L_REF, R_REF };
 
 struct Function {
+  SourceLocation loc;
   CppType return_type;
   bool is_virtual_;
   Constructor constructor_type;
@@ -344,6 +368,7 @@ struct Type {
   std::vector<Base> bases;
   std::vector<Var> variables;
   std::string body;
+  SourceLocation loc;
 
   Type() = default;
 
@@ -488,6 +513,12 @@ class type {
   }
 };
 
+SourceLocation read_loc() {
+  uint16_t row, col;
+  std::cin >> row >> col;
+  return {row, col};
+}
+
 CppType read_cpp_type() {
   std::size_t n;
   std::cin >> n;
@@ -526,6 +557,7 @@ Param read_parameter() {
 }
 
 Var read_var() {
+  auto loc = read_loc();
   std::string name;
   auto type = read_cpp_type();
   int a;
@@ -533,10 +565,11 @@ Var read_var() {
   Access acc = static_cast<Access>(a);
   std::cin >> name;
 
-  return {std::move(type), std::move(name), acc};
+  return {std::move(type), std::move(name), acc, loc};
 }
 
 Function read_function() {
+  auto loc = read_loc();
   auto return_type = read_cpp_type();
   bool is_virtual;
   std::cin >> is_virtual;
@@ -578,7 +611,8 @@ Function read_function() {
     std::cin.read(body.data(), body_size);
   }
 
-  return {std::move(return_type),
+  return {loc,
+          std::move(return_type),
           is_virtual,
           constructor_type,
           std::move(name),

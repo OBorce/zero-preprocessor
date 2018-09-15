@@ -8,19 +8,48 @@
 
 namespace std_parser::rules::ast {
 
+template <class Collection, class Separator>
+std::string join(Collection const& col, Separator const& s) {
+  std::string out;
+  auto size = std::size(col);
+  if (size == 0) {
+    return out;
+  }
+
+  out.reserve(100);
+  for (std::size_t i = 0; i < size - 1; ++i) {
+    out += col[i];
+    out += s;
+  }
+
+  out += col[size - 1];
+
+  return out;
+}
+
+template <class Collection, class Lambda, class Separator>
+std::string join(Collection const& col, Lambda l, Separator s) {
+  std::string out;
+  auto size = std::size(col);
+  if (size == 0) {
+    return out;
+  }
+
+  out.reserve(100);
+  for (std::size_t i = 0; i < size - 1; ++i) {
+    out += l(col[i]);
+    out += s;
+  }
+
+  out += l(col[size - 1]);
+
+  return out;
+}
+
 std::string to_string(Type const& x);
 
 std::string to_string(UnqulifiedType const& x) {
-  std::string type_out;
-  type_out.reserve(30);
-  for (auto& t : x.name) {
-    type_out += t;
-    type_out += "::";
-  }
-  if (!x.name.empty()) {
-    type_out.pop_back();
-    type_out.pop_back();
-  }
+  std::string type_out = join(x.name, "::");
 
   auto& templates = x.template_types.template_types;
   if (!templates.empty()) {

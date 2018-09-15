@@ -55,7 +55,7 @@ Updated every week
 - [x] constructors is_copy() is_move()
 - [x] constructors/destructors status
 - [x] compiler.error
-- [ ] compiler.require/error with f to display source location
+- [x] compiler.require/error with f to display source location
 - [x] propagate method's const and && qualifiers
 - [ ] class and method templates
 - [x] __metaclass_finalization

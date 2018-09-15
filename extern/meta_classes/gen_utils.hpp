@@ -125,6 +125,12 @@ int main(int argc, char* argv[]) {
 }
 
 template <typename Writer>
+void write_location(std_parser::rules::ast::SourceLocation const& loc, Writer& writer) {
+  writer << loc.row << '\n';
+  writer << loc.col << '\n';
+}
+
+template <typename Writer>
 void write_type(std_parser::rules::ast::Type const& type, Writer& writer) {
   helper::serialize(writer, type);
 }
@@ -133,6 +139,7 @@ using AccessModifier = std_parser::rules::ast::access_modifier;
 template <typename Writer>
 void write_function(std_parser::rules::ast::Function const& fun,
                     AccessModifier modifier, Writer& writer) {
+  write_location(fun.loc, writer);
   write_type(fun.return_type, writer);
 
   writer << fun.is_virtual << '\n';
@@ -180,6 +187,7 @@ template <typename Writer>
 void write_variables(std::vector<std_parser::rules::ast::var> const& variables,
                      AccessModifier modifier, Writer& writer) {
   for (auto& v : variables) {
+    write_location(v.loc, writer);
     write_type(v.type, writer);
     writer << static_cast<int>(modifier);
     writer << v.name << std::endl;
