@@ -13,6 +13,7 @@
 #include <vector>
 
 #include <detect.hpp>
+#include <error_reporter.hpp>
 #include <result.hpp>
 #include <source_loader.hpp>
 
@@ -236,7 +237,10 @@ class Preprocessor {
 
   // Data members
   source::SourceLoader source_loader;
+  ErrorReporter reporter;
   Parsers parsers;
+
+  std::string current_file_name;
 
  public:
   Preprocessor(source::SourceLoader&& loader, Functions... funs)
@@ -251,6 +255,10 @@ class Preprocessor {
 
   // Methods
 
+  auto& get_reporter() { return reporter; }
+
+  auto const& get_current_file_name() const { return current_file_name; }
+
   /**
    * Send the source through the parsers for processing until it is finished
    *
@@ -260,6 +268,7 @@ class Preprocessor {
   template <typename Writer>
   void process_source(std::string_view source_name, Writer& writer) {
     auto source = source_loader.load_source(source_name);
+    current_file_name = source_name;
     prepend_to_file(writer);
     while (!source.is_finished()) {
       auto processed_to = process(source, writer);

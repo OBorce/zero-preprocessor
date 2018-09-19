@@ -77,8 +77,8 @@ std::string gen_main(Container& meta_classes) {
 
   out += R"main(
 #ifdef _WIN32
-#include <io.h>
 #include <fcntl.h>
+#include <io.h>
 #endif
 int main(int argc, char* argv[]) {
 #ifdef _WIN32
@@ -125,7 +125,8 @@ int main(int argc, char* argv[]) {
 }
 
 template <typename Writer>
-void write_location(std_parser::rules::ast::SourceLocation const& loc, Writer& writer) {
+void write_location(std_parser::rules::ast::SourceLocation const& loc,
+                    Writer& writer) {
   writer << loc.row << '\n';
   writer << loc.col << '\n';
 }
@@ -239,30 +240,31 @@ void write_class(std_parser::rules::ast::Class& cls, Writer& writer) {
 
 enum class ParsedResult { OK, Error };
 
-template <typename StdParser>
+template <class StdParser, class ErrorReporter>
 void handle_meta_process_request(MetaProcess& process, StdParser& std_parser,
-                                 std::string_view request) {
+                                 std::string_view request,
+                                 ErrorReporter& reporter) {
   auto out = std_parser.try_parse_entire_class(request.begin(), request.end());
   if (out.result) {
     process.output << static_cast<int>(ParsedResult::OK) << std::endl;
     write_class(*out.result, process.output);
   } else {
     process.output << static_cast<int>(ParsedResult::Error) << std::endl;
-    std::cout << "can't parse: \n";
+    std::string msg = "can't parse: \n";
     std::size_t remaining = std::distance(out.processed_to, request.end());
     std::size_t size = std::min<std::size_t>(30ul, remaining);
-    std::string_view content = {&*out.processed_to, size};
-    std::cout << content << std::endl;
+    msg += std::string_view{&*out.processed_to, size};
+    reporter(msg);
 
     std::exit(EXIT_FAILURE);
   }
 }
 
-template <typename StdParser>
+template <typename StdParser, class ErrorReporter>
 std::string gen_meta_class(MetaProcess& process,
                            const std::string_view meta_class,
                            std_parser::rules::ast::Class& cls,
-                           StdParser& std_parser) {
+                           StdParser& std_parser, ErrorReporter& reporter) {
   std::cout << "getting output from meta process for metaclass " << meta_class
             << "\n";
   // TODO: add an enum for meta process request type
@@ -279,18 +281,18 @@ std::string gen_meta_class(MetaProcess& process,
     output.clear();
     process.input >> status;
     process.input >> output_size;
-    ++output_size;
+    process.input.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
     output.resize(output_size);
     process.input.read(output.data(), output_size);
 
     switch (status) {
       case -1: {
-        std::cerr << output << std::endl;
+        reporter(output);
         // TODO: throw exception and catch in main to guarantee resource cleanup
         std::exit(EXIT_FAILURE);
       }
       case 1: {
-        handle_meta_process_request(process, std_parser, output);
+        handle_meta_process_request(process, std_parser, output, reporter);
       }
     }
   } while (status != 0);

@@ -18,11 +18,12 @@ int stage_one(int argc, char* argv[]) {
 
   source::SourceLoader loader{std::move(inc_dirs), "include"};
 
-  auto std_parser = [](auto& p) { return std_parser::StdParser{}; };
-  auto meta_classes = [](auto& p) {
-    return meta_classes::MetaClassParser{p, "", ""};
+  auto std_parser = [](auto&) { return std_parser::StdParser{}; };
+
+  auto meta_classes = [](auto& parent) {
+    return meta_classes::MetaClassParser{parent, "", ""};
   };
-  Preprocessor preprocessor(std::move(loader), meta_classes, std_parser);
+  Preprocessor preprocessor(std::move(loader), std_parser);
 
   std::ofstream out_file(argv[3], std::ios::out);
   auto writer = [&out_file](auto& src) {
@@ -61,9 +62,9 @@ int stage_two(int argc, char* argv[]) {
 
   source::SourceLoader loader{{}, "include"};
 
-  auto std_parser = [](auto& p) { return std_parser::StdParser{}; };
-  auto meta_classes = [&](auto& p) {
-    return meta_classes::MetaClassParser{p, "", argv[4]};
+  auto std_parser = [](auto&) { return std_parser::StdParser{}; };
+  auto meta_classes = [&](auto& parent) {
+    return meta_classes::MetaClassParser{parent, "", argv[4]};
   };
 
   Preprocessor preprocessor(std::move(loader), meta_classes, std_parser);
@@ -86,15 +87,15 @@ int stage_three(int argc, char* argv[]) {
 
   source::SourceLoader loader{{}, "include"};
 
-  auto meta_classes = [&](auto& p) {
-    return meta_classes::MetaClassParser{p, argv[5], ""};
+  auto meta_classes = [&](auto& parent) {
+    return meta_classes::MetaClassParser{parent, argv[5], ""};
   };
 
-  auto static_ref = [](auto& p) {
-    return static_reflection::StaticReflexParser{p};
+  auto static_ref = [](auto& parent) {
+    return static_reflection::StaticReflexParser{parent};
   };
 
-  auto std_parser = [](auto& p) { return std_parser::StdParser{}; };
+  auto std_parser = [](auto&) { return std_parser::StdParser{}; };
   Preprocessor preprocessor(std::move(loader), meta_classes, static_ref,
                             std_parser);
 

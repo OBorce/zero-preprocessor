@@ -23,7 +23,7 @@ namespace bp = boost::process;
 namespace std_ast = std_parser::rules::ast;
 
 namespace meta_classes {
-template <typename Parent>
+template <class Parent>
 class MetaClassParser {
   template <class T>
   auto make_result(T out) {
@@ -296,8 +296,13 @@ class MetaClassParser {
     if (parsed && meta_process.ok()) {
       auto& current_code_fragment = std_parser.get_current_code_fragment();
       auto& cls = std::get<Class>(current_code_fragment);
-      output =
-          gen_meta_class(meta_process, current_meta_class, cls, std_parser);
+      auto& reporter = parent.get_reporter();
+      auto const& file_name = parent.get_current_file_name();
+      auto error_reporter = [&reporter, &file_name](std::string_view msg) {
+        reporter(file_name, msg);
+      };
+      output = gen_meta_class(meta_process, current_meta_class, cls, std_parser,
+                              error_reporter);
     }
 
     auto out = std_parser.parse(source);
@@ -314,6 +319,7 @@ class MetaClassParser {
   }
 
   Parent& parent;
+
   std::string meta_exe;
   std::unordered_set<std::string> meta_classes;
   bool inside_meta_class_function = false;
@@ -332,6 +338,7 @@ class MetaClassParser {
                   std::string_view meta_out)
       : parent{p}, meta_exe{meta_exe}, source_loader{{}, meta_out} {
     if (!this->meta_exe.empty()) {
+      // TODO: fix this need to change file_name for each file
       meta_process = MetaProcess(this->meta_exe);
       bp::opstream& p1 = meta_process.output;
       bp::ipstream& p2 = meta_process.input;

@@ -21,11 +21,12 @@ static struct {
     }
   }
 
-  template<class T>
+  template <class T>
   void require(bool b, std::string_view msg, T& t) {
     if (!b) {
       std::cout << -1 << std::endl;
-      std::string msg_with_loc = "<source>:";
+      std::string msg_with_loc;
+      msg_with_loc += ':';
       auto loc = t.loc;
       msg_with_loc += std::to_string(loc.row);
       msg_with_loc += ':';
@@ -47,7 +48,9 @@ static struct {
 } compiler;
 
 namespace meta {
+class type;
 
+namespace detail {
 enum class Access { PUBLIC, PROTECTED, PRIVATE, UNSPECIFIED };
 
 enum class TypeQualifier { Const, Constexpr, L_Ref, R_Ref, Pointer };
@@ -105,13 +108,13 @@ struct CppType {
     std::string out;
     out.reserve(50);
     for (auto q : left_qualifiers) {
-      out += meta::to_string(q);
+      out += detail::to_string(q);
       out += ' ';
     }
     out += type;
     for (auto q : right_qualifiers) {
       out += ' ';
-      out += meta::to_string(q);
+      out += detail::to_string(q);
     }
     return out;
   }
@@ -145,7 +148,7 @@ struct Var {
   void make_protected() { access = Access::PROTECTED; }
 
   std::string to_string() {
-    return meta::to_string(access) + var_type.to_string() + " " + name + ';';
+    return detail::to_string(access) + var_type.to_string() + " " + name + ';';
   }
 };
 
@@ -265,7 +268,7 @@ struct Function {
   std::string to_string() {
     std::string s;
     s.reserve(100);
-    s += meta::to_string(access);
+    s += detail::to_string(access);
     if (is_virtual_) {
       s += "virtual ";
     }
@@ -379,24 +382,25 @@ struct Type {
         variables{std::move(v)},
         body{} {}
 };
-
-class type;
 void finalize(meta::type& target);
+}  // namespace detail
+
 type read_type();
 
 class type {
   const std::string class_name;
-  std::shared_ptr<Type> internal;
+  std::shared_ptr<detail::Type> internal;
 
  public:
-  type(std::string&& name, std::vector<Function>&& methods,
-       std::vector<Var>&& variables, std::vector<Base>&& bases)
+  type(std::string&& name, std::vector<detail::Function>&& methods,
+       std::vector<detail::Var>&& variables, std::vector<detail::Base>&& bases)
       : class_name{std::move(name)},
-        internal{std::make_shared<Type>(
+        internal{std::make_shared<detail::Type>(
             std::move(methods), std::move(variables), std::move(bases))} {}
 
   type(std::string name)
-      : class_name{std::move(name)}, internal{std::make_shared<Type>()} {}
+      : class_name{std::move(name)},
+        internal{std::make_shared<detail::Type>()} {}
 
   ~type() {
     // NOTE: if there is any generated ( -> ) based content
@@ -428,7 +432,7 @@ class type {
   auto const& variables() const { return internal->variables; }
 
   auto members_and_bases() const {
-    std::vector<Object> members_and_bases;
+    std::vector<detail::Object> members_and_bases;
     members_and_bases.reserve(internal->bases.size() +
                               internal->variables.size() +
                               internal->methods.size());
@@ -451,23 +455,23 @@ class type {
     return *this;
   }
 
-  auto& operator<<(Function& f) {
+  auto& operator<<(detail::Function& f) {
     internal->methods.push_back(f);
     return *this;
   }
 
-  auto& operator<<(Base& b) {
+  auto& operator<<(detail::Base& b) {
     internal->bases.push_back(b);
     return *this;
   }
 
-  auto& operator<<(Object& b) {
-    if (std::holds_alternative<Base>(b.data)) {
-      internal->bases.push_back(std::get<Base>(b.data));
-    } else if (std::holds_alternative<Var>(b.data)) {
-      internal->variables.push_back(std::get<Var>(b.data));
+  auto& operator<<(detail::Object& b) {
+    if (std::holds_alternative<detail::Base>(b.data)) {
+      internal->bases.push_back(std::get<detail::Base>(b.data));
+    } else if (std::holds_alternative<detail::Var>(b.data)) {
+      internal->variables.push_back(std::get<detail::Var>(b.data));
     } else {
-      internal->methods.push_back(std::get<Function>(b.data));
+      internal->methods.push_back(std::get<detail::Function>(b.data));
     }
 
     return *this;
@@ -508,11 +512,12 @@ class type {
   }
 
   std::string get_representation() {
-    finalize(*this);
+    detail::finalize(*this);
     return to_string();
   }
 };
 
+namespace detail {
 SourceLocation read_loc() {
   uint16_t row, col;
   std::cin >> row >> col;
@@ -636,36 +641,6 @@ Base read_base() {
   return {name, acc};
 }
 
-type read_type() {
-  std::string class_name;
-  std::cin >> class_name;
-  std::size_t num_methods, num_variables, num_bases;
-
-  std::cin >> num_methods;
-  std::vector<Function> methods;
-  methods.reserve(num_methods);
-  while (num_methods-- > 0) {
-    methods.emplace_back(read_function());
-  }
-
-  std::cin >> num_variables;
-  std::vector<Var> variables;
-  variables.reserve(num_variables);
-  while (num_variables-- > 0) {
-    variables.emplace_back(read_var());
-  }
-
-  std::cin >> num_bases;
-  std::vector<Base> bases;
-  bases.reserve(num_bases);
-  while (num_bases-- > 0) {
-    bases.emplace_back(read_base());
-  }
-
-  return {std::move(class_name), std::move(methods), std::move(variables),
-          std::move(bases)};
-}
-
 void finalize(meta::type& target) {
   for (auto o : target.variables())
     if (!o.has_access()) o.make_private();
@@ -680,6 +655,37 @@ void finalize(meta::type& target) {
   if (!__has_declared_dtor)  // if no dtor was declared, then
     target << "\npublic: ~" << target.name() << "() { }";
   // make it public nonvirtual by default
+}
+}  // namespace detail
+
+type read_type() {
+  std::string class_name;
+  std::cin >> class_name;
+  std::size_t num_methods, num_variables, num_bases;
+
+  std::cin >> num_methods;
+  std::vector<detail::Function> methods;
+  methods.reserve(num_methods);
+  while (num_methods-- > 0) {
+    methods.emplace_back(detail::read_function());
+  }
+
+  std::cin >> num_variables;
+  std::vector<detail::Var> variables;
+  variables.reserve(num_variables);
+  while (num_variables-- > 0) {
+    variables.emplace_back(detail::read_var());
+  }
+
+  std::cin >> num_bases;
+  std::vector<detail::Base> bases;
+  bases.reserve(num_bases);
+  while (num_bases-- > 0) {
+    bases.emplace_back(detail::read_base());
+  }
+
+  return {std::move(class_name), std::move(methods), std::move(variables),
+          std::move(bases)};
 }
 }  // namespace meta
 
