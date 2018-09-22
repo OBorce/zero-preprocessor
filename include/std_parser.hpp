@@ -884,6 +884,9 @@ class StdParserState {
             [&](rules::ast::ReturnStatement& arg) {
               arg.expression = std::move(expression);
             },
+            [&](rules::ast::Vars& arg) {
+              arg.variables.back().init = std::move(expression);
+            },
             [](auto&) {
               /* other can't have expressions*/
             },

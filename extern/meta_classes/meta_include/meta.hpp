@@ -479,8 +479,8 @@ class type {
 
   std::string to_string() {
     std::string content;
-    content.reserve(100);
-    content += "struct ";
+    content.reserve(200);
+    content += "\nstruct ";
     content += class_name;
     if (!internal->bases.empty()) {
       content += ':';

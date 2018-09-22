@@ -39,32 +39,21 @@ struct Type {
   std::vector<TypeQualifier> left_qualifiers;
   UnqulifiedType type;
   std::vector<TypeQualifier> right_qualifiers;
-};
 
-struct var {
-  Type type;
-  std::string name;
-  SourceLocation loc;
-};
+  bool is_lvalue_reference() {
+    return not right_qualifiers.empty() and
+           right_qualifiers.back() == TypeQualifier::L_Ref;
+  }
 
-/**
- * Init is for the var initialization part,
- * Next is for after next variabl
- */
-enum class VarDefinition { Init, Next };
-struct Vars {
-  VarDefinition state = VarDefinition::Init;
-  std::vector<var> variables;
-
-  SourceLocation loc;
-
-  Vars(var&& v) : variables{std::move(v)} {}
-
-  void add_var(std::string&& name) {
-    auto type = variables.front().type;
-    variables.push_back(var{std::move(type), std::move(name), loc});
+  bool is_pointer() {
+    return not right_qualifiers.empty() and
+           right_qualifiers.back() == TypeQualifier::Pointer;
   }
 };
+
+struct Expression;
+
+struct var;
 
 struct params {
   std::vector<var> parameters;
@@ -241,6 +230,7 @@ struct CurlyExpression {
 class Scope;
 struct Statement;
 struct ReturnStatement;
+struct Vars;
 
 using StatementVariant = std::variant<Vars, Scope, Statement, ReturnStatement>;
 
@@ -271,6 +261,35 @@ struct Expression {
   // TODO: think of a better name
   // add contract that expressions size should never be < operators size
   bool is_begin() const { return expressions.size() <= operators.size(); }
+
+  bool empty() { return expressions.empty(); }
+};
+
+struct var {
+  Type type;
+  std::string name;
+  SourceLocation loc;
+
+  Expression init;
+};
+
+/**
+ * Init is for the var initialization part,
+ * Next is for after next variable
+ */
+enum class VarDefinition { Init, Next };
+struct Vars {
+  VarDefinition state = VarDefinition::Init;
+  std::vector<var> variables;
+
+  SourceLocation loc;
+
+  Vars(var&& v) : variables{std::move(v)} {}
+
+  void add_var(std::string&& name) {
+    auto type = variables.front().type;
+    variables.push_back(var{std::move(type), std::move(name), loc, {}});
+  }
 };
 
 /**

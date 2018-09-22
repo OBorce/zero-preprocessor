@@ -338,7 +338,6 @@ class MetaClassParser {
                   std::string_view meta_out)
       : parent{p}, meta_exe{meta_exe}, source_loader{{}, meta_out} {
     if (!this->meta_exe.empty()) {
-      // TODO: fix this need to change file_name for each file
       meta_process = MetaProcess(this->meta_exe);
       bp::opstream& p1 = meta_process.output;
       bp::ipstream& p2 = meta_process.input;
