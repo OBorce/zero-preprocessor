@@ -40,12 +40,24 @@ struct Type {
   UnqulifiedType type;
   std::vector<TypeQualifier> right_qualifiers;
 
-  bool is_lvalue_reference() {
+  bool is_lvalue_reference() const {
     return not right_qualifiers.empty() and
            right_qualifiers.back() == TypeQualifier::L_Ref;
   }
 
-  bool is_pointer() {
+  bool is_rvalue_reference() const {
+    return not right_qualifiers.empty() and
+           right_qualifiers.back() == TypeQualifier::R_Ref;
+  }
+
+  bool is_reference() const {
+    return is_lvalue_reference() or is_rvalue_reference();
+  }
+
+  bool is_value() const { return not is_reference() and not is_pointer(); }
+
+  bool is_pointer() const {
+    // FIXME: not correct
     return not right_qualifiers.empty() and
            right_qualifiers.back() == TypeQualifier::Pointer;
   }
@@ -185,6 +197,16 @@ enum class Operator {
 
 struct VariableExpression {
   UnqulifiedType expression;
+
+  /**
+   * Return true if no :: in name and not template params <>
+   */
+  bool has_name_only() const {
+    return expression.name.size() == 1 and
+           expression.template_types.template_types.empty();
+  }
+
+  std::string const& get_single_name() const { return expression.name.front(); }
 };
 
 struct LiteralExpression {
@@ -262,7 +284,7 @@ struct Expression {
   // add contract that expressions size should never be < operators size
   bool is_begin() const { return expressions.size() <= operators.size(); }
 
-  bool empty() { return expressions.empty(); }
+  bool empty() const { return expressions.empty(); }
 };
 
 struct var {
@@ -286,9 +308,9 @@ struct Vars {
 
   Vars(var&& v) : variables{std::move(v)} {}
 
-  void add_var(std::string&& name) {
+  void add_var(std::string&& name, SourceLocation l) {
     auto type = variables.front().type;
-    variables.push_back(var{std::move(type), std::move(name), loc, {}});
+    variables.push_back(var{std::move(type), std::move(name), l, {}});
   }
 };
 
@@ -620,6 +642,10 @@ class Namespace {
 
   auto const& get_class(const std::string& name) const {
     return classes.at(name);
+  }
+
+  auto const& get_function(const std::string& name) const {
+    return functions.at(name);
   }
 
   auto const& get_namespace(const std::string& name) const {

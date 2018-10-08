@@ -34,6 +34,8 @@ class StdParserState {
 
     auto& get_code_fragments() { return code_fragments; }
 
+    auto const& get_code_fragments() const { return code_fragments; }
+
     // TODO: maybe do a real emplace_back but watch out for implicit conversions
     void emplace_back(CodeFragment&& cf) {
       std::visit([this](auto& f) { f.loc = current_location; }, cf);
@@ -168,7 +170,6 @@ class StdParserState {
 
     auto ac = [&](auto& ctx) {
       auto& rez = _attr(ctx);
-      auto loc = ast_state.get_location();
       current.set_access_modifier(rez);
     };
 
@@ -282,17 +283,8 @@ class StdParserState {
     }
 
     if (!parsed && !current.is_begin()) {
-      auto curr = std::move(current);
-      // TODO: when expressions are saved fix this
-      ast_state.pop_back();
-      if (auto rez = parse(source)) {
-        ast_state.push_back(std::move(curr));
-        close_code_fragment<rules::ast::Expression>();
-        return rez;
-      } else {
-        ast_state.push_back(std::move(curr));
-        return rez;
-      }
+      close_code_fragment<rules::ast::Expression>();
+      return parse(source);
     }
 
     return parsed ? std::optional{Result{
@@ -364,7 +356,7 @@ class StdParserState {
       close_code_fragment<rules::ast::CurlyExpression>();
     };
 
-    auto nest = [this, &current](auto& ctx) {
+    auto nest = [this](auto& ctx) {
       auto& rez = _attr(ctx);
       ast_state.emplace_back(std::move(rez));
     };
@@ -571,7 +563,8 @@ class StdParserState {
 
     auto var = [this, &current](auto& ctx) {
       auto& rez = _attr(ctx);
-      current.add_var(std::move(rez));
+      auto loc = ast_state.get_location();
+      current.add_var(std::move(rez), loc);
       current.state = rules::ast::VarDefinition::Init;
     };
 
@@ -604,7 +597,7 @@ class StdParserState {
         break;
     }
 
-    // TODO: exptract this
+    // FIXME: vars can get lost e.g. in if expression
     if (!parsed) {
       auto curr = std::move(current);
       ast_state.pop_back();
@@ -986,7 +979,7 @@ class StdParserState {
   /**
    * Return a constant view of all the code_fragments
    */
-  auto const& get_all_code_fragments() {
+  auto const& get_all_code_fragments() const {
     return ast_state.get_code_fragments();
   }
 
@@ -1026,8 +1019,6 @@ class StdParserState {
       close_current_statement<Fragment>();
     } else {
       // TODO: implement
-      // NOTE: nothing to do for now
-      // update when we decide to store the expressions
     }
 
     ast_state.pop_back();
@@ -1219,7 +1210,7 @@ class StdParser {
   /**
    * Return a constant view of all the code_fragments
    */
-  auto const& get_all_code_fragments() {
+  auto const& get_all_code_fragments() const {
     return parser.get_all_code_fragments();
   }
 
