@@ -1152,12 +1152,17 @@ class StdParser {
     }
 
     auto& code_fragment = parser.get_top_code_fragment();
-    auto& classes = code_fragment.get_all_classes();
-    if (classes.size() != 1) {
+    auto& code_fragments = code_fragment.get_all_code_fragments();
+    if (code_fragments.size() != 1) {
       return {begin, std::nullopt};
     }
 
-    return {begin, {classes.begin()->second}};
+    auto& first_code_fragment = code_fragments.front();
+    if (std::holds_alternative<rules::ast::Class>(first_code_fragment)) {
+      return {begin, {std::get<rules::ast::Class>(first_code_fragment)}};
+    }
+
+    return {begin, std::nullopt};
   }
 
   template <class Source>

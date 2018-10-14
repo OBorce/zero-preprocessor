@@ -307,7 +307,7 @@ class MetaClassParser {
 
     auto out = std_parser.parse(source);
     if (out) {
-      if (!is_still_inside_meta_class()) {
+      if (not is_still_inside_meta_class()) {
         current_meta_class.clear();
         current_meta_class_name.clear();
         return std::optional{Result{out->processed_to, output}};

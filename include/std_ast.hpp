@@ -1,6 +1,7 @@
 #ifndef STD_AST_H
 #define STD_AST_H
 
+#include <algorithm>
 #include <cstdint>
 #include <map>
 #include <string>
@@ -594,37 +595,50 @@ class Scope {
 };
 
 class Namespace {
+  using CodeFragment =
+      std::variant<Class, Enumeration, Function, var, Namespace>;
+
   std::string name;
-  std::unordered_map<std::string, Class> classes;
-  std::unordered_map<std::string, Enumeration> enums;
-  std::unordered_map<std::string, Function> functions;
-  std::unordered_map<std::string, var> variables;
-  std::map<std::string, Namespace> nested_namespaces;
+  std::vector<CodeFragment> code_fragments;
 
  public:
   SourceLocation loc;
   Namespace(const std::string& name) : name{name} {}
   Namespace(std::string&& name) : name{std::move(name)} {}
 
+  auto const& get_all_code_fragments() const { return code_fragments; }
+
   void add_class(Class&& class_or_struct) {
-    auto name = class_or_struct.name;
-    classes.emplace(name, std::move(class_or_struct));
+    code_fragments.push_back(std::move(class_or_struct));
   }
 
   void add_enum(Enumeration&& enumeration) {
-    auto name = enumeration.name;
-    enums.emplace(name, std::move(enumeration));
+    code_fragments.push_back(std::move(enumeration));
   }
 
   void add_function(Function&& fun) {
-    auto name = fun.name;
-    functions.emplace(name, std::move(fun));
+    code_fragments.push_back(std::move(fun));
   }
 
-  void add_variable(var&& var) {
-    auto name = var.name;
-    variables.emplace(name, std::move(var));
+  Function const* find_function(std::string_view name) const {
+    auto found = std::find_if(
+        code_fragments.cbegin(), code_fragments.cend(), [name](auto& fragment) {
+          if (not std::holds_alternative<Function>(fragment)) {
+            return false;
+          }
+          auto& fun = std::get<Function>(fragment);
+          return fun.name == name;
+        });
+
+    if (found != code_fragments.cend()) {
+      auto& fun = std::get<Function>(*found);
+      return std::addressof(fun);
+    }
+
+    return {};
   }
+
+  void add_variable(var&& var) { code_fragments.push_back(std::move(var)); }
 
   void add_variables(std::vector<var>& vars) {
     for (auto& var : vars) {
@@ -633,24 +647,7 @@ class Namespace {
     vars.clear();
   }
 
-  void add_namespace(Namespace&& n) {
-    auto name = n.name;
-    nested_namespaces.emplace(name, std::move(n));
-  }
-
-  auto const& get_all_classes() const { return classes; }
-
-  auto const& get_class(const std::string& name) const {
-    return classes.at(name);
-  }
-
-  auto const& get_function(const std::string& name) const {
-    return functions.at(name);
-  }
-
-  auto const& get_namespace(const std::string& name) const {
-    return nested_namespaces.at(name);
-  }
+  void add_namespace(Namespace&& n) { code_fragments.push_back(std::move(n)); }
 };
 }  // namespace std_parser::rules::ast
 
