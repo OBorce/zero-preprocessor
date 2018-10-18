@@ -193,7 +193,8 @@ enum class Operator {
   NotEq,
   Not,
   EqEq,
-  Eq
+  Eq,
+  Comma
 };
 
 struct VariableExpression {

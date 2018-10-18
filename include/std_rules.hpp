@@ -136,8 +136,9 @@ auto const operator_sep_old_def = optionaly_space >>
 
 x3::rule<class operator_sep, ast::Operator> const operator_sep = "operator_sep";
 auto const operator_sep_def = optionaly_space >>
-                              // TODO: this makes 1.*foo() or a->23 valid
-                              (binary_operator | ',') >> optionaly_space;
+                              (binary_operator |
+                               (lit(',') >> x3::attr(ast::Operator::Comma))) >>
+                              optionaly_space;
 
 x3::rule<class scope_begin> const scope_begin = "scope_begin";
 auto const scope_begin_def = optionaly_space >> '{';
