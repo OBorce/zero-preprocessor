@@ -213,6 +213,10 @@ struct VariableExpression {
 
 struct LiteralExpression {
   // TODO: add the literal
+  UnqulifiedType type;
+
+  LiteralExpression() = default;
+  LiteralExpression(UnqulifiedType&& ut) : type{std::move(ut)} {}
 };
 
 struct RoundExpression;

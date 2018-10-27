@@ -159,31 +159,50 @@ x3::rule<class namespace_begin, std::string> const namespace_begin =
 auto const namespace_begin_def =
     lit("namespace") >> some_space >> name >> scope_begin;
 
+// TODO: move the - sign in expressions not in digits
 x3::rule<class digits> const digits = "digits";
 auto const digits_def = -lit('-') >> optionaly_space >> +digit >>
                         *(lit('\'') >> x3::omit[+digit]);
 
-x3::rule<class integral> const integral = "integral";
-auto const integral_def = digits >>
-                          -(lit("LLU") | "LLu" | "llU" | "llu" | "LU" | "lU" |
-                            "Lu" | "lu" | "LL" | "ll" | 'U' | 'u' | 'L' | 'l');
+x3::rule<class integral, ast::UnqulifiedType> const integral = "integral";
+auto const integral_def =
+    digits >>
+    (((lit("LLU") | "LLu" | "llU" | "llu") >>
+      x3::attr(ast::UnqulifiedType{{"unsigned long long int"}, {}})) |
+     ((lit("LU") | "lU" | "Lu" | "lu") >>
+      x3::attr(ast::UnqulifiedType{{"unsigned long int"}, {}})) |
+     ((lit("LL") | "ll") >>
+      x3::attr(ast::UnqulifiedType{{"long long int"}, {}})) |
+     ((lit('U') | 'u') >> x3::attr(ast::UnqulifiedType{{"unsigned int"}, {}})) |
+     ((lit('L') | 'l') >> x3::attr(ast::UnqulifiedType{{"long int"}, {}})) |
+     x3::attr(ast::UnqulifiedType{{"int"}, {}}));
 
-x3::rule<class floating> const floating = "floating";
-auto const floating_def = digits >> '.' >> -digits >>
-                          -(lit('f') | 'F' | 'l' | 'L');
+x3::rule<class floating, ast::UnqulifiedType> const floating = "floating";
+auto const floating_def =
+    ((digits >> '.' >> -digits) | (lit('.') >> digits)) >>
+    (((lit('f') | 'F') >> x3::attr(ast::UnqulifiedType{{"float"}, {}})) |
+     ((lit('l') | 'L') >> x3::attr(ast::UnqulifiedType{{"long double"}, {}})) |
+     // if not specified default to double
+     x3::attr(ast::UnqulifiedType{{"double"}, {}}));
 
-x3::rule<class number> const number = "number";
+x3::rule<class number, ast::UnqulifiedType> const number = "number";
 auto const number_def = floating | integral;
 
 // TODO: add support for escaped /" inside string
 x3::rule<class quoted_string> const quoted_string = "quoted_string";
 auto const quoted_string_def = lit('"') >> *(char_ - '"') >> '"';
 
-x3::rule<class string_literal> const string_literal = "string_literal";
-auto const string_literal_def = quoted_string % optionaly_space;
+x3::rule<class string_literal, ast::UnqulifiedType> const string_literal =
+    "string_literal";
+auto const string_literal_def = x3::omit[quoted_string % optionaly_space] >>
+                                // TODO: need to emit the string value
+                                x3::attr(ast::UnqulifiedType{{"char[]"}, {}});
 
-x3::rule<class char_literal> const char_literal = "char_literal";
-auto const char_literal_def = lit('\'') >> (char_ - '\'') >> '\'';
+// TODO: is this ok?
+x3::rule<class char_literal, ast::UnqulifiedType> const char_literal =
+    "char_literal";
+auto const char_literal_def = x3::omit[lit('\'') >> (char_ - '\'') >> '\''] >>
+                              x3::attr(ast::UnqulifiedType{{"char"}, {}});
 
 x3::rule<class type_, ast::Type_> const type_ = "type_";
 auto const type__def = name >> *(lit("::") >> name);
@@ -221,8 +240,9 @@ x3::rule<class arg_init_list> const arg_init_list = "arg_init_list";
 
 // TODO: type here denotes a variable name
 // change it to variable_type that also covers ::var
-auto const argument_def = arg_init_list | function_call | var_type | number |
-                          char_literal | string_literal | paren_expression_old;
+auto const argument_def = arg_init_list | function_call | var_type |
+                          x3::omit[number] | x3::omit[char_literal] |
+                          x3::omit[string_literal] | paren_expression_old;
 
 auto const optionaly_arguments_def =
     -((expression_old | init_list) % arg_separator);
@@ -275,8 +295,7 @@ auto const type_or_name_def = var_type;
 
 // TODO: add a literal to the Expression
 x3::rule<class literal, ast::LiteralExpression> const literal = "literal";
-auto const literal_def = (number | char_literal | string_literal) >>
-                         x3::attr(ast::LiteralExpression{});
+auto const literal_def = number | char_literal | string_literal;
 
 x3::rule<class parenthesis_begin, ast::RoundExpression> const
     parenthesis_begin = "parenthesis_begin";
