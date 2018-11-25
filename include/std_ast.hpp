@@ -46,6 +46,16 @@ struct Type {
            right_qualifiers.back() == TypeQualifier::L_Ref;
   }
 
+  bool is_lvalue_reference_to_const() const {
+    return is_lvalue_reference() and
+           ((right_qualifiers.size() > 1 and
+             right_qualifiers[right_qualifiers.size() - 2] ==
+                 TypeQualifier::Const) or
+            (not left_qualifiers.empty() and
+             std::find(left_qualifiers.begin(), left_qualifiers.end(),
+                       TypeQualifier::Const) != left_qualifiers.end()));
+  }
+
   bool is_rvalue_reference() const {
     return not right_qualifiers.empty() and
            right_qualifiers.back() == TypeQualifier::R_Ref;
@@ -58,7 +68,7 @@ struct Type {
   bool is_value() const { return not is_reference() and not is_pointer(); }
 
   bool is_pointer() const {
-    // FIXME: not correct
+    // FIXME: not correct since last can be const
     return not right_qualifiers.empty() and
            right_qualifiers.back() == TypeQualifier::Pointer;
   }
@@ -285,6 +295,8 @@ struct Expression {
   explicit Expression(RoundExpression&& e) : expressions{std::move(e)} {}
   explicit Expression(CurlyExpression&& e) : expressions{std::move(e)} {}
   explicit Expression(Lambda&& e) : expressions{std::move(e)} {}
+
+  operator bool() const { return not expressions.empty(); }
 
   // TODO: think of a better name
   // add contract that expressions size should never be < operators size
