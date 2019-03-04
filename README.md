@@ -1,6 +1,7 @@
 # Zero Preprocessor
 
 A cross-platform cross-compiler source to source translator that will allow us to play around with some new compile time language features such as Static Reflection and Meta Classes.
+The AST can also be used for building static analysers.
 
 ## Getting Started
 
@@ -8,7 +9,8 @@ These instructions will get you a copy of the project up and running on your loc
 
 ### Prerequisites
 
-A prerequisite for this project is Boost 1.67
+A prerequisite for this project is Boost 1.67+
+specifically Boost.Spirit x3 and Boost.Process
 
 ### Installing
 
@@ -26,7 +28,7 @@ add_subdirectory(${preprocessor_dir} ${preprocessor_build_dir} EXCLUDE_FROM_ALL)
 # preprocess our example target
 preprocess(example ${preprocessor_dir})
 ```
-Tested on GCC 7.3, 8.1; Clang 6.0 and MSVC 15.8 preview 3
+Tested on GCC 7.3, 8.3; Clang 6.0, 7.0 and MSVC 15.9
 
 Also beware of the Clang + libstdc++ std::variant bug.
 
@@ -39,7 +41,7 @@ Full examples of usages of the implemented features are located in the examples 
 The project does not use versioning for now, as you should always build from the master branch.
 
 ## TODOs
-Updated every week
+Things left to be implemented
 
 #### Meta Classes
 - [x] Parsing of meta classes in code
@@ -61,12 +63,13 @@ Updated every week
 - [x] __metaclass_finalization
 - [ ] AS & IS
 - [ ] use of normal user constexpr functions inside metaclass functions
+- [ ] add concepts
 
 
 #### Static Reflection
 - [x] reflexpr()
 - [x] reflect::get_name
-- [ ] reflect::get_display_name will need runtime string concatenation
+- [ ] reflect::get_display_name will wait for C++20
 - [x] reflect::get_type
 - [ ] reflect::get_reflected_type
 - [x] reflect::is_[enum, class, struct, union]
@@ -82,6 +85,7 @@ Updated every week
 - [x] reflect::get_constant for enumerator values
 - [ ] reflexpr() for variables and namespaces
 - [ ] reflect::is_inline for namespaces
+- [ ] add concepts
 
 #### Parser:
 - [x] variables
@@ -91,6 +95,8 @@ Updated every week
 - [x] methods and data members
 - [x] constructors/destructors
 - [x] virtual/override methods
+- [ ] C style arrays
+- [ ] index operator
 - [ ] new/delete malloc/free
 - [x] for loop and ranged base for
 - [x] while loop and else
