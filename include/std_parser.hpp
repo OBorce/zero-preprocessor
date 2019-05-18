@@ -108,17 +108,16 @@ class StdParserState {
       }
 
       auto& v = ast_state[ast_state.size() - 2];
-      std::visit(
-          overloaded{
-              [&](rules::ast::Namespace& arg) {
-                arg.add_namespace(std::move(current));
-              },
-              [](auto&) {
-                /* NOTE: Can't have a namespace inside a class, function or a
-                 * local scope*/
-              },
-          },
-          v);
+      std::visit(overloaded{
+                     [&](rules::ast::Namespace& arg) {
+                       arg.add_namespace(std::move(current));
+                     },
+                     [](auto&) {
+                       /* NOTE: Can't have a namespace inside a class, function
+                        * or a local scope*/
+                     },
+                 },
+                 v);
       ast_state.pop_back();
     };
 
@@ -664,20 +663,19 @@ class StdParserState {
       auto start = std::any_cast<decltype(end)>(current_functions_start);
       current.body = std::string(start, end) + '\n';
       auto& v = ast_state[ast_state.size() - 2];
-      std::visit(
-          overloaded{
-              [&](rules::ast::Namespace& arg) {
-                arg.add_function(std::move(current));
-              },
-              [&](rules::ast::Class& arg) {
-                arg.add_function(std::move(current));
-              },
-              [](auto&) {
-                /* NOTE: Can't have a function inside a function or local
-                 * scope*/
-              },
-          },
-          v);
+      std::visit(overloaded{
+                     [&](rules::ast::Namespace& arg) {
+                       arg.add_function(std::move(current));
+                     },
+                     [&](rules::ast::Class& arg) {
+                       arg.add_function(std::move(current));
+                     },
+                     [](auto&) {
+                       /* NOTE: Can't have a function inside a function or local
+                        * scope*/
+                     },
+                 },
+                 v);
       ast_state.pop_back();
       function_begins.pop_back();
     };
@@ -818,19 +816,18 @@ class StdParserState {
   void close_current_scope() {
     auto& c = std::get<rules::ast::Scope>(ast_state.back());
     auto& v = ast_state[ast_state.size() - 2];
-    std::visit(
-        overloaded{
-            [&](rules::ast::Function& arg) {
-              arg.statements.emplace_back(std::move(c));
-            },
-            [&](rules::ast::Scope& arg) {
-              arg.statements.emplace_back(std::move(c));
-            },
-            [](auto&) {
-              /* other can't have local scopes*/
-            },
-        },
-        v);
+    std::visit(overloaded{
+                   [&](rules::ast::Function& arg) {
+                     arg.statements.emplace_back(std::move(c));
+                   },
+                   [&](rules::ast::Scope& arg) {
+                     arg.statements.emplace_back(std::move(c));
+                   },
+                   [](auto&) {
+                     /* other can't have local scopes*/
+                   },
+               },
+               v);
   }
 
   template <class Expression>
@@ -852,8 +849,15 @@ class StdParserState {
             [&](rules::ast::ReturnStatement& arg) {
               arg.expression = rules::ast::Expression(std::move(e));
             },
+            [&](rules::ast::Vars& arg) {
+              if constexpr (std::is_same_v<std::remove_reference_t<Expression>,
+                                           rules::ast::CurlyExpression>) {
+                arg.variables.back().init =
+                    rules::ast::Expression(std::move(e));
+              }
+            },
             [](auto&) {
-              /* other can't have round expressions*/
+              /* other can't have round/curly expressions*/
             },
         },
         cf);
@@ -869,44 +873,42 @@ class StdParserState {
   void close_current_expression() {
     auto& expression = std::get<rules::ast::Expression>(ast_state.back());
     auto& variant_code_fragment = ast_state[ast_state.size() - 2];
-    std::visit(
-        overloaded{
-            [&](rules::ast::Statement& arg) {
-              arg.expression = std::move(expression);
-            },
-            [&](rules::ast::ReturnStatement& arg) {
-              arg.expression = std::move(expression);
-            },
-            [&](rules::ast::Vars& arg) {
-              arg.variables.back().init = std::move(expression);
-            },
-            [](auto&) {
-              /* other can't have expressions*/
-            },
-        },
-        variant_code_fragment);
+    std::visit(overloaded{
+                   [&](rules::ast::Statement& arg) {
+                     arg.expression = std::move(expression);
+                   },
+                   [&](rules::ast::ReturnStatement& arg) {
+                     arg.expression = std::move(expression);
+                   },
+                   [&](rules::ast::Vars& arg) {
+                     arg.variables.back().init = std::move(expression);
+                   },
+                   [](auto&) {
+                     /* other can't have expressions*/
+                   },
+               },
+               variant_code_fragment);
   }
 
   template <class Statement>
   void close_current_statement() {
     auto& statement = std::get<Statement>(ast_state.back());
     auto& variant_code_fragment = ast_state[ast_state.size() - 2];
-    std::visit(
-        overloaded{
-            [&](rules::ast::Function& arg) {
-              arg.statements.emplace_back(std::move(statement));
-            },
-            [&](rules::ast::Scope& arg) {
-              arg.statements.emplace_back(std::move(statement));
-            },
-            [&](rules::ast::Lambda& arg) {
-              arg.statements.emplace_back(std::move(statement));
-            },
-            [](auto&) {
-              /* other can't have statements*/
-            },
-        },
-        variant_code_fragment);
+    std::visit(overloaded{
+                   [&](rules::ast::Function& arg) {
+                     arg.statements.emplace_back(std::move(statement));
+                   },
+                   [&](rules::ast::Scope& arg) {
+                     arg.statements.emplace_back(std::move(statement));
+                   },
+                   [&](rules::ast::Lambda& arg) {
+                     arg.statements.emplace_back(std::move(statement));
+                   },
+                   [](auto&) {
+                     /* other can't have statements*/
+                   },
+               },
+               variant_code_fragment);
   }
 
   template <class T>
