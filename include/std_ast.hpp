@@ -82,6 +82,12 @@ struct params {
   std::vector<var> parameters;
 };
 
+struct Params {
+  std::vector<var> parameters;
+
+  SourceLocation loc;
+};
+
 struct TemplateParameter {
   Type_ type;
   std::string name;
@@ -93,7 +99,18 @@ struct TemplateParameters {
   bool empty() { return template_parameters.empty(); }
 };
 
-struct function_signiture {
+struct function_signiture_old {
+  TemplateParameters template_parameters;
+  bool is_constexpr;
+  Type return_type;
+  std::string name;
+  params parameters;
+  bool is_noexcept;
+
+  SourceLocation loc;
+};
+
+struct FunctionDeclaration {
   TemplateParameters template_parameters;
   bool is_constexpr;
   Type return_type;
@@ -421,7 +438,16 @@ struct Function {
 
   Function() = default;
 
-  Function(function_signiture&& fun)
+  Function(function_signiture_old&& fun)
+      : template_parameters{std::move(fun.template_parameters)},
+        is_constexpr{fun.is_constexpr},
+        return_type{std::move(fun.return_type)},
+        name{std::move(fun.name)},
+        parameters{std::move(fun.parameters)},
+        is_noexcept{fun.is_noexcept},
+        loc{fun.loc} {}
+
+  Function(FunctionDeclaration&& fun)
       : template_parameters{std::move(fun.template_parameters)},
         is_constexpr{fun.is_constexpr},
         return_type{std::move(fun.return_type)},
@@ -679,7 +705,10 @@ BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::TemplateParameter, type, name)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::TemplateParameters,
                           template_parameters)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::ValueExpression, type, exp)
-BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::function_signiture,
+BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::function_signiture_old,
+                          template_parameters, is_constexpr, return_type, name,
+                          parameters, is_noexcept)
+BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::FunctionDeclaration,
                           template_parameters, is_constexpr, return_type, name,
                           parameters, is_noexcept)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::method_signiture,

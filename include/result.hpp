@@ -2,6 +2,7 @@
 #define RESULT_H
 
 #include <iterator>
+#include <variant>
 
 template <typename T>
 using Iter = decltype(std::declval<T>().begin());
@@ -33,5 +34,14 @@ struct ResultT {
   ResultT(SourceIter processed_to, T&& it)
       : processed_to{processed_to}, result{std::move(it)} {}
 };
+
+struct Error {
+  std::string error_msg;
+};
+
+struct Complate {};
+
+template <class Src, class It>
+using PResult = std::variant<Result<Src, It>, Complate, Error>;
 
 #endif  //! RESULT_H

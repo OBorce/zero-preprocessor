@@ -271,16 +271,17 @@ x3::rule<class optional_param, ast::var> const optional_param =
     "optional_param";
 auto const optional_param_def = type >> -(some_space >> name);
 
-x3::rule<class param_optionaly_default, ast::var> const
-    param_optionaly_default = "param_optionaly_default";
-auto const param_optionaly_default_def = optional_param >>
-                                         -(optionaly_space >> '=' >>
-                                           optionaly_space >>
-                                           (expression_old | init_list));
+x3::rule<class param_optionaly_default_old, ast::var> const
+    param_optionaly_default_old = "param_optionaly_default_old";
+auto const param_optionaly_default_old_def = optional_param >>
+                                             -(optionaly_space >> '=' >>
+                                               optionaly_space >>
+                                               (expression_old | init_list));
 
 x3::rule<class optionaly_params, ast::params> const optionaly_params =
     "optionaly_params";
-auto const optionaly_params_def = -(param_optionaly_default % arg_separator);
+auto const optionaly_params_def =
+    -(param_optionaly_default_old % arg_separator);
 
 x3::rule<class is_noexcept, bool> const is_noexcept = "is_noexcept";
 auto const is_noexcept_def = bool_attr(
@@ -348,6 +349,7 @@ auto const variable_expression_def = -(prefix_operator >> optionaly_space) >>
                                      type_or_name >>
                                      -(optionaly_space >> sufix_operator);
 
+// Function/Curly expression
 x3::rule<class fce_expression, ast::ValueExpression> const fce_expression =
     "fce_expression";
 auto const fce_expression_def = variable_expression >> optionaly_space >>
@@ -366,6 +368,13 @@ x3::rule<class return_statement,
                       ast::RoundExpression, ast::CurlyExpression,
                       ast::Lambda>> const return_statement = "return_statement";
 auto const return_statement_def = "return" >> some_space >> expression;
+
+x3::rule<class param_optionaly_default, ast::var> const
+    param_optionaly_default = "param_optionaly_default";
+auto const param_optionaly_default_def = optional_param >>
+                                         -(optionaly_space >> '=' >>
+                                           optionaly_space >>
+                                           (expression_old | init_list));
 
 // ============================================
 
@@ -424,17 +433,24 @@ auto const template_parameters_def =
     lit("template") >> optionaly_space >> '<' >> optionaly_space >>
     template_parameter % arg_separator >> optionaly_space >> '>';
 
-x3::rule<class function_signiture, ast::function_signiture> const
-    function_signiture = "function_signiture";
-auto const function_signiture_def =
+x3::rule<class function_signiture_old, ast::function_signiture_old> const
+    function_signiture_old = "function_signiture_old";
+auto const function_signiture_old_def =
     -(template_parameters >> optionaly_space) >>
     bool_attr(lit("constexpr") >> some_space) >> type >> some_space >> name
     >> optionaly_space >> '(' >> optionaly_space >> optionaly_params >>
     ')' >> is_noexcept;
 
-x3::rule<class function_start, ast::function_signiture> const function_start =
-    "function_start";
-auto const function_start_def = function_signiture >> scope_begin;
+x3::rule<class function_start, ast::function_signiture_old> const
+    function_start = "function_start";
+auto const function_start_def = function_signiture_old >> scope_begin;
+
+x3::rule<class function_declaration, ast::FunctionDeclaration> const
+    function_declaration = "function_declaration";
+auto const function_declaration_def =
+    -(template_parameters >> optionaly_space) >>
+    bool_attr(lit("constexpr") >> some_space) >> type >> some_space >> name
+    >> optionaly_space >> '(';
 
 x3::rule<class is_pure_virtual, bool> const is_pure_virtual = "is_pure_virtual";
 auto const is_pure_virtual_def =
@@ -516,15 +532,15 @@ BOOST_SPIRIT_DEFINE(
     return_statement, type_or_name, literal, parenthesis_begin,
     parenthesis_expr_begin, parenthesis_end, curly_begin, curly_end, expression,
     capture_default, capture_params, lambda_capture, lambda_specifiers, lambda,
-    param, optional_param, param_optionaly_default, var_old, var_with_init,
+    param, optional_param, param_optionaly_default_old, var_old, var_with_init,
     constructor_init, for_loop, while_loop, if_expression, else_expression);
 
 BOOST_SPIRIT_DEFINE(template_parameter, template_parameters, is_noexcept,
-                    function_signiture, function_start, is_pure_virtual,
-                    method_signiture, operator_signiture, constructor,
-                    class_inheritance, class_inheritances, class_or_struct,
-                    enumeration, enumerators, variable_expression,
-                    fce_expression);
+                    function_signiture_old, function_start,
+                    function_declaration, is_pure_virtual, method_signiture,
+                    operator_signiture, constructor, class_inheritance,
+                    class_inheritances, class_or_struct, enumeration,
+                    enumerators, variable_expression, fce_expression);
 }  // namespace std_parser::rules
 
 #endif  //! STD_RULES_H

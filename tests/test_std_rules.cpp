@@ -198,7 +198,7 @@ TEST_CASE("Parse valid function_signitures", "[function_signiture]") {
 
   for (auto& valid_function_signiture : valid_function_signitures) {
     REQUIRE_THAT(valid_function_signiture,
-                 CanParse(rules::function_signiture, "function_signiture"));
+                 CanParse(rules::function_signiture_old, "function_signiture"));
   }
 }
 

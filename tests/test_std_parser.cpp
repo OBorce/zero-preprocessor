@@ -31,7 +31,7 @@ class CanParse : public Catch::MatcherBase<std::string> {
       Iter begin_;
       Iter end_;
 
-      //TODO: maybe add an advance function
+      // TODO: maybe add an advance function
       std::uint16_t row = 0;
       std::uint16_t col = 0;
 
