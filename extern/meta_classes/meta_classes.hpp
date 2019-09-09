@@ -339,8 +339,8 @@ class MetaClassParser {
       : parent{p}, meta_exe{meta_exe}, source_loader{{}, meta_out} {
     if (!this->meta_exe.empty()) {
       meta_process = MetaProcess(this->meta_exe);
-      bp::opstream& p1 = meta_process.output;
-      bp::ipstream& p2 = meta_process.input;
+      auto& p1 = meta_process.output;
+      auto& p2 = meta_process.input;
       p1 << '1' << std::endl;
       std::string out;
       int n;
@@ -361,7 +361,6 @@ class MetaClassParser {
   }
 
   void start_preprocess(std::string_view source_name) {
-    std::cout << "preprocess " << source_name << std::endl;
     out_file = source_loader.open_source(source_name);
     out_file << "#include <meta.hpp>" << std::endl;
     is_source = source::is_source(source_name);

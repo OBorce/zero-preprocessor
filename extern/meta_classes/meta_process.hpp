@@ -29,7 +29,13 @@ class MetaProcess {
         output{std::move(p.output.pipe())},
         input{std::move(p.input.pipe())} {}
 
-  MetaProcess& operator=(MetaProcess&& p) = default;
+  MetaProcess& operator=(MetaProcess&& p) {
+    process = std::move(p.process);
+    output = std::move(p.output.pipe());
+    input = std::move(p.input.pipe());
+
+    return *this;
+  }
 
   bool ok() { return process.running(); }
 

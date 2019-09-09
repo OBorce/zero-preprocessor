@@ -341,6 +341,7 @@ struct Vars {
 
   SourceLocation loc;
 
+  Vars() = default;
   Vars(var&& v) : variables{std::move(v)} {}
 
   void add_var(std::string&& name, SourceLocation l) {
@@ -348,6 +349,8 @@ struct Vars {
     variables.push_back(var{std::move(type), std::move(name), l, {}});
   }
 };
+
+struct VarStatement : public Vars {};
 
 /**
  * Used as a bridge between an UnqulifiedType and the Expression

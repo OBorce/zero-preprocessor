@@ -21,7 +21,7 @@ using CodeFragment =
                  rules::ast::Vars, rules::ast::Expression, rules::ast::Lambda,
                  rules::ast::RoundExpression, rules::ast::CurlyExpression,
                  rules::ast::Statement, rules::ast::ReturnStatement,
-                 rules::ast::IfExpression>;
+                 rules::ast::VarStatement, rules::ast::IfExpression>;
 
 class StdParserState {
   class {
@@ -100,7 +100,7 @@ class StdParserState {
 
     auto var = [this](auto& ctx) {
       auto& rez = _attr(ctx);
-      ast_state.emplace_back(rules::ast::Statement{});
+      ast_state.emplace_back(rules::ast::VarStatement{});
       ast_state.emplace_back(rules::ast::Vars{std::move(rez)});
     };
 
@@ -192,7 +192,7 @@ class StdParserState {
 
     auto var = [this](auto& ctx) {
       auto& rez = _attr(ctx);
-      ast_state.emplace_back(rules::ast::Statement{});
+      ast_state.emplace_back(rules::ast::VarStatement{});
       ast_state.emplace_back(rules::ast::Vars{std::move(rez)});
     };
 
@@ -459,7 +459,7 @@ class StdParserState {
 
     auto var = [this](auto& ctx) {
       auto& rez = _attr(ctx);
-      ast_state.emplace_back(rules::ast::Statement{});
+      ast_state.emplace_back(rules::ast::VarStatement{});
       ast_state.emplace_back(rules::ast::Vars{std::move(rez)});
     };
 
@@ -756,7 +756,7 @@ class StdParserState {
 
     auto var = [this](auto& ctx) {
       auto& rez = _attr(ctx);
-      ast_state.emplace_back(rules::ast::Statement{});
+      ast_state.emplace_back(rules::ast::VarStatement{});
       ast_state.emplace_back(rules::ast::Vars{std::move(rez)});
     };
 
@@ -837,7 +837,7 @@ class StdParserState {
 
     auto var = [this](auto& ctx) {
       auto& rez = _attr(ctx);
-      ast_state.emplace_back(rules::ast::Statement{});
+      ast_state.emplace_back(rules::ast::VarStatement{});
       ast_state.emplace_back(rules::ast::Vars{std::move(rez)});
     };
 
@@ -915,21 +915,16 @@ class StdParserState {
   void close_current_var_declaration() {
     auto& c = std::get<rules::ast::Vars>(ast_state.back());
     auto& v = ast_state[ast_state.size() - 2];
-    std::visit(
-        overloaded{
-            [&](rules::ast::Class& arg) { arg.add_variables(c.variables); },
-            [&](rules::ast::Namespace& arg) { arg.add_variables(c.variables); },
-            [&](rules::ast::Function& arg) {
-              arg.statements.emplace_back(std::move(c));
-            },
-            [&](rules::ast::Scope& arg) {
-              arg.statements.emplace_back(std::move(c));
-            },
-            [](auto&) {
-              /* other can't have variables*/
-            },
-        },
-        v);
+    std::visit(overloaded{
+                   [&](rules::ast::VarStatement& arg) {
+                     arg.variables = std::move(c.variables);
+                     arg.loc = std::move(c.loc);
+                   },
+                   [](auto&) {
+                     /* other can't have variables*/
+                   },
+               },
+               v);
   }
 
   void close_current_scope() {
@@ -1007,6 +1002,28 @@ class StdParserState {
                    },
                },
                variant_code_fragment);
+  }
+
+  void close_current_varstatement() {
+    auto& vs = std::get<rules::ast::VarStatement>(ast_state.back());
+    auto& variant_code_fragment = ast_state[ast_state.size() - 2];
+    std::visit(
+        overloaded{
+            [&](rules::ast::Class& arg) { arg.add_variables(vs.variables); },
+            [&](rules::ast::Namespace& arg) {
+              arg.add_variables(vs.variables);
+            },
+            [&](rules::ast::Function& arg) {
+              arg.statements.emplace_back(std::move(vs));
+            },
+            [&](rules::ast::Scope& arg) {
+              arg.statements.emplace_back(std::move(vs));
+            },
+            [](auto&) {
+              /* other can't have var statements*/
+            },
+        },
+        variant_code_fragment);
   }
 
   template <class Statement>
@@ -1089,6 +1106,9 @@ class StdParserState {
                            [&](rules::ast::ReturnStatement& arg) {
                              return parse_inside_statement(source, arg);
                            },
+                           [&](rules::ast::VarStatement& arg) {
+                             return parse_inside_statement(source, arg);
+                           },
                            [&](rules::ast::Vars& arg) {
                              return parse_inside_var_definition(source, arg);
                            },
@@ -1153,9 +1173,8 @@ class StdParserState {
     } else if constexpr (is_one_of<Fragment, rules::ast::Statement,
                                    rules::ast::ReturnStatement>) {
       close_current_statement<Fragment>();
-    } else if constexpr (is_one_of<Fragment, rules::ast::Statement,
-                                   rules::ast::ReturnStatement>) {
-      close_current_statement<Fragment>();
+    } else if constexpr (std::is_same<Fragment, rules::ast::VarStatement>()) {
+      close_current_varstatement();
     } else {
       // TODO: implement
     }

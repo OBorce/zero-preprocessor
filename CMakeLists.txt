@@ -4,7 +4,7 @@ set(CMAKE_CXX_STANDARD 17)
 project(zero_preprocessor)
 
 set(Boost_USE_STATIC_LIBS   ON)
-find_package(Boost 1.67 REQUIRED COMPONENTS filesystem)
+find_package(Boost 1.71 REQUIRED COMPONENTS filesystem)
 
 option(BUILD_TESTING "Build the testing tree" ON)
 if(BUILD_TESTING AND (PROJECT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR))

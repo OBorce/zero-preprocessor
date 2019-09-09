@@ -33,6 +33,11 @@ auto const const_expression_def = optionaly_space >> "constexpr";
 x3::rule<class name, std::string> const name = "name";
 auto const name_def = ((alpha | char_('_')) >> *(alpha | digit | char_('_')));
 
+x3::rule<class no_starting_name, std::string> const no_starting_name =
+    "no_starting_name";
+auto const no_starting_name_def =
+    +(char_ - (alpha | '_' | '(' | ')' | '{' | '}'));
+
 x3::rule<class selected_target, std::string> const selected_target =
     "selected_target";
 auto const selected_target_def = optionaly_space >> "->(" >> name >> ")";
@@ -53,8 +58,9 @@ x3::rule<class meta_target_out_no_braced, std::vector<std::string>> const
 x3::rule<class meta_target_out_braced, std::vector<std::string>> const
     meta_target_out_braced = "meta_target_out_braced";
 
-auto const meta_target_out_no_braced_def =
-    +(meta_target | x3::omit[char_ - (lit('{') | '}')]);
+auto const meta_target_out_no_braced_def = x3::omit[no_starting_name] |
+                                           +(meta_target) |
+                                           x3::omit[+(alpha | '_' | '(' | ')')];
 
 auto const meta_target_out_braced_def = '{' >> meta_target_out >> '}';
 
@@ -70,8 +76,8 @@ x3::rule<class target, ast::Target> const target = "target";
 auto const target_def = selected_target >> optionaly_space >> target_out;
 
 BOOST_SPIRIT_DEFINE(optionaly_space, scope_end, const_expression, name,
-                    selected_target, meta_expression, meta_target,
-                    meta_target_out, meta_target_out_braced,
+                    no_starting_name, selected_target, meta_expression,
+                    meta_target, meta_target_out, meta_target_out_braced,
                     meta_target_out_no_braced, target_out, target);
 }  // namespace meta_classes::rules
 
