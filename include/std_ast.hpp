@@ -712,8 +712,7 @@ BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::function_signiture_old,
                           template_parameters, is_constexpr, return_type, name,
                           parameters, is_noexcept)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::FunctionDeclaration,
-                          template_parameters, is_constexpr, return_type, name,
-                          parameters, is_noexcept)
+                          template_parameters, is_constexpr, return_type, name)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::method_signiture,
                           template_parameters, is_constexpr, is_virtual,
                           return_type, name, parameters, is_const, qualifier,

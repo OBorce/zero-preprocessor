@@ -53,48 +53,56 @@ class CanParse : public Catch::MatcherBase<std::string> {
         std::cout << "inside " << c.size() << " can't parse " << left
                   << std::endl;
         for (auto& v : c) {
-          std::visit(overloaded{[&](rules::ast::Namespace const&) {
-                                  std::cout << "namespace " << std::endl;
-                                },
-                                [&](rules::ast::Class const&) {
-                                  std::cout << "class " << std::endl;
-                                },
-                                [&](rules::ast::Function const&) {
-                                  std::cout << "function " << std::endl;
-                                },
-                                [&](rules::ast::Scope const&) {
-                                  std::cout << "local scope " << std::endl;
-                                },
-                                [&](rules::ast::Enumeration const&) {
-                                  std::cout << "enum " << std::endl;
-                                },
-                                [&](rules::ast::Statement const&) {
-                                  std::cout << "Statement " << std::endl;
-                                },
-                                [&](rules::ast::Expression const& arg) {
-                                  std::cout << "expression " << arg.is_begin()
-                                            << std::endl;
-                                },
-                                [&](rules::ast::RoundExpression const& arg) {
-                                  std::cout << "round expression "
-                                            << arg.is_begin() << std::endl;
-                                },
-                                [&](rules::ast::CurlyExpression const& arg) {
-                                  std::cout << "curly expression "
-                                            << arg.is_begin() << std::endl;
-                                },
-                                [&](rules::ast::Vars const& arg) {
-                                  std::cout << "vars "
-                                            << static_cast<int>(arg.state)
-                                            << std::endl;
-                                },
-                                [&](rules::ast::IfExpression const& arg) {
-                                  std::cout << "if expression "
-                                            << static_cast<int>(arg.state)
-                                            << std::endl;
-                                },
-                                [](auto&) {}},
-                     v);
+          std::visit(
+              [&](auto const& c) {
+                std::cout << c.loc.row << c.loc.col << '\n';
+              },
+              v);
+          std::visit(
+              overloaded{[&](rules::ast::Namespace const&) {
+                           std::cout << "namespace " << std::endl;
+                         },
+                         [&](rules::ast::Class const&) {
+                           std::cout << "class " << std::endl;
+                         },
+                         [&](rules::ast::Function const&) {
+                           std::cout << "function " << std::endl;
+                         },
+                         [&](rules::ast::Scope const&) {
+                           std::cout << "local scope " << std::endl;
+                         },
+                         [&](rules::ast::Enumeration const&) {
+                           std::cout << "enum " << std::endl;
+                         },
+                         [&](rules::ast::Statement const&) {
+                           std::cout << "Statement " << std::endl;
+                         },
+                         [&](rules::ast::Expression const& arg) {
+                           std::cout << "expression " << arg.is_begin()
+                                     << std::endl;
+                         },
+                         [&](rules::ast::RoundExpression const& arg) {
+                           std::cout << "round expression " << arg.is_begin()
+                                     << std::endl;
+                         },
+                         [&](rules::ast::CurlyExpression const& arg) {
+                           std::cout << "curly expression " << arg.is_begin()
+                                     << std::endl;
+                         },
+                         [&](rules::ast::Vars const& arg) {
+                           std::cout << "vars " << static_cast<int>(arg.state)
+                                     << std::endl;
+                         },
+                         [&](rules::ast::IfExpression const& arg) {
+                           std::cout << "if expression "
+                                     << static_cast<int>(arg.state)
+                                     << std::endl;
+                         },
+                         [&](rules::ast::FunctionDeclaration const& arg) {
+                           std::cout << "function decl " << std::endl;
+                         },
+                         [](auto&) {}},
+              v);
         }
         return false;
       }
@@ -191,5 +199,59 @@ TEST_CASE("Parse valid expression", "[expression]") {
   for (auto& valid_expression : valid_expressions) {
     REQUIRE_THAT(valid_expression,
                  CanParse("expression", rules::ast::Expression{}));
+  }
+}
+
+TEST_CASE("Parse valid parameters", "[parameters]") {
+  std::array valid_function_signitures{
+      "int"s,
+      "int i"s,
+      "int = 2"s,
+      "int i = 2"s,
+      "int, int"s,
+      "int, int i"s,
+      "int, int = 2"s,
+      "int, int i = 2"s,
+      "int x, int"s,
+      "int x, int i"s,
+      "int x, int = 2"s,
+      "int x, int i = 2"s,
+      "int = 1, int"s,
+      "int = 1, int i"s,
+      "int = 1, int = 2"s,
+      "int = 1, int i = 2"s,
+      "int, float f, double"s,
+      "int a, long l = 3l"s,
+      "int a = 2, long"s,
+      "int a = 2, long l"s,
+      "int a = 2, long l = 3l"s,
+      "int a, long l = 3l, int x"s,
+      };
+
+  for (auto& valid_fun_decl : valid_function_signitures) {
+    REQUIRE_THAT(valid_fun_decl, CanParse("parameters",
+                                          rules::ast::Params{}));
+  }
+}
+
+TEST_CASE("Parse valid function declaration", "[function_declaration]") {
+  std::array valid_function_signitures{
+      "int a();"s,
+      "std::string s(int i);"s,
+      "void s(const int i);"s,
+      "constexpr int s(const int i);"s,
+      "void s(const int i) noexcept;"s,
+      "std::string no_name_params(int, float f, double);"s,
+      "std::string no_name_params2(int, int , float f, double);"s,
+      "rules::ast::val some_name(std::string s, int a);"s,
+      "auto& def_arg(int a = 2, long l = 3l);"s,
+      "template<typename T> auto def_arg(T a = 2, long l = 3l);"s,
+      "template<typename T> auto def_arg(T a = 2, long l = 3l) noexcept(sizeof(T) > 2);"s,
+      "template<typename T, int N = 0> auto def_arg(T a = 2, long l = 3l);"s,
+      "const some_Type* function_a2(std::asd::ddd d);"s};
+
+  for (auto& valid_fun_decl : valid_function_signitures) {
+    REQUIRE_THAT(valid_fun_decl, CanParse("function_declaration",
+                                          rules::ast::Namespace{"nsp"}));
   }
 }

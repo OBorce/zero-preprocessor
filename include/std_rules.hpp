@@ -140,6 +140,11 @@ auto const operator_sep_def = optionaly_space >>
                                (lit(',') >> x3::attr(ast::Operator::Comma))) >>
                               optionaly_space;
 
+x3::rule<class param_operator_sep, ast::Operator> const param_operator_sep =
+    "param_operator_sep";
+auto const param_operator_sep_def =
+    optionaly_space >> binary_operator >> optionaly_space;
+
 x3::rule<class scope_begin> const scope_begin = "scope_begin";
 auto const scope_begin_def = optionaly_space >> '{';
 
@@ -523,17 +528,18 @@ auto const enumerators_def = name % arg_separator;
 BOOST_SPIRIT_DEFINE(
     some_space, optionaly_space, include, skip_line, comment, arg_separator,
     class_access_modifier, prefix_operator, sufix_operator,
-    all_overloadable_operators, operator_sep_old, operator_sep, call_operator,
-    scope_begin, scope_end, namespace_begin, statement_end, name, type_,
-    type_qualifiers, type, var_type, template_values, digits, integral,
-    floating, number, quoted_string, string_literal, char_literal, argument,
-    optionaly_arguments, function_call, expression_old, paren_expression_old,
-    optionaly_paren_expression_old, init_list, arg_init_list, optionaly_params,
-    return_statement, type_or_name, literal, parenthesis_begin,
-    parenthesis_expr_begin, parenthesis_end, curly_begin, curly_end, expression,
-    capture_default, capture_params, lambda_capture, lambda_specifiers, lambda,
-    param, optional_param, param_optionaly_default_old, var_old, var_with_init,
-    constructor_init, for_loop, while_loop, if_expression, else_expression);
+    all_overloadable_operators, operator_sep_old, operator_sep,
+    param_operator_sep, call_operator, scope_begin, scope_end, namespace_begin,
+    statement_end, name, type_, type_qualifiers, type, var_type,
+    template_values, digits, integral, floating, number, quoted_string,
+    string_literal, char_literal, argument, optionaly_arguments, function_call,
+    expression_old, paren_expression_old, optionaly_paren_expression_old,
+    init_list, arg_init_list, optionaly_params, return_statement, type_or_name,
+    literal, parenthesis_begin, parenthesis_expr_begin, parenthesis_end,
+    curly_begin, curly_end, expression, capture_default, capture_params,
+    lambda_capture, lambda_specifiers, lambda, param, optional_param,
+    param_optionaly_default_old, var_old, var_with_init, constructor_init,
+    for_loop, while_loop, if_expression, else_expression);
 
 BOOST_SPIRIT_DEFINE(template_parameter, template_parameters, is_noexcept,
                     function_signiture_old, function_start,

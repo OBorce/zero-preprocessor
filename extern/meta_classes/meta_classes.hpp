@@ -25,38 +25,18 @@ namespace std_ast = std_parser::rules::ast;
 namespace meta_classes {
 template <class Parent>
 class MetaClassParser {
+  template <class Source>
+  using RetType = std::optional<Result<Iter<Source>, std::string>>;
+
   template <class T>
   auto make_result(T out) {
     return out ? std::optional{Result{out->processed_to, std::string()}}
                : std::nullopt;
   }
 
-  template <class Source, class Writer>
-  auto parse_meta_calss_function(Source& source, Writer& writer) {
-    auto& std_parser = parent.template get_parser<Parent::std_parser_id>();
-
-    const auto out = std_parser.parse(source);
-    std::string res;
-    if (out) {
-      // if inside a constexpr function add it as a meta function
-      const auto& current_code_fragment =
-          std_parser.get_current_code_fragment();
-      using Fun = std_parser::rules::ast::Function;
-      if (std::holds_alternative<Fun>(current_code_fragment)) {
-        const Fun& fun = std::get<Fun>(current_code_fragment);
-        meta_classes.emplace(fun.name);
-        inside_meta_class_function = true;
-        res = {out->result.begin(), out->result.end()};
-        const std::string c = "constexpr";
-        auto it = std::search(res.begin(), res.end(), c.begin(), c.end());
-        res.erase(it, it + c.size());
-
-        writer(res);
-      }
-    }
-
-    return out ? std::optional{Result{out->processed_to, std::string()}}
-               : std::nullopt;
+  template <class Source>
+  RetType<Source> make_empty_result() {
+    return std::nullopt;
   }
 
   bool is_meta_param(std_ast::var const& var) {
@@ -107,7 +87,7 @@ class MetaClassParser {
   }
 
   template <class Source, class Writer>
-  auto parse_constexpr_function(Source& source, Writer& writer) {
+  RetType<Source> parse_constexpr_function(Source& source, Writer& writer) {
     auto begin = source.begin();
     auto end = source.end();
 
@@ -117,14 +97,45 @@ class MetaClassParser {
     if (out) {
       bool is_meta = is_meta_function(out->result);
 
-      return is_meta ? parse_meta_calss_function(source, writer) : std::nullopt;
+      if (is_meta) {
+        auto& fun = out->result;
+        meta_classes.emplace(fun.name);
+        inside_meta_class_function = true;
+        std::string res = {source.begin(), out->processed_to};
+        const std::string c = "constexpr";
+        auto it = std::search(res.begin(), res.end(), c.begin(), c.end());
+        res.erase(it, it + c.size());
+
+        writer(res);
+        using Fun = std_parser::rules::ast::Function;
+
+        std::size_t processed_chars = 0;
+        do {
+          source.advance(processed_chars);
+
+          auto out = std_parser.parse(source);
+          if (out) {
+            processed_chars = std::distance(source.begin(), out->processed_to);
+            if (processed_chars == 0) {
+              throw std::runtime_error("error in one of the parsers 2");
+            }
+          } else {
+            return make_empty_result<Source>();
+          }
+        } while (not std::holds_alternative<Fun>(
+            std_parser.get_current_code_fragment()));
+
+        return Result{source.begin() + processed_chars, std::string()};
+      }
+
+      return std::nullopt;
     }
 
-    return make_result(out);
+    return make_empty_result<Source>();
   }
 
   template <class Source>
-  auto parse_meta_class(Source& source) {
+  RetType<Source> parse_meta_class(Source& source) {
     bool is_parsed = false;
     auto begin = source.begin();
     auto end = source.end();
@@ -197,7 +208,7 @@ class MetaClassParser {
   }
 
   template <class Source, class Writer>
-  auto parse_meta(Source& source, Writer& writer) {
+  RetType<Source> parse_meta(Source& source, Writer& writer) {
     auto out = parse_constexpr_function(source, writer);
     if (out) {
       return out;
@@ -403,7 +414,7 @@ class MetaClassParser {
    * Parse a Meta class
    */
   template <class Source>
-  auto parse(Source& source) {
+  RetType<Source> parse(Source& source) {
     // TODO: fix this
     auto writer = [](auto&) {};
     if (inside_meta_class_function) {
