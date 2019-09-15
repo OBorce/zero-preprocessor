@@ -4,7 +4,7 @@
 
 #include <std_rules.hpp>
 
-#include <catch.hpp>
+#include <catch2/catch.hpp>
 
 using std::string_literals::operator""s;
 using namespace std_parser;

@@ -4,7 +4,7 @@
 
 #include <meta_classes_rules.hpp>
 
-#include <catch.hpp>
+#include <catch2/catch.hpp>
 
 using std::string_literals::operator""s;
 namespace rules = meta_classes::rules;

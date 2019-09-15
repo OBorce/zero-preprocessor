@@ -1,2 +1,4 @@
 # ignore the build folders
 build/
+.ccls-cache/
+compile_commands.json
