@@ -1089,6 +1089,21 @@ class StdParserState {
         variant_code_fragment);
   }
 
+  void close_current_params() {
+    auto& params = std::get<rules::ast::Params>(ast_state.back());
+    auto& variant_code_fragment = ast_state[ast_state.size() - 2];
+    std::visit(
+        overloaded{
+            [&](rules::ast::FunctionDeclaration& arg) {
+              arg.parameters.parameters = std::move(params.parameters);
+            },
+            [](auto&) {
+              /* other can't have params*/
+            },
+        },
+        variant_code_fragment);
+  }
+
   template <class Statement>
   void close_current_statement() {
     auto& statement = std::get<Statement>(ast_state.back());
@@ -1238,6 +1253,8 @@ class StdParserState {
       close_current_statement<Fragment>();
     } else if constexpr (std::is_same<Fragment, rules::ast::VarStatement>()) {
       close_current_varstatement();
+    } else if constexpr (std::is_same<Fragment, rules::ast::Params>()) {
+      close_current_params();
     } else {
       // TODO: implement
     }
