@@ -41,7 +41,7 @@ class MetaClassParser {
 
   bool is_meta_param(std_ast::var const& var) {
     // TODO: check for aliases when we can
-    auto const& type_name = var.type.type.name;
+    auto const& type_name = var.type.type.type.front().name;
     return type_name == std::vector<std::string>{"meta", "type"};
   }
 

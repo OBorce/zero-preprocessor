@@ -1,10 +1,8 @@
 #include <array>
-#include <iostream>
-#include <string>
-
-#include <std_rules.hpp>
-
 #include <catch2/catch.hpp>
+#include <iostream>
+#include <std_rules.hpp>
+#include <string>
 
 using std::string_literals::operator""s;
 using namespace std_parser;
@@ -37,6 +35,26 @@ class CanParse : public Catch::MatcherBase<std::string> {
   }
 };
 
+TEST_CASE("Parse valid integral", "[number]") {
+  std::array valid_numbers{
+      "1"s, "123"s, "-123"s, "123l"s, "3213L"s, "3213213LL"s, "123'1231'321ll"s,
+  };
+
+  for (auto& valid_number : valid_numbers) {
+    REQUIRE_THAT(valid_number, CanParse(rules::integral, "integral"));
+  }
+}
+
+TEST_CASE("Parse valid floating", "[number]") {
+  std::array valid_numbers{
+      "12312.f"s, "3.1f"s, "-3.1f"s, "321'321.001f"s, "123.21F"s,
+  };
+
+  for (auto& valid_number : valid_numbers) {
+    REQUIRE_THAT(valid_number, CanParse(rules::floating, "floating"));
+  }
+}
+
 TEST_CASE("Parse valid number", "[number]") {
   std::array valid_numbers{"1"s,
                            "123"s,
@@ -65,6 +83,8 @@ TEST_CASE("Parse valid type", "[type]") {
                          "std::string"s,
                          "rules::ast::val"s,
                          "std::vector<int>"s,
+                         "std::array<int, 5>"s,
+                         "usr::Foo<int>::Type"s,
                          "const int"s,
                          "auto&"s,
                          "auto&&"s,
@@ -150,14 +170,14 @@ TEST_CASE("Parse valid for loop", "[for_loop]") {
 
 TEST_CASE("Parse valid while loop", "[while_loop]") {
   std::array valid_while_loops{"while (true)"s,
-                             "while(a && b)"s,
-                             "while(i < 10)"s,
-                             "while (std::getline(s, in))"s,
-                             "while (int i = get_n())"s,
-                             "while (k || p)"s,
-                             "while (k || p && s)"s,
-                             "while (k && p || s)"s,
-                             "while (k && p || s && t)"s};
+                               "while(a && b)"s,
+                               "while(i < 10)"s,
+                               "while (std::getline(s, in))"s,
+                               "while (int i = get_n())"s,
+                               "while (k || p)"s,
+                               "while (k || p && s)"s,
+                               "while (k && p || s)"s,
+                               "while (k && p || s && t)"s};
 
   for (auto& valid_while_loop : valid_while_loops) {
     REQUIRE_THAT(valid_while_loop, CanParse(rules::while_loop, "while_loop"));
@@ -165,18 +185,14 @@ TEST_CASE("Parse valid while loop", "[while_loop]") {
 }
 
 TEST_CASE("Parse valid for lambda capture", "[lambda]") {
-  std::array valid_for_loops{"[]"s,
-                             "[&]"s,
-                             "[=]"s,
-                             "[=, &a]"s,
-                             "[&, &a]"s,
-                             "[=, a]"s,
-                             "[=, a, b]"s,
-                             "[=, this, b, &a]"s,
-                             "[&c, b, &d]"s};
+  std::array valid_for_loops{
+      "[]"s,         "[&]"s,    "[=]"s,       "[=, &a]"s,
+      "[&, &a]"s,    "[=, a]"s, "[=, a, b]"s, "[=, this, b, &a]"s,
+      "[&c, b, &d]"s};
 
   for (auto& valid_for_loop : valid_for_loops) {
-    REQUIRE_THAT(valid_for_loop, CanParse(rules::lambda_capture, "lambda_capture"));
+    REQUIRE_THAT(valid_for_loop,
+                 CanParse(rules::lambda_capture, "lambda_capture"));
   }
 }
 
@@ -259,6 +275,8 @@ TEST_CASE("Parse valid constructors and destructors", "[constructor]") {
       "s(int i): a{i}"s,
       "constexpr s(int i): a{i}"s,
       "s(const int i)"s,
+      "json_name( )"s,
+      "json_name( T ptr )"s,
       "s(int i) noexcept"s,
       "s(int i) noexcept(true)"s,
       "s(int i) noexcept : a{i}"s,
@@ -301,6 +319,9 @@ TEST_CASE("Parse valid class", "[class]") {
       "template <std::size_t N, class B> class Test"s,
       "template <std::size_t N = 2, class B = int> class Test"s,
       "template <std::size_t N = 2, class B = std::size_t> class Test"s,
+      "template <int N> class Test<N, int>"s,
+      "template <class T> class Test<T, 3>"s,
+      "template <> class Test<int, 3>"s,
       "struct point : A"s,
       "struct point : public A"s,
       "struct point : A, B"s,

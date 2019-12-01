@@ -90,6 +90,11 @@ struct SourceLocation {
   uint16_t col = 0;
 };
 
+struct TemplateParameter {
+  std::string type;
+  std::string name;
+};
+
 struct CppType {
   std::vector<TypeQualifier> left_qualifiers;
   std::string type;
@@ -104,7 +109,7 @@ struct CppType {
     }
   }
 
-  std::string to_string() {
+  std::string to_string() const {
     std::string out;
     out.reserve(50);
     for (auto q : left_qualifiers) {
@@ -128,6 +133,7 @@ struct Param {
 struct Var {
   CppType var_type;
   std::string name;
+  std::vector<std::string> init;
   Access access = Access::UNSPECIFIED;
   SourceLocation loc;
 
@@ -148,7 +154,16 @@ struct Var {
   void make_protected() { access = Access::PROTECTED; }
 
   std::string to_string() {
-    return detail::to_string(access) + var_type.to_string() + " " + name + ';';
+    std::string  str =  detail::to_string(access) + var_type.to_string() + " " + name;
+    if (not init.empty()) {
+      str += " = ";
+      for(auto& exp : init) {
+        str += exp;
+        str += ' ';
+      }
+    }
+    str += ';';
+    return str;
   }
 };
 
@@ -367,22 +382,94 @@ struct Object {
 };
 
 struct Type {
+  std::string name;
+  std::optional<std::vector<TemplateParameter>> template_params;
+  std::vector<std::string> template_specialization;
   std::vector<Function> methods;
-  std::vector<Base> bases;
   std::vector<Var> variables;
+  std::vector<Base> bases;
+  std::vector<Type> sub_types;
   std::string body;
   SourceLocation loc;
 
-  Type() = default;
+  Type(std::string name): name{std::move(name)} {}
 
-  Type(std::vector<Function>&& m, std::vector<Var>&& v,
-       std::vector<Base>&& bases)
-      : methods{std::move(m)},
-        bases{std::move(bases)},
+  Type(std::string&& name, std::optional<std::vector<TemplateParameter>>&& tps, std::vector<std::string>&& spec, std::vector<Function>&& m, std::vector<Var>&& v,
+       std::vector<Base>&& bases, std::vector<Type>&& sub_types)
+      : name{std::move(name)},
+        template_params{std::move(tps)},
+        template_specialization{std::move(spec)},
+        methods{std::move(m)},
         variables{std::move(v)},
+        bases{std::move(bases)},
+        sub_types{std::move(sub_types)},
         body{} {}
+
+  std::string to_string() {
+    std::string content;
+    content.reserve(200);
+    if (template_params.has_value()) {
+      content += "\ntemplate<";
+      for(auto& t : *template_params) {
+        content += t.type;
+        content += ' ';
+        content += t.name;
+        content += ',';
+      }
+      if (template_params->empty()) {
+        content += '>';
+      } else {
+        content.back() = '>';
+      }
+    }
+    content += "\nstruct ";
+    content += name;
+    if (not template_specialization.empty()) {
+      content += '<';
+      for(auto& t : template_specialization) {
+        content += t;
+        content += ',';
+      }
+      content.back() = '>';
+    }
+    if (not bases.empty()) {
+      content += ':';
+      for (auto& b : bases) {
+        content += b.to_string();
+        content += ',';
+      }
+      content.pop_back();
+    }
+    content += " {\n";
+    if (not variables.empty()) {
+      for (auto& v : variables) {
+        content += v.to_string();
+        content += '\n';
+      }
+      content.pop_back();
+    }
+    if (not methods.empty()) {
+      for (auto& f : methods) {
+        content += f.to_string();
+        content += '\n';
+      }
+      content.pop_back();
+    }
+    if (not sub_types.empty()) {
+      for (auto& t : sub_types) {
+        content += t.to_string();
+        content += '\n';
+      }
+      content.pop_back();
+    }
+    content += body;
+    content += "\n};";
+
+    return content;
+  }
 };
 void finalize(meta::type& target);
+Type read_type();
 }  // namespace detail
 
 type read_type();
@@ -392,15 +479,13 @@ class type {
   std::shared_ptr<detail::Type> internal;
 
  public:
-  type(std::string&& name, std::vector<detail::Function>&& methods,
-       std::vector<detail::Var>&& variables, std::vector<detail::Base>&& bases)
-      : class_name{std::move(name)},
-        internal{std::make_shared<detail::Type>(
-            std::move(methods), std::move(variables), std::move(bases))} {}
+  type(detail::Type&& type)
+      : class_name{type.name},
+        internal{std::make_shared<detail::Type>(std::move(type))} {}
 
   type(std::string name)
-      : class_name{std::move(name)},
-        internal{std::make_shared<detail::Type>()} {}
+      : class_name{name},
+        internal{std::make_shared<detail::Type>(name)} {}
 
   ~type() {
     // NOTE: if there is any generated ( -> ) based content
@@ -408,7 +493,7 @@ class type {
     if (!internal->body.empty()) {
       enum class ParsedResult { OK, Error };
       std::cout << 1 << std::endl;
-      auto str = to_string();
+      auto str = internal->to_string();
       std::cout << str.size() << std::endl;
       std::cout << str << std::endl;
       int out;
@@ -418,8 +503,8 @@ class type {
         std::exit(EXIT_FAILURE);
       }
 
-      type t = read_type();
-      *internal = *t.internal;
+      detail::Type t = detail::read_type();
+      *internal = std::move(t);
     }
   }
 
@@ -455,6 +540,16 @@ class type {
     return *this;
   }
 
+  auto& operator<<(int s) {
+    internal->body += std::to_string(s);
+    return *this;
+  }
+
+  auto& operator<<(detail::CppType const& t) {
+    internal->body += t.to_string();
+    return *this;
+  }
+
   auto& operator<<(detail::Function& f) {
     internal->methods.push_back(f);
     return *this;
@@ -477,43 +572,9 @@ class type {
     return *this;
   }
 
-  std::string to_string() {
-    std::string content;
-    content.reserve(200);
-    content += "\nstruct ";
-    content += class_name;
-    if (!internal->bases.empty()) {
-      content += ':';
-      for (auto& b : internal->bases) {
-        content += b.to_string();
-        content += ',';
-      }
-      content.pop_back();
-    }
-    content += " {\n";
-    if (!internal->variables.empty()) {
-      for (auto& v : internal->variables) {
-        content += v.to_string();
-        content += '\n';
-      }
-      content.pop_back();
-    }
-    if (!internal->methods.empty()) {
-      for (auto& f : internal->methods) {
-        content += f.to_string();
-        content += '\n';
-      }
-      content.pop_back();
-    }
-    content += internal->body;
-    content += "\n};";
-
-    return content;
-  }
-
   std::string get_representation() {
     detail::finalize(*this);
-    return to_string();
+    return internal->to_string();
   }
 };
 
@@ -570,7 +631,16 @@ Var read_var() {
   Access acc = static_cast<Access>(a);
   std::cin >> name;
 
-  return {std::move(type), std::move(name), acc, loc};
+  int exps;
+  std::cin >> exps;
+  std::vector<std::string> init;
+  while(exps-- > 0) {
+    std::string exp;
+    std::cin >> exp;
+    init.push_back(std::move(exp));
+  }
+
+  return {std::move(type), std::move(name), std::move(init), acc, loc};
 }
 
 Function read_function() {
@@ -656,12 +726,43 @@ void finalize(meta::type& target) {
     target << "\npublic: ~" << target.name() << "() { }";
   // make it public nonvirtual by default
 }
-}  // namespace detail
 
-type read_type() {
+TemplateParameter read_template_param() {
+  std::string type, name;
+
+  std::cin >> type >> name;
+  return {std::move(type), std::move(name)};
+}
+
+Type read_type() {
   std::string class_name;
   std::cin >> class_name;
-  std::size_t num_methods, num_variables, num_bases;
+
+  bool has_template_params;
+  std::cin >> has_template_params;
+
+  std::optional<std::vector<detail::TemplateParameter>> template_params;
+  if (has_template_params) {
+    template_params.emplace();
+    int num_template_params;
+    std::cin >> num_template_params;
+
+    while (num_template_params-- > 0) {
+      template_params->emplace_back(read_template_param());
+    }
+  }
+
+  int num_template_args;
+  std::cin >> num_template_args;
+  
+  std::vector<std::string> template_specialization;
+  while(num_template_args-- >0) {
+    std::string arg;
+    std::cin >> arg;
+    template_specialization.push_back(std::move(arg));
+  }
+
+  int num_methods, num_variables, num_bases;
 
   std::cin >> num_methods;
   std::vector<detail::Function> methods;
@@ -684,8 +785,21 @@ type read_type() {
     bases.emplace_back(detail::read_base());
   }
 
-  return {std::move(class_name), std::move(methods), std::move(variables),
-          std::move(bases)};
+  int num_sub_classes;
+  std::cin >> num_sub_classes;
+  std::vector<detail::Type> sub_types;
+  sub_types.reserve(num_sub_classes);
+  while (num_sub_classes-- > 0)  {
+    sub_types.push_back(read_type());
+  }
+
+  return {std::move(class_name), std::move(template_params), std::move(template_specialization), std::move(methods), std::move(variables),
+          std::move(bases), std::move(sub_types)};
+}
+}  // namespace detail
+
+type read_type() {
+  return {detail::read_type()};
 }
 }  // namespace meta
 

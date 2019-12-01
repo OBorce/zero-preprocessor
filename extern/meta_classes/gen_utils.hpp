@@ -183,6 +183,157 @@ void write_methods(std::vector<std_parser::rules::ast::Function> const& methods,
     write_function(m, modifier, writer);
   }
 }
+template <typename Writer>
+void write_operator(std_parser::rules::ast::Operator const& op,
+                    Writer& writer) {
+  using OP = std_parser::rules::ast::Operator;
+  switch (op) {
+    case OP::PlusEq:
+      writer << "+=";
+      break;
+    case OP::Plus:
+      writer << "+";
+      break;
+    case OP::ArrowDeref:
+      writer << "->*";
+      break;
+    case OP::Arrow:
+      writer << "->";
+      break;
+    case OP::MinusEq:
+      writer << "-=";
+      break;
+    case OP::Minus:
+      writer << "-";
+      break;
+    case OP::DotDeref:
+      writer << ".*";
+      break;
+    case OP::Dot:
+      writer << ".";
+      break;
+    case OP::MultiplyEq:
+      writer << "*=";
+      break;
+    case OP::Multiply:
+      writer << "*";
+      break;
+    case OP::DivideEq:
+      writer << "/=";
+      break;
+    case OP::Divide:
+      writer << "/";
+      break;
+    case OP::ModuleEq:
+      writer << "%=";
+      break;
+    case OP::Module:
+      writer << "%";
+      break;
+    case OP::RShiftEq:
+      writer << ">>=";
+      break;
+    case OP::RShift:
+      writer << ">>";
+      break;
+    case OP::GtEq:
+      writer << ">=";
+      break;
+    case OP::Gt:
+      writer << ">";
+      break;
+    case OP::LShiftEq:
+      writer << "<<=";
+      break;
+    case OP::LShift:
+      writer << "<<";
+      break;
+    case OP::LtEq:
+      writer << "<=";
+      break;
+    case OP::Lt:
+      writer << "<";
+      break;
+    case OP::And:
+      writer << "&&";
+      break;
+    case OP::BitAndEq:
+      writer << "&=";
+      break;
+    case OP::BitAnd:
+      writer << "&";
+      break;
+    case OP::Or:
+      writer << "||";
+      break;
+    case OP::BitOrEq:
+      writer << "|=";
+      break;
+    case OP::BitOr:
+      writer << "|";
+      break;
+    case OP::TildeEq:
+      writer << "~=";
+      break;
+    case OP::Tilde:
+      writer << "~";
+      break;
+    case OP::BitXorEq:
+      writer << "^=";
+      break;
+    case OP::BitXor:
+      writer << "^";
+      break;
+    case OP::NotEq:
+      writer << "!=";
+      break;
+    case OP::Not:
+      writer << "!";
+      break;
+    case OP::EqEq:
+      writer << "==";
+      break;
+    case OP::Eq:
+      writer << "=";
+      break;
+    case OP::Comma:
+      writer << ",";
+      break;
+  }
+  writer << std::endl;
+}
+
+template <typename Writer>
+void write_expression_var(std_parser::rules::ast::ExpressionVariant const& exp,
+                          Writer& writer) {
+  std::visit(
+      overloaded{
+          [&](std_parser::rules::ast::VariableExpression const& e) {
+            writer << helper::to_string(e.expression);
+          },
+          // TODO: write other expressions
+          [](auto&) {},
+      },
+      exp);
+  writer << std::endl;
+}
+
+template <typename Writer>
+void write_expression(std_parser::rules::ast::Expression const& exp,
+                   Writer& writer) {
+  auto& exps = exp.expressions;
+  auto& ops = exp.operators;
+  auto size = exp.expressions.size();
+  writer << (size + exp.operators.size()) << std::endl;
+  if (size > 0) {
+    write_expression_var(exps.front(), writer);
+  }
+  for (std::size_t i = 1; i < size; i++) {
+    write_operator(ops[i - 1], writer);
+    write_expression_var(exps[i], writer);
+  }
+}
+
 
 template <typename Writer>
 void write_variables(std::vector<std_parser::rules::ast::var> const& variables,
@@ -192,6 +343,7 @@ void write_variables(std::vector<std_parser::rules::ast::var> const& variables,
     write_type(v.type, writer);
     writer << static_cast<int>(modifier);
     writer << v.name << std::endl;
+    write_expression(v.init, writer);
   }
 }
 
@@ -206,8 +358,52 @@ void write_bases(
 }
 
 template <typename Writer>
+void write_template_params(
+    std::optional<std_parser::rules::ast::TemplateParameters> const&
+        template_params,
+    Writer& writer) {
+  writer << template_params.has_value() << std::endl;
+  if(not template_params) {
+    return;
+  }
+
+  auto& params = template_params.value();
+
+  writer << params.size() << std::endl;
+  for (auto& p : params) {
+    writer << helper::join(p.type, "::") << std::endl;
+    writer << p.name << std::endl;
+  }
+}
+
+template <typename Writer>
+void write_template_specialization(
+    std_parser::rules::ast::TemplateTypes const& template_specialization,
+    Writer& writer) {
+  auto& args = template_specialization.template_types;
+  writer << args.size() << std::endl;
+  for (auto& p : args) {
+    std::visit(overloaded{
+                   [&](std_parser::rules::ast::LiteralExpression const& l) {
+                     writer << helper::to_string(l.lit);
+                   },
+                   [&](std_parser::rules::ast::Type const& t) {
+                     writer << helper::to_string(t);
+                   },
+               },
+               p);
+    writer << std::endl;
+  }
+}
+
+template <typename Writer>
 void write_class(std_parser::rules::ast::Class& cls, Writer& writer) {
   writer << cls.name << std::endl;
+
+  write_template_params(cls.template_parameters, writer);
+
+  write_template_specialization(cls.specialization, writer);
+
   writer << (cls.public_methods.size() + cls.private_methods.size() +
              cls.protected_methods.size() + cls.unspecified_methods.size())
          << std::endl;
@@ -236,6 +432,18 @@ void write_class(std_parser::rules::ast::Class& cls, Writer& writer) {
   write_bases(cls.public_bases, AccessModifier::PUBLIC, writer);
   write_bases(cls.private_bases, AccessModifier::PROTECTED, writer);
   write_bases(cls.protected_bases, AccessModifier::PRIVATE, writer);
+
+
+  std::size_t num_sub_classes = 0;
+  for(auto it : cls.classes) {
+    num_sub_classes += it.second.size();
+  }
+  writer << num_sub_classes << std::endl;
+  for(auto it : cls.classes) {
+    for(auto& c : it.second){
+      write_class(c, writer);
+    }
+  }
 }
 
 enum class ParsedResult { OK, Error };
@@ -244,6 +452,7 @@ template <class StdParser, class ErrorReporter>
 void handle_meta_process_request(MetaProcess& process, StdParser& std_parser,
                                  std::string_view request,
                                  ErrorReporter& reporter) {
+  std::cout << "Recieved request: " << request;
   auto out = std_parser.try_parse_entire_class(request.begin(), request.end());
   if (out.result) {
     process.output << static_cast<int>(ParsedResult::OK) << std::endl;

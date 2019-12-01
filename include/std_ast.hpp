@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <variant>
 #include <vector>
+#include <list>
 
 #include <boost/fusion/include/adapt_struct.hpp>
 
@@ -22,14 +23,23 @@ struct SourceLocation {
 using Type_ = std::vector<std::string>;
 
 struct Type;
+struct LiteralExpression;
 
 struct TemplateTypes {
-  std::vector<Type> template_types;
+  std::vector<std::variant<Type, LiteralExpression>> template_types;
+};
+
+struct unqulified_type {
+  Type_ name;
+  TemplateTypes template_types;
 };
 
 struct UnqulifiedType {
-  Type_ name;
-  TemplateTypes template_types;
+  std::vector<unqulified_type> type;
+};
+
+struct Literal {
+  std::variant<std::vector<int64_t>, double, char, std::string> lit;
 };
 
 enum class TypeQualifier { Const, Constexpr, L_Ref, R_Ref, Pointer };
@@ -93,11 +103,7 @@ struct TemplateParameter {
   std::string name;
 };
 
-struct TemplateParameters {
-  std::vector<TemplateParameter> template_parameters;
-
-  bool empty() { return template_parameters.empty(); }
-};
+using TemplateParameters = std::vector<TemplateParameter>;
 
 struct function_signiture_old {
   TemplateParameters template_parameters;
@@ -178,9 +184,10 @@ struct class_bases {
 };
 
 struct class_or_struct {
-  TemplateParameters template_parameters;
+  std::optional<std::vector<TemplateParameter>> template_parameters;
   class_type type;
   std::string name;
+  TemplateTypes specialization;
   class_bases bases;
 };
 
@@ -231,28 +238,28 @@ struct VariableExpression {
    * Return true if no :: in name and not template params <>
    */
   bool has_name_only() const {
-    return expression.name.size() == 1 and
-           expression.template_types.template_types.empty();
+    return expression.type.size() == 1 and
+           expression.type.front().name.size() == 1 and
+           expression.type.front().template_types.template_types.empty();
   }
 
-  std::string const& get_single_name() const { return expression.name.front(); }
+  std::string const& get_single_name() const { return expression.type.front().name.front(); }
 };
 
 struct LiteralExpression {
-  // TODO: add the literal
+  Literal lit;
   UnqulifiedType type;
-
-  LiteralExpression() = default;
-  LiteralExpression(UnqulifiedType&& ut) : type{std::move(ut)} {}
 };
 
 struct RoundExpression;
 struct CurlyExpression;
 struct Lambda;
 
-using ExpressionVariant =
-    std::variant<VariableExpression, LiteralExpression, RoundExpression,
-                 CurlyExpression, Lambda>;
+using ExpressionVariant = std::variant<VariableExpression,
+                                       LiteralExpression,
+                                       RoundExpression,
+                                       CurlyExpression,
+                                       Lambda>;
 
 struct RoundExpression {
   std::optional<UnqulifiedType> functor;
@@ -361,7 +368,7 @@ struct ValueExpression {
   std::variant<RoundExpression, CurlyExpression, VariableExpression> exp;
 
   // TODO: maybe constraint it to variants that contain Expression
-  template <class... Ts>
+  template<class... Ts>
   operator std::variant<Ts...>() {
     return std::visit(
         [this](auto& exp) {
@@ -407,12 +414,10 @@ struct Enumeration {
 
   SourceLocation loc;
 
-  Enumeration(enum_&& e)
-      : type{e.type}, name{std::move(e.name)}, as{std::move(e.as)} {}
+  Enumeration(enum_&& e) :
+      type{e.type}, name{std::move(e.name)}, as{std::move(e.as)} {}
 
-  void set_enumerators(std::vector<std::string>&& e) {
-    enumerators = std::move(e);
-  }
+  void set_enumerators(std::vector<std::string>&& e) { enumerators = std::move(e); }
 
   bool is_scoped() { return type == EnumType::ENUM_CLASS; }
 };
@@ -441,73 +446,75 @@ struct Function {
 
   Function() = default;
 
-  Function(function_signiture_old&& fun)
-      : template_parameters{std::move(fun.template_parameters)},
-        is_constexpr{fun.is_constexpr},
-        return_type{std::move(fun.return_type)},
-        name{std::move(fun.name)},
-        parameters{std::move(fun.parameters)},
-        is_noexcept{fun.is_noexcept},
-        loc{fun.loc} {}
+  Function(function_signiture_old&& fun) :
+      template_parameters{std::move(fun.template_parameters)},
+      is_constexpr{fun.is_constexpr},
+      return_type{std::move(fun.return_type)},
+      name{std::move(fun.name)},
+      parameters{std::move(fun.parameters)},
+      is_noexcept{fun.is_noexcept},
+      loc{fun.loc} {}
 
-  Function(FunctionDeclaration&& fun)
-      : template_parameters{std::move(fun.template_parameters)},
-        is_constexpr{fun.is_constexpr},
-        return_type{std::move(fun.return_type)},
-        name{std::move(fun.name)},
-        parameters{std::move(fun.parameters)},
-        is_noexcept{fun.is_noexcept},
-        loc{fun.loc} {}
+  Function(FunctionDeclaration&& fun) :
+      template_parameters{std::move(fun.template_parameters)},
+      is_constexpr{fun.is_constexpr},
+      return_type{std::move(fun.return_type)},
+      name{std::move(fun.name)},
+      parameters{std::move(fun.parameters)},
+      is_noexcept{fun.is_noexcept},
+      loc{fun.loc} {}
 
-  Function(method_signiture&& fun)
-      : template_parameters{std::move(fun.template_parameters)},
-        is_constexpr{fun.is_constexpr},
-        is_virtual{fun.is_virtual},
-        return_type{std::move(fun.return_type)},
-        name{std::move(fun.name)},
-        parameters{std::move(fun.parameters)},
-        is_const{fun.is_const},
-        qualifier{fun.qualifier},
-        is_noexcept{fun.is_noexcept},
-        is_override{fun.is_override},
-        is_pure_virtual{fun.is_pure_virtual},
-        loc{fun.loc} {}
+  Function(method_signiture&& fun) :
+      template_parameters{std::move(fun.template_parameters)},
+      is_constexpr{fun.is_constexpr},
+      is_virtual{fun.is_virtual},
+      return_type{std::move(fun.return_type)},
+      name{std::move(fun.name)},
+      parameters{std::move(fun.parameters)},
+      is_const{fun.is_const},
+      qualifier{fun.qualifier},
+      is_noexcept{fun.is_noexcept},
+      is_override{fun.is_override},
+      is_pure_virtual{fun.is_pure_virtual},
+      loc{fun.loc} {}
 
-  Function(constructor&& fun)
-      : template_parameters{std::move(fun.template_parameters)},
-        is_constexpr{fun.is_constexpr},
-        is_virtual{fun.is_virtual},
-        constructor_type{fun.type},
-        return_type{},
-        name{std::move(fun.name)},
-        parameters{std::move(fun.parameters)},
-        is_noexcept{fun.is_noexcept},
-        is_pure_virtual{fun.is_pure_virtual},
-        loc{fun.loc} {}
+  Function(constructor&& fun) :
+      template_parameters{std::move(fun.template_parameters)},
+      is_constexpr{fun.is_constexpr},
+      is_virtual{fun.is_virtual},
+      constructor_type{fun.type},
+      return_type{},
+      name{std::move(fun.name)},
+      parameters{std::move(fun.parameters)},
+      is_noexcept{fun.is_noexcept},
+      is_pure_virtual{fun.is_pure_virtual},
+      loc{fun.loc} {}
 
-  Function(operator_signiture&& fun)
-      : template_parameters{std::move(fun.template_parameters)},
-        is_constexpr{fun.is_constexpr},
-        return_type{std::move(fun.return_type)},
-        // TODO: need operator name
-        name{"op"},
-        parameters{std::move(fun.parameters)},
-        is_noexcept{fun.is_noexcept},
-        is_pure_virtual{fun.is_pure_virtual},
-        loc{fun.loc} {}
+  Function(operator_signiture&& fun) :
+      template_parameters{std::move(fun.template_parameters)},
+      is_constexpr{fun.is_constexpr},
+      return_type{std::move(fun.return_type)},
+      // TODO: need operator name
+      name{"op"},
+      parameters{std::move(fun.parameters)},
+      is_noexcept{fun.is_noexcept},
+      is_pure_virtual{fun.is_pure_virtual},
+      loc{fun.loc} {}
 };
 
 struct Class {
   class_type type;
   std::string name;
-  TemplateParameters template_parameters;
+  std::optional<TemplateParameters> template_parameters;
+  TemplateTypes specialization;
   access_modifier state;
 
   std::vector<UnqulifiedType> public_bases;
   std::vector<UnqulifiedType> protected_bases;
   std::vector<UnqulifiedType> private_bases;
 
-  std::map<std::string, Class> classes;
+  // can have same class names i.e. specializations
+  std::map<std::string, std::list<Class>> classes;
   std::map<std::string, Enumeration> enums;
 
   std::vector<Function> public_methods;
@@ -522,10 +529,11 @@ struct Class {
 
   SourceLocation loc;
 
-  Class(class_or_struct&& cs)
-      : type{cs.type},
-        name{std::move(cs.name)},
-        template_parameters{std::move(cs.template_parameters)} {
+  Class(class_or_struct&& cs) :
+      type{cs.type},
+      name{std::move(cs.name)},
+      template_parameters{std::move(cs.template_parameters)},
+      specialization{std::move(cs.specialization)} {
     switch (type) {
       case class_type::CLASS:
         state = access_modifier::PRIVATE;
@@ -557,11 +565,11 @@ struct Class {
 
   void set_access_modifier(access_modifier mod) { state = mod; }
 
-  bool is_templated() { return !template_parameters.empty(); }
+  bool is_templated() { return template_parameters.has_value(); }
 
   void add_class(Class&& class_or_struct) {
     auto name = class_or_struct.name;
-    classes.emplace(name, std::move(class_or_struct));
+    classes[name].push_back(std::move(class_or_struct));
   }
 
   void add_enum(Enumeration&& enumeration) {
@@ -641,8 +649,7 @@ class Scope {
 };
 
 class Namespace {
-  using CodeFragment =
-      std::variant<Class, Enumeration, Function, var, Namespace>;
+  using CodeFragment = std::variant<Class, Enumeration, Function, var, Namespace>;
 
   std::string name;
   std::vector<CodeFragment> code_fragments;
@@ -662,9 +669,7 @@ class Namespace {
     code_fragments.push_back(std::move(enumeration));
   }
 
-  void add_function(Function&& fun) {
-    code_fragments.push_back(std::move(fun));
-  }
+  void add_function(Function&& fun) { code_fragments.push_back(std::move(fun)); }
 
   Function const* find_function(std::string_view name) const {
     auto found = std::find_if(
@@ -695,39 +700,69 @@ class Namespace {
 
   void add_namespace(Namespace&& n) { code_fragments.push_back(std::move(n)); }
 };
-}  // namespace std_parser::rules::ast
+} // namespace std_parser::rules::ast
 
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::TemplateTypes, template_types)
-BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::UnqulifiedType, name,
+BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::unqulified_type,
+                          name,
                           template_types)
-BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::Type, left_qualifiers, type,
+BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::UnqulifiedType,
+                          type)
+BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::Type,
+                          left_qualifiers,
+                          type,
                           right_qualifiers)
+BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::Literal, lit)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::var, type, name)
+BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::LiteralExpression, lit, type)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::params, parameters)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::TemplateParameter, type, name)
-BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::TemplateParameters,
-                          template_parameters)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::ValueExpression, type, exp)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::function_signiture_old,
-                          template_parameters, is_constexpr, return_type, name,
-                          parameters, is_noexcept)
+                          template_parameters,
+                          is_constexpr,
+                          return_type,
+                          name,
+                          parameters,
+                          is_noexcept)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::FunctionDeclaration,
-                          template_parameters, is_constexpr, return_type, name)
+                          template_parameters,
+                          is_constexpr,
+                          return_type,
+                          name)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::method_signiture,
-                          template_parameters, is_constexpr, is_virtual,
-                          return_type, name, parameters, is_const, qualifier,
-                          is_noexcept, is_override, is_pure_virtual)
+                          template_parameters,
+                          is_constexpr,
+                          is_virtual,
+                          return_type,
+                          name,
+                          parameters,
+                          is_const,
+                          qualifier,
+                          is_noexcept,
+                          is_override,
+                          is_pure_virtual)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::operator_signiture,
-                          template_parameters, is_constexpr, is_virtual,
-                          return_type, parameters, is_noexcept, is_pure_virtual)
+                          template_parameters,
+                          is_constexpr,
+                          is_virtual,
+                          return_type,
+                          parameters,
+                          is_noexcept,
+                          is_pure_virtual)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::constructor,
-                          template_parameters, is_constexpr, is_virtual, type,
-                          name, parameters, is_noexcept, is_pure_virtual)
-BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::class_inheritance, modifier,
-                          type)
+                          template_parameters,
+                          is_constexpr,
+                          is_virtual,
+                          type,
+                          name,
+                          parameters,
+                          is_noexcept,
+                          is_pure_virtual)
+BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::class_inheritance, modifier, type)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::class_bases, bases)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::enum_, type, name, as)
-BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::class_or_struct,
-                          template_parameters, type, name, bases)
+BOOST_FUSION_ADAPT_STRUCT(
+    std_parser::rules::ast::class_or_struct, template_parameters, type, name, specialization, bases)
 
-#endif  // STD_AST_H
+#endif // STD_AST_H

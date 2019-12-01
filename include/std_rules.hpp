@@ -165,49 +165,50 @@ auto const namespace_begin_def =
     lit("namespace") >> some_space >> name >> scope_begin;
 
 // TODO: move the - sign in expressions not in digits
-x3::rule<class digits> const digits = "digits";
-auto const digits_def = -lit('-') >> optionaly_space >> +digit >>
-                        *(lit('\'') >> x3::omit[+digit]);
+x3::rule<class digits, std::vector<int64_t>> const digits = "digits";
+auto const digits_def = -lit('-') >> optionaly_space >> x3::long_long >> 
+                        *(lit('\'') >> x3::long_long);
 
-x3::rule<class integral, ast::UnqulifiedType> const integral = "integral";
+using VecUnqualifiedType = std::vector<ast::unqulified_type>;
+x3::rule<class integral, ast::LiteralExpression> const integral = "integral";
 auto const integral_def =
-    digits >>
-    (((lit("LLU") | "LLu" | "llU" | "llu") >>
-      x3::attr(ast::UnqulifiedType{{"unsigned long long int"}, {}})) |
+    digits >> 
+    (((lit("LLU") | "LLu" | "llU" | "llu") >> 
+      x3::attr(VecUnqualifiedType{{{"unsigned long long int"}, {}}})) |
      ((lit("LU") | "lU" | "Lu" | "lu") >>
-      x3::attr(ast::UnqulifiedType{{"unsigned long int"}, {}})) |
+      x3::attr(VecUnqualifiedType{{{"unsigned long int"}, {}}})) |
      ((lit("LL") | "ll") >>
-      x3::attr(ast::UnqulifiedType{{"long long int"}, {}})) |
-     ((lit('U') | 'u') >> x3::attr(ast::UnqulifiedType{{"unsigned int"}, {}})) |
-     ((lit('L') | 'l') >> x3::attr(ast::UnqulifiedType{{"long int"}, {}})) |
-     x3::attr(ast::UnqulifiedType{{"int"}, {}}));
+      x3::attr(VecUnqualifiedType{{{"long long int"}, {}}})) |
+     ((lit('U') | 'u') >> x3::attr(VecUnqualifiedType{{{"unsigned int"}, {}}})) |
+     ((lit('L') | 'l') >> x3::attr(VecUnqualifiedType{{{"long int"}, {}}})) |
+     x3::attr(VecUnqualifiedType{{{"int"}, {}}}));
 
-x3::rule<class floating, ast::UnqulifiedType> const floating = "floating";
+x3::rule<class floating, ast::LiteralExpression> const floating = "floating";
 auto const floating_def =
-    ((digits >> '.' >> -digits) | (lit('.') >> digits)) >>
-    (((lit('f') | 'F') >> x3::attr(ast::UnqulifiedType{{"float"}, {}})) |
-     ((lit('l') | 'L') >> x3::attr(ast::UnqulifiedType{{"long double"}, {}})) |
+    x3::omit[((digits >> '.' >> -digits) | (lit('.') >> digits))] >> x3::attr(ast::Literal{3.4}) >>
+    (((lit('f') | 'F') >> x3::attr(VecUnqualifiedType{{{"float"}, {}}})) |
+     ((lit('l') | 'L') >> x3::attr(VecUnqualifiedType{{{"long double"}, {}}})) |
      // if not specified default to double
-     x3::attr(ast::UnqulifiedType{{"double"}, {}}));
+     x3::attr(VecUnqualifiedType{{{"double"}, {}}}));
 
-x3::rule<class number, ast::UnqulifiedType> const number = "number";
+x3::rule<class number, ast::LiteralExpression> const number = "number";
 auto const number_def = floating | integral;
 
 // TODO: add support for escaped /" inside string
 x3::rule<class quoted_string> const quoted_string = "quoted_string";
 auto const quoted_string_def = lit('"') >> *(char_ - '"') >> '"';
 
-x3::rule<class string_literal, ast::UnqulifiedType> const string_literal =
+x3::rule<class string_literal, ast::LiteralExpression> const string_literal =
     "string_literal";
-auto const string_literal_def = x3::omit[quoted_string % optionaly_space] >>
+auto const string_literal_def = x3::omit[quoted_string % optionaly_space] >> x3::attr(ast::Literal{std::string{"asd"}}) >>
                                 // TODO: need to emit the string value
-                                x3::attr(ast::UnqulifiedType{{"char[]"}, {}});
+                                x3::attr(VecUnqualifiedType{{{"char[]"}, {}}});
 
 // TODO: is this ok?
-x3::rule<class char_literal, ast::UnqulifiedType> const char_literal =
+x3::rule<class char_literal, ast::LiteralExpression> const char_literal =
     "char_literal";
-auto const char_literal_def = x3::omit[lit('\'') >> (char_ - '\'') >> '\''] >>
-                              x3::attr(ast::UnqulifiedType{{"char"}, {}});
+auto const char_literal_def = x3::omit[lit('\'') >> (char_ - '\'') >> '\''] >> x3::attr(ast::Literal{'x'}) >>
+                              x3::attr(VecUnqualifiedType{{{"char"}, {}}});
 
 x3::rule<class type_, ast::Type_> const type_ = "type_";
 auto const type__def = name >> *(lit("::") >> name);
@@ -217,15 +218,18 @@ x3::rule<class type_qualifiers, std::vector<ast::TypeQualifier>> const
 // NOTE: !name is to not parse const from start of a name e.g. int const_name
 auto const type_qualifiers_def = type_qualifier % optionaly_space >> !name;
 
-x3::rule<class var_type, ast::UnqulifiedType> const var_type = "var_type";
+x3::rule<class var_type_part, ast::unqulified_type> const var_type_part = "var_type_part";
+x3::rule<class var_type, VecUnqualifiedType> const var_type = "var_type";
 x3::rule<class type, ast::Type> const type = "type";
 x3::rule<class template_values, ast::TemplateTypes> const template_values =
     "template_values";
 
-auto const var_type_def = (type_) >> -(optionaly_space >> template_values);
+auto const var_type_part_def = (type_) >> -(optionaly_space >> template_values);
+
+auto const var_type_def = var_type_part >> *(lit("::") >> var_type_part);
 
 auto const template_values_def = '<' >> optionaly_space >>
-                                 ((type | digits) % arg_separator) >> '>';
+                                 ((type | integral) % arg_separator) >> '>';
 
 auto const type_def = -(type_qualifiers >> some_space) >> var_type >>
                       -(optionaly_space >> type_qualifiers);
@@ -436,7 +440,7 @@ x3::rule<class template_parameters, ast::TemplateParameters> const
     template_parameters = "template_parameters";
 auto const template_parameters_def =
     lit("template") >> optionaly_space >> '<' >> optionaly_space >>
-    template_parameter % arg_separator >> optionaly_space >> '>';
+    -(template_parameter % arg_separator) >> optionaly_space >> '>';
 
 x3::rule<class function_signiture_old, ast::function_signiture_old> const
     function_signiture_old = "function_signiture_old";
@@ -494,8 +498,8 @@ auto const constructor_def = -(template_parameters >> optionaly_space) >>
                              bool_attr(lit("virtual") >> some_space) >>
                              -(is_constructor >> optionaly_space) >> name
                              >> optionaly_space >> '(' >> optionaly_space
-                             >> optionaly_params >> ')' >> is_noexcept
-                             >> is_pure_virtual >>
+                             >> optionaly_params >> optionaly_space>> ')'
+                             >> is_noexcept >> is_pure_virtual >>
                              -(optionaly_space >> ':' >> optionaly_space >>
                                constructor_init % arg_separator);
 
@@ -512,7 +516,7 @@ auto const class_inheritances_def =
 x3::rule<class class_or_struct, ast::class_or_struct> const class_or_struct =
     "class_or_struct";
 auto const class_or_struct_def = -(template_parameters >> optionaly_space) >>
-                                 class_type >> some_space >> name >>
+                                 class_type >> some_space >> name >> -template_values >>
                                  -(optionaly_space >> class_inheritances);
 
 x3::rule<class enumeration, ast::enum_> const enumeration = "enumeration";
@@ -525,28 +529,90 @@ x3::rule<class enumerators, std::vector<std::string>> const enumerators =
     "enumerators";
 auto const enumerators_def = name % arg_separator;
 
-BOOST_SPIRIT_DEFINE(
-    some_space, optionaly_space, include, skip_line, comment, arg_separator,
-    class_access_modifier, prefix_operator, sufix_operator,
-    all_overloadable_operators, operator_sep_old, operator_sep,
-    param_operator_sep, call_operator, scope_begin, scope_end, namespace_begin,
-    statement_end, name, type_, type_qualifiers, type, var_type,
-    template_values, digits, integral, floating, number, quoted_string,
-    string_literal, char_literal, argument, optionaly_arguments, function_call,
-    expression_old, paren_expression_old, optionaly_paren_expression_old,
-    init_list, arg_init_list, optionaly_params, return_statement, type_or_name,
-    literal, parenthesis_begin, parenthesis_expr_begin, parenthesis_end,
-    curly_begin, curly_end, expression, capture_default, capture_params,
-    lambda_capture, lambda_specifiers, lambda, param, optional_param,
-    param_optionaly_default_old, var_old, var_with_init, constructor_init,
-    for_loop, while_loop, if_expression, else_expression);
+BOOST_SPIRIT_DEFINE(some_space,
+                    optionaly_space,
+                    include,
+                    skip_line,
+                    comment,
+                    arg_separator,
+                    class_access_modifier,
+                    prefix_operator,
+                    sufix_operator,
+                    all_overloadable_operators,
+                    operator_sep_old,
+                    operator_sep,
+                    param_operator_sep,
+                    call_operator,
+                    scope_begin,
+                    scope_end,
+                    namespace_begin,
+                    statement_end,
+                    name,
+                    type_,
+                    type_qualifiers,
+                    type,
+                    var_type_part,
+                    var_type,
+                    template_values,
+                    digits,
+                    integral,
+                    floating,
+                    number,
+                    quoted_string,
+                    string_literal,
+                    char_literal,
+                    argument,
+                    optionaly_arguments,
+                    function_call,
+                    expression_old,
+                    paren_expression_old,
+                    optionaly_paren_expression_old,
+                    init_list,
+                    arg_init_list,
+                    optionaly_params,
+                    return_statement,
+                    type_or_name,
+                    literal,
+                    parenthesis_begin,
+                    parenthesis_expr_begin,
+                    parenthesis_end,
+                    curly_begin,
+                    curly_end,
+                    expression,
+                    capture_default,
+                    capture_params,
+                    lambda_capture,
+                    lambda_specifiers,
+                    lambda,
+                    param,
+                    optional_param,
+                    param_optionaly_default_old,
+                    var_old,
+                    var_with_init,
+                    constructor_init,
+                    for_loop,
+                    while_loop,
+                    if_expression
+                    );
 
-BOOST_SPIRIT_DEFINE(template_parameter, template_parameters, is_noexcept,
-                    function_signiture_old, function_start,
-                    function_declaration, is_pure_virtual, method_signiture,
-                    operator_signiture, constructor, class_inheritance,
-                    class_inheritances, class_or_struct, enumeration,
-                    enumerators, variable_expression, fce_expression);
+BOOST_SPIRIT_DEFINE(else_expression,
+                    template_parameter,
+                    template_parameters,
+                    is_noexcept,
+                    function_signiture_old,
+                    function_start,
+                    function_declaration,
+                    is_pure_virtual,
+                    method_signiture,
+                    operator_signiture,
+                    constructor,
+                    class_inheritance,
+                    class_inheritances,
+                    class_or_struct,
+                    enumeration,
+                    enumerators,
+                    variable_expression,
+                    fce_expression);
 }  // namespace std_parser::rules
 
 #endif  //! STD_RULES_H

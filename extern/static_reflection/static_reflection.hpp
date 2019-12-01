@@ -34,6 +34,7 @@ namespace helper = std_parser::rules::ast;
 
 template <class Parent>
 class StaticReflexParser {
+  using Namespace = std_parser::rules::ast::Namespace;
   using Class = std_parser::rules::ast::Class;
   using Enumeration = std_parser::rules::ast::Enumeration;
   using Expression = std_parser::rules::ast::Expression;
@@ -108,7 +109,7 @@ class StaticReflexParser {
 
     if (c.is_templated()) {
       out += "template <";
-      for (auto& tmp : c.template_parameters.template_parameters) {
+      for (auto& tmp : c.template_parameters.value()) {
         for (auto& s : tmp.type) {
           out += s;
           out += "::";
@@ -130,7 +131,7 @@ class StaticReflexParser {
     if (c.is_templated()) {
       class_templates.reserve(50);
       class_templates += "<";
-      for (auto& tmp : c.template_parameters.template_parameters) {
+      for (auto& tmp : c.template_parameters.value()) {
         class_templates += tmp.name;
         class_templates += ',';
       }
@@ -355,6 +356,18 @@ class StaticReflexParser {
     return std::optional{Result{it, std::string{">"}}};
   }
 
+  bool is_current_code_fragment_inside_namespace() {
+    auto& std_parser = parent.template get_parser<Parent::std_parser_id>();
+    auto const& code_fragments = std_parser.get_all_code_fragments();
+    if (code_fragments.size() <= 1) {
+      return false;
+    }
+
+    auto& before_current = code_fragments[code_fragments.size() - 2];
+    return std::holds_alternative<Namespace>(before_current);
+  }
+
+
   // DATA members
   Parent& parent;
 
@@ -379,6 +392,10 @@ class StaticReflexParser {
   Out<Source> parse(Source& source) {
     auto& std_parser = parent.template get_parser<Parent::std_parser_id>();
     if (std_parser.template is_current_code_fragment<Class, Enumeration>()) {
+      // TODO: generate reflection for nested structs inside a struct
+      if (not is_current_code_fragment_inside_namespace()) {
+        return std::nullopt;
+      }
       auto end_of_scope = parse_end_of_scope(source);
       return end_of_scope ? get_reflection(*end_of_scope) : std::nullopt;
     } else if (std_parser.template is_current_code_fragment<Expression>()) {
@@ -386,8 +403,7 @@ class StaticReflexParser {
       return begin_of_reflexpr ? process_reflexpr(*begin_of_reflexpr)
                                : std::nullopt;
     } else if (in_reflexpr &&
-               std_parser
-                   .template is_current_code_fragment<RoundExpression>()) {
+               std_parser.template is_current_code_fragment<RoundExpression>()) {
       auto end_of_reflexpr = parse_end_reflexpr(source);
       return end_of_reflexpr ? close_reflexpr(*end_of_reflexpr) : std::nullopt;
     }
