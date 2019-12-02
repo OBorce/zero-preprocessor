@@ -120,6 +120,12 @@ class StdParserState {
       ast_state.emplace_back(rules::ast::Namespace{std::move(rez)});
     };
 
+    auto ded_guid = [this, &current](auto& ctx) {
+      auto& rez = _attr(ctx);
+      rez.loc = ast_state.get_location();
+      current.add_user_deduction_guide(std::move(rez));
+    };
+
     auto se = [&](auto&) {
       if (ast_state.size() < 2) {
         // NOTE: more closing brackets than opened
@@ -148,9 +154,10 @@ class StdParserState {
             ((rules::class_or_struct >> rules::scope_begin)[nest] |
              (rules::class_or_struct >> rules::statement_end) |
              (rules::function_declaration)[fun_decl] |
-             // TODO: change operator_signiture as as function_declaration
-             (rules::operator_signiture >> rules::scope_begin)[fun] |
-             (rules::operator_signiture >> rules::statement_end) |
+             (rules::user_class_template_deduction_guide)[ded_guid] |
+             // TODO: change operator_signature as as function_declaration
+             (rules::operator_signature >> rules::scope_begin)[fun] |
+             (rules::operator_signature >> rules::statement_end) |
              (rules::enumeration >> rules::scope_begin)[nest] |
              (rules::enumeration >> rules::statement_end) |
              rules::namespace_begin[sb] | rules::scope_end[se] |
@@ -215,10 +222,10 @@ class StdParserState {
         rules::some_space |
             ((rules::class_or_struct >> rules::scope_begin)[nest] |
              (rules::class_or_struct >> rules::statement_end) |
-             (rules::method_signiture >> rules::scope_begin)[fun] |
-             (rules::method_signiture >> rules::statement_end)[funSig] |
-             (rules::operator_signiture >> rules::scope_begin)[fun] |
-             (rules::operator_signiture >> rules::statement_end)[funSig] |
+             (rules::method_signature >> rules::scope_begin)[fun] |
+             (rules::method_signature >> rules::statement_end)[funSig] |
+             (rules::operator_signature >> rules::scope_begin)[fun] |
+             (rules::operator_signature >> rules::statement_end)[funSig] |
              (rules::constructor >> rules::scope_begin)[fun] |
              (rules::constructor >> rules::statement_end)[funSig] |
              (rules::enumeration >> rules::scope_begin)[nest] |

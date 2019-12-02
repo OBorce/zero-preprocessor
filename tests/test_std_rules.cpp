@@ -196,8 +196,8 @@ TEST_CASE("Parse valid for lambda capture", "[lambda]") {
   }
 }
 
-TEST_CASE("Parse valid function_signitures", "[function_signiture]") {
-  std::array valid_function_signitures{
+TEST_CASE("Parse valid function_signatures", "[function_signature]") {
+  std::array valid_function_signatures{
       "int a()"s,
       "std::string s(int i)"s,
       "void s(const int i)"s,
@@ -212,14 +212,29 @@ TEST_CASE("Parse valid function_signitures", "[function_signiture]") {
       "template<typename T, int N = 0> auto def_arg(T a = 2, long l = 3l)"s,
       "const some_Type* function_a2(std::asd::ddd d)"s};
 
-  for (auto& valid_function_signiture : valid_function_signitures) {
-    REQUIRE_THAT(valid_function_signiture,
-                 CanParse(rules::function_signiture_old, "function_signiture"));
+  for (auto& valid_function_signature : valid_function_signatures) {
+    REQUIRE_THAT(valid_function_signature,
+                 CanParse(rules::function_signature_old, "function_signature"));
   }
 }
 
-TEST_CASE("Parse valid method_signitures", "[method_signiture]") {
-  std::array valid_method_signitures{
+TEST_CASE("Parse valid user class deduction guide",
+          "[deduction_guide]") {
+  std::array valid_deduction_guides{
+      "template<typename T> Foo(T a, long l) -> Foo<T>;"s,
+      "template<typename T> Foo(T&) -> Foo<T>;"s,
+      "template<typename T> Foo(const T&) -> Foo<T&>;"s,
+      };
+
+  for (auto& valid_deduction_guide : valid_deduction_guides) {
+    REQUIRE_THAT(valid_deduction_guide,
+                 CanParse(rules::user_class_template_deduction_guide,
+                          "user_class_template_deduction_guide"));
+  }
+}
+
+TEST_CASE("Parse valid method_signatures", "[method_signature]") {
+  std::array valid_method_signatures{
       "int a()"s,
       "std::string s(int i)"s,
       "void s(const int i)"s,
@@ -241,14 +256,14 @@ TEST_CASE("Parse valid method_signitures", "[method_signiture]") {
       "template<typename T, int N = 0> auto def_arg(T a = 2, long l = 3l)"s,
       "const some_Type* function_a2(std::asd::ddd d)"s};
 
-  for (auto& valid_method_signiture : valid_method_signitures) {
-    REQUIRE_THAT(valid_method_signiture,
-                 CanParse(rules::method_signiture, "method_signiture"));
+  for (auto& valid_method_signature : valid_method_signatures) {
+    REQUIRE_THAT(valid_method_signature,
+                 CanParse(rules::method_signature, "method_signature"));
   }
 }
 
-TEST_CASE("Parse valid operator_signitures", "[operator_signiture]") {
-  std::array valid_operator_signitures{
+TEST_CASE("Parse valid operator_signatures", "[operator_signature]") {
+  std::array valid_operator_signatures{
       "std::ostream& operator<<(std::ostream& os)"s,
       "void operator++()"s,
       "void operator++(int)"s,
@@ -262,9 +277,9 @@ TEST_CASE("Parse valid operator_signitures", "[operator_signiture]") {
       "virtual void operator [ ] (int idx) = 0"s,
       "bool operator>=(int a, int b)"s};
 
-  for (auto& valid_operator_signiture : valid_operator_signitures) {
-    REQUIRE_THAT(valid_operator_signiture,
-                 CanParse(rules::operator_signiture, "operator_signiture"));
+  for (auto& valid_operator_signature : valid_operator_signatures) {
+    REQUIRE_THAT(valid_operator_signature,
+                 CanParse(rules::operator_signature, "operator_signature"));
   }
 }
 

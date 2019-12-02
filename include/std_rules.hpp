@@ -442,17 +442,25 @@ auto const template_parameters_def =
     lit("template") >> optionaly_space >> '<' >> optionaly_space >>
     -(template_parameter % arg_separator) >> optionaly_space >> '>';
 
-x3::rule<class function_signiture_old, ast::function_signiture_old> const
-    function_signiture_old = "function_signiture_old";
-auto const function_signiture_old_def =
+x3::rule<class function_signature_old, ast::function_signature_old> const
+    function_signature_old = "function_signature_old";
+auto const function_signature_old_def =
     -(template_parameters >> optionaly_space) >>
     bool_attr(lit("constexpr") >> some_space) >> type >> some_space >> name
     >> optionaly_space >> '(' >> optionaly_space >> optionaly_params >>
     ')' >> is_noexcept;
 
-x3::rule<class function_start, ast::function_signiture_old> const
+x3::rule<class user_class_template_deduction_guide,
+         ast::UserDeductionGuide> const user_class_template_deduction_guide =
+    "user_class_template_deduction_guide";
+auto const user_class_template_deduction_guide_def =
+    -(template_parameters >> optionaly_space) >> name >> optionaly_space >>
+    '(' >> optionaly_space >> optionaly_params >> optionaly_space >> ')' >>
+    optionaly_space >> lit("->") >> optionaly_space >> type >> statement_end;
+
+x3::rule<class function_start, ast::function_signature_old> const
     function_start = "function_start";
-auto const function_start_def = function_signiture_old >> scope_begin;
+auto const function_start_def = function_signature_old >> scope_begin;
 
 x3::rule<class function_declaration, ast::FunctionDeclaration> const
     function_declaration = "function_declaration";
@@ -465,11 +473,11 @@ x3::rule<class is_pure_virtual, bool> const is_pure_virtual = "is_pure_virtual";
 auto const is_pure_virtual_def =
     bool_attr(optionaly_space >> '=' >> optionaly_space >> '0');
 
-x3::rule<class method_signiture, ast::method_signiture> const method_signiture =
-    "method_signiture";
+x3::rule<class method_signature, ast::method_signature> const method_signature =
+    "method_signature";
 // TODO: this allows for both template and virtual, but the real compiler will
 // handle it; maybe separate into two definitions and do an | on them
-auto const method_signiture_def =
+auto const method_signature_def =
     -(template_parameters >> optionaly_space) >>
     bool_attr(lit("constexpr") >> some_space) >>
     bool_attr(lit("virtual") >> some_space) >> type >> some_space >> name
@@ -479,9 +487,9 @@ auto const method_signiture_def =
     bool_attr(lit("override")) >> is_pure_virtual;
 
 // TODO: const operators and &&
-x3::rule<class operator_signiture, ast::operator_signiture> const
-    operator_signiture = "operator_signiture";
-auto const operator_signiture_def = -(template_parameters >> optionaly_space) >>
+x3::rule<class operator_signature, ast::operator_signature> const
+    operator_signature = "operator_signature";
+auto const operator_signature_def = -(template_parameters >> optionaly_space) >>
                                     bool_attr(lit("constexpr") >> some_space) >>
                                     bool_attr(lit("virtual")) >> optionaly_space
                                     >> type >> some_space >>
@@ -595,24 +603,13 @@ BOOST_SPIRIT_DEFINE(some_space,
                     if_expression
                     );
 
-BOOST_SPIRIT_DEFINE(else_expression,
-                    template_parameter,
-                    template_parameters,
-                    is_noexcept,
-                    function_signiture_old,
-                    function_start,
-                    function_declaration,
-                    is_pure_virtual,
-                    method_signiture,
-                    operator_signiture,
-                    constructor,
-                    class_inheritance,
-                    class_inheritances,
-                    class_or_struct,
-                    enumeration,
-                    enumerators,
-                    variable_expression,
-                    fce_expression);
+BOOST_SPIRIT_DEFINE(else_expression, user_class_template_deduction_guide,
+                    template_parameter, template_parameters, is_noexcept,
+                    function_signature_old, function_start,
+                    function_declaration, is_pure_virtual, method_signature,
+                    operator_signature, constructor, class_inheritance,
+                    class_inheritances, class_or_struct, enumeration,
+                    enumerators, variable_expression, fce_expression);
 }  // namespace std_parser::rules
 
 #endif  //! STD_RULES_H

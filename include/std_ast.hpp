@@ -105,13 +105,22 @@ struct TemplateParameter {
 
 using TemplateParameters = std::vector<TemplateParameter>;
 
-struct function_signiture_old {
+struct function_signature_old {
   TemplateParameters template_parameters;
   bool is_constexpr;
   Type return_type;
   std::string name;
   params parameters;
   bool is_noexcept;
+
+  SourceLocation loc;
+};
+
+struct UserDeductionGuide {
+  TemplateParameters template_parameters;
+  std::string name;
+  params parameters;
+  Type return_type;
 
   SourceLocation loc;
 };
@@ -127,7 +136,7 @@ struct FunctionDeclaration {
   SourceLocation loc;
 };
 
-struct operator_signiture {
+struct operator_signature {
   TemplateParameters template_parameters;
   bool is_constexpr;
   bool is_virtual;
@@ -139,7 +148,7 @@ struct operator_signiture {
   SourceLocation loc;
 };
 
-struct method_signiture {
+struct method_signature {
   TemplateParameters template_parameters;
   bool is_constexpr;
   bool is_virtual;
@@ -446,7 +455,7 @@ struct Function {
 
   Function() = default;
 
-  Function(function_signiture_old&& fun) :
+  Function(function_signature_old&& fun) :
       template_parameters{std::move(fun.template_parameters)},
       is_constexpr{fun.is_constexpr},
       return_type{std::move(fun.return_type)},
@@ -464,7 +473,7 @@ struct Function {
       is_noexcept{fun.is_noexcept},
       loc{fun.loc} {}
 
-  Function(method_signiture&& fun) :
+  Function(method_signature&& fun) :
       template_parameters{std::move(fun.template_parameters)},
       is_constexpr{fun.is_constexpr},
       is_virtual{fun.is_virtual},
@@ -490,7 +499,7 @@ struct Function {
       is_pure_virtual{fun.is_pure_virtual},
       loc{fun.loc} {}
 
-  Function(operator_signiture&& fun) :
+  Function(operator_signature&& fun) :
       template_parameters{std::move(fun.template_parameters)},
       is_constexpr{fun.is_constexpr},
       return_type{std::move(fun.return_type)},
@@ -649,7 +658,8 @@ class Scope {
 };
 
 class Namespace {
-  using CodeFragment = std::variant<Class, Enumeration, Function, var, Namespace>;
+  using CodeFragment = std::variant<Class, Enumeration, Function, var,
+                                    Namespace, UserDeductionGuide>;
 
   std::string name;
   std::vector<CodeFragment> code_fragments;
@@ -660,6 +670,10 @@ class Namespace {
   Namespace(std::string&& name) : name{std::move(name)} {}
 
   auto const& get_all_code_fragments() const { return code_fragments; }
+
+  void add_user_deduction_guide(UserDeductionGuide&& udg) {
+    code_fragments.push_back(std::move(udg));
+  }
 
   void add_class(Class&& class_or_struct) {
     code_fragments.push_back(std::move(class_or_struct));
@@ -718,19 +732,24 @@ BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::LiteralExpression, lit, type)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::params, parameters)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::TemplateParameter, type, name)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::ValueExpression, type, exp)
-BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::function_signiture_old,
+BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::function_signature_old,
                           template_parameters,
                           is_constexpr,
                           return_type,
                           name,
                           parameters,
                           is_noexcept)
+BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::UserDeductionGuide,
+                          template_parameters,
+                          name,
+                          parameters,
+                          return_type)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::FunctionDeclaration,
                           template_parameters,
                           is_constexpr,
                           return_type,
                           name)
-BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::method_signiture,
+BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::method_signature,
                           template_parameters,
                           is_constexpr,
                           is_virtual,
@@ -742,7 +761,7 @@ BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::method_signiture,
                           is_noexcept,
                           is_override,
                           is_pure_virtual)
-BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::operator_signiture,
+BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::operator_signature,
                           template_parameters,
                           is_constexpr,
                           is_virtual,
