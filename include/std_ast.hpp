@@ -42,7 +42,7 @@ struct Literal {
   std::variant<std::vector<int64_t>, double, char, std::string> lit;
 };
 
-enum class TypeQualifier { Const, Constexpr, L_Ref, R_Ref, Pointer };
+enum class TypeQualifier { Inline, Static, Const, Constexpr, L_Ref, R_Ref, Pointer };
 
 enum class MethodQualifier { NONE, L_REF, R_REF };
 

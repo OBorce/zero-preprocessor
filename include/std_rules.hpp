@@ -40,7 +40,9 @@ static struct enum_class_ : x3::symbols<ast::EnumType> {
 
 static struct type_qualifier_ : x3::symbols<ast::TypeQualifier> {
   type_qualifier_() {
-    add("constexpr", ast::TypeQualifier::Constexpr)(
+    add("inline", ast::TypeQualifier::Inline)(
+        "static", ast::TypeQualifier::Static)("constexpr",
+                                              ast::TypeQualifier::Constexpr)(
         "const", ast::TypeQualifier::Const)("&&", ast::TypeQualifier::R_Ref)(
         "&", ast::TypeQualifier::L_Ref)("*", ast::TypeQualifier::Pointer);
   }
@@ -216,7 +218,10 @@ auto const char_literal_def = x3::omit[lit('\'') >> (char_ - '\'') >> '\''] >> x
                               x3::attr(VecUnqualifiedType{{{"char"}, {}}});
 
 x3::rule<class type_, ast::Type_> const type_ = "type_";
-auto const type__def = name >> *(lit("::") >> name);
+auto const type__def =
+    name >> *(lit("::") >> optionaly_space >>
+              // TODO: template can only occure if the next one has <> or ()
+              -(lit("template") >> optionaly_space) >> name);
 
 x3::rule<class type_qualifiers, std::vector<ast::TypeQualifier>> const
     type_qualifiers = "type_qualifiers";
@@ -231,7 +236,8 @@ x3::rule<class template_values, ast::TemplateTypes> const template_values =
 
 auto const var_type_part_def = (type_) >> -(optionaly_space >> template_values);
 
-auto const var_type_def = var_type_part >> *(lit("::") >> var_type_part);
+auto const var_type_def = var_type_part >>
+                          *(lit("::") >> optionaly_space >> var_type_part);
 
 auto const template_values_def = '<' >> optionaly_space >>
                                  ((type | integral | string_literal) %

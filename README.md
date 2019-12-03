@@ -28,7 +28,7 @@ add_subdirectory(${preprocessor_dir} ${preprocessor_build_dir} EXCLUDE_FROM_ALL)
 # preprocess our example target
 preprocess(example ${preprocessor_dir})
 ```
-Tested on GCC 7.3, 8.3; Clang 6.0, 7.0 and MSVC 15.9
+Tested on GCC 7.3, 8.3, 9.2; Clang 6.0, 7.0, 9.0 and MSVC 15.9
 
 Also beware of the Clang + libstdc++ std::variant bug.
 
@@ -103,6 +103,8 @@ Things left to be implemented
 - [x] type templates
 - [x] non-type templates
 - [ ] variadic templates
+- [x] explicit/partial class template specialization
+- [x] user defined class template deduction guide
 - [x] Inheritance
 - [ ] virtual inheritance
 - [x] if constexpr

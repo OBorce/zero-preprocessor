@@ -95,6 +95,7 @@ TEST_CASE("Parse valid type", "[type]") {
                          "std::array<int, 5>"s,
                          "usr::Foo<int>::Type"s,
                          "usr::Name<int, \"foo\">"s,
+                         "T::template Meta<int>::Type"s,
                          "const int"s,
                          "auto&"s,
                          "auto&&"s,

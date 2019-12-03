@@ -53,7 +53,7 @@ class type;
 namespace detail {
 enum class Access { PUBLIC, PROTECTED, PRIVATE, UNSPECIFIED };
 
-enum class TypeQualifier { Const, Constexpr, L_Ref, R_Ref, Pointer };
+enum class TypeQualifier { Inline, Static, Const, Constexpr, L_Ref, R_Ref, Pointer };
 
 std::string to_string(TypeQualifier q) {
   switch (q) {
@@ -67,6 +67,10 @@ std::string to_string(TypeQualifier q) {
       return "&&";
     case TypeQualifier::Pointer:
       return "*";
+    case TypeQualifier::Inline:
+      return "inline";
+    case TypeQualifier::Static:
+      return "static";
   }
 
   return "";
