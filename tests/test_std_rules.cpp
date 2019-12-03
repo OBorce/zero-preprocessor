@@ -78,6 +78,15 @@ TEST_CASE("Parse valid number", "[number]") {
   }
 }
 
+TEST_CASE("Parse valid quoted_string", "[quoted_string]") {
+  std::array valid_quoted_strings{"\"asd\""s, "\"asd\" \"asd \""s};
+
+  for (auto& valid_quoted_string : valid_quoted_strings) {
+    REQUIRE_THAT(valid_quoted_string,
+                 CanParse(rules::quoted_strings, "quoted_string"));
+  }
+}
+
 TEST_CASE("Parse valid type", "[type]") {
   std::array valid_types{"int"s,
                          "std::string"s,
@@ -85,6 +94,7 @@ TEST_CASE("Parse valid type", "[type]") {
                          "std::vector<int>"s,
                          "std::array<int, 5>"s,
                          "usr::Foo<int>::Type"s,
+                         "usr::Name<int, \"foo\">"s,
                          "const int"s,
                          "auto&"s,
                          "auto&&"s,

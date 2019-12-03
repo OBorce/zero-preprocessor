@@ -195,12 +195,17 @@ x3::rule<class number, ast::LiteralExpression> const number = "number";
 auto const number_def = floating | integral;
 
 // TODO: add support for escaped /" inside string
-x3::rule<class quoted_string> const quoted_string = "quoted_string";
-auto const quoted_string_def = lit('"') >> *(char_ - '"') >> '"';
+x3::rule<class quoted_string, std::string> const quoted_string = "quoted_string";
+auto const quoted_string_def = char_('"') >> *(char_ - '"') >> char_('"');
+
+x3::rule<class quoted_strings, std::string> const quoted_strings = "quoted_strings";
+auto const quoted_strings_def = quoted_string % optionaly_space;
 
 x3::rule<class string_literal, ast::LiteralExpression> const string_literal =
     "string_literal";
-auto const string_literal_def = x3::omit[quoted_string % optionaly_space] >> x3::attr(ast::Literal{std::string{"asd"}}) >>
+    //FIXME: need this for the demo, get the value of the string literal
+auto const string_literal_def = quoted_strings >>
+                                //x3::attr(ast::Literal{std::string{"\"asd\""}}) >>
                                 // TODO: need to emit the string value
                                 x3::attr(VecUnqualifiedType{{{"char[]"}, {}}});
 
@@ -229,7 +234,9 @@ auto const var_type_part_def = (type_) >> -(optionaly_space >> template_values);
 auto const var_type_def = var_type_part >> *(lit("::") >> var_type_part);
 
 auto const template_values_def = '<' >> optionaly_space >>
-                                 ((type | integral) % arg_separator) >> '>';
+                                 ((type | integral | string_literal) %
+                                  arg_separator) >>
+                                 '>';
 
 auto const type_def = -(type_qualifiers >> some_space) >> var_type >>
                       -(optionaly_space >> type_qualifiers);
@@ -567,6 +574,7 @@ BOOST_SPIRIT_DEFINE(some_space,
                     floating,
                     number,
                     quoted_string,
+                    quoted_strings,
                     string_literal,
                     char_literal,
                     argument,
@@ -599,17 +607,17 @@ BOOST_SPIRIT_DEFINE(some_space,
                     var_with_init,
                     constructor_init,
                     for_loop,
-                    while_loop,
-                    if_expression
+                    while_loop
                     );
 
-BOOST_SPIRIT_DEFINE(else_expression, user_class_template_deduction_guide,
-                    template_parameter, template_parameters, is_noexcept,
-                    function_signature_old, function_start,
-                    function_declaration, is_pure_virtual, method_signature,
-                    operator_signature, constructor, class_inheritance,
-                    class_inheritances, class_or_struct, enumeration,
-                    enumerators, variable_expression, fce_expression);
+BOOST_SPIRIT_DEFINE(if_expression, else_expression,
+                    user_class_template_deduction_guide, template_parameter,
+                    template_parameters, is_noexcept, function_signature_old,
+                    function_start, function_declaration, is_pure_virtual,
+                    method_signature, operator_signature, constructor,
+                    class_inheritance, class_inheritances, class_or_struct,
+                    enumeration, enumerators, variable_expression,
+                    fce_expression);
 }  // namespace std_parser::rules
 
 #endif  //! STD_RULES_H
