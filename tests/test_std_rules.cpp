@@ -114,6 +114,51 @@ TEST_CASE("Parse valid type", "[type]") {
   }
 }
 
+TEST_CASE("Parse valid template parameter", "[template]") {
+  std::array valid_template_parameters{
+                         "class T"s,
+                         "class"s,
+                         "int A"s,
+                         "typename T"s,
+                         "std::size_t N"s,
+                         "class T = int"s,
+                         "int A = 2"s,
+                         "fixed_string S = \"asd\""s,
+                         "auto A = 2"s,
+                         "class... Ts"s,
+  };
+
+  for (auto& valid_template_parameter : valid_template_parameters) {
+    REQUIRE_THAT(valid_template_parameter,
+                 CanParse(rules::template_parameter, "template"));
+  }
+}
+
+TEST_CASE("Parse valid template parameters", "[template]") {
+  std::array valid_template_parameters{
+                         "template<class T>"s,
+                         "template<class>"s,
+                         "template<class T, class U>"s,
+                         "template<class, class U>"s,
+                         "template<int A>"s,
+                         "template<class T, int A>"s,
+                         "template<class T, int>"s,
+                         "template<typename T>"s,
+                         "template<std::size_t N>"s,
+                         "template<class T = int>"s,
+                         "template<int A = 2>"s,
+                         "template<fixed_string S = \"asd\">"s,
+                         "template<auto A = 2>"s,
+                         "template<class... Ts>"s,
+                         "template<std::size_t... Is>"s,
+  };
+
+  for (auto& valid_template_parameter : valid_template_parameters) {
+    REQUIRE_THAT(valid_template_parameter,
+                 CanParse(rules::template_parameters, "template"));
+  }
+}
+
 TEST_CASE("Parse valid expression old", "[expression]") {
   std::array valid_expressions{"some_variable"s,
                                "a + b"s,
@@ -155,6 +200,8 @@ TEST_CASE("Parse valid variables old", "[var]") {
                         "std::pair<int, float> v {1, 2.0f}"s,
                         "std::pair<int, std::vector<char>> v {1, {}}"s,
                         "std::array<int, 4> a"s,
+                        "std::variant<Ts...> v"s,
+                        "std::variant<std::optional<Ts>...> v"s,
                         "rules::ast::val v = 2"s,
                         "rules::ast::val v = {2, foo(a)}"s,
                         "nsd::asd::varr v23 {2, 3, baz(1, 3)}"s,

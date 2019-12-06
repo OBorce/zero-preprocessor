@@ -100,6 +100,7 @@ struct Params {
 
 struct TemplateParameter {
   Type_ type;
+  bool is_variadic;
   std::string name;
 };
 
@@ -730,7 +731,8 @@ BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::Literal, lit)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::var, type, name)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::LiteralExpression, lit, type)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::params, parameters)
-BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::TemplateParameter, type, name)
+BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::TemplateParameter, type,
+                          is_variadic, name)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::ValueExpression, type, exp)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::function_signature_old,
                           template_parameters,

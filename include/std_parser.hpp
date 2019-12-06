@@ -368,13 +368,14 @@ class StdParserState {
                          // rules end
       );
     } else {
-      parsed = x3::parse(begin, end,
-                         // rules begin
-                         rules::optionaly_space >>
-                             (rules::comment | rules::parenthesis_end[se] |
-                              rules::operator_sep[beg])
-                         // rules end
-      );
+      parsed =
+          x3::parse(begin, end,
+                    // rules begin
+                    rules::optionaly_space >>
+                        (rules::comment | rules::pack_expension |
+                         rules::parenthesis_end[se] | rules::operator_sep[beg])
+                    // rules end
+          );
     }
 
     if (parsed) {

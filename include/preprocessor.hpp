@@ -348,7 +348,7 @@ class Preprocessor {
    * Check if a parser with given ID is present
    */
   template <int ID>
-  constexpr bool has_parser_with_id() {
+  static constexpr bool has_parser_with_id() {
     return find_parser_with_id<ID>() != -1;
   }
 

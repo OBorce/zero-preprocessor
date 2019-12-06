@@ -98,6 +98,7 @@ class StaticReflexParser {
     }
   }
 
+  public:
   // TODO: generate reflection for the current class
   // TODO: refactor this method extract to shorter ones
   auto generate_reflection(Class& c) {

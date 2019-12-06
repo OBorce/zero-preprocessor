@@ -321,6 +321,24 @@ class MetaClassParser {
       if (not is_still_inside_meta_class()) {
         current_meta_class.clear();
         current_meta_class_name.clear();
+        auto cls_out = std_parser.try_parse_entire_class(output.begin(), output.end());
+        if (cls_out.result) {
+          std::cout << output;
+          constexpr int static_id = 5;
+          if constexpr (Parent::template has_parser_with_id<static_id>()) {
+            auto& static_refl = parent.template get_parser<static_id>();
+            auto refl_out = static_refl.generate_reflection(*cls_out.result);
+            std::cout << refl_out;
+            std::string scope_end = ";}";
+            auto it = std::search(output.rbegin(), output.rend(), scope_end.begin(), scope_end.end());
+            if (it != output.rend()) {
+              auto dist = std::distance(output.rbegin(), it) + scope_end.size();
+              output.erase(output.end() - dist, output.end());
+              output += refl_out;
+            }
+          }
+        }
+
         return std::optional{Result{out->processed_to, output}};
       }
     }

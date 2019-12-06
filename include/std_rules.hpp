@@ -217,10 +217,14 @@ x3::rule<class char_literal, ast::LiteralExpression> const char_literal =
 auto const char_literal_def = x3::omit[lit('\'') >> (char_ - '\'') >> '\''] >> x3::attr(ast::Literal{'x'}) >>
                               x3::attr(VecUnqualifiedType{{{"char"}, {}}});
 
+x3::rule<class pack_expension> const pack_expension =
+    "char_literal";
+auto const pack_expension_def = optionaly_space >> x3::lit("...");
+
 x3::rule<class type_, ast::Type_> const type_ = "type_";
 auto const type__def =
     name >> *(lit("::") >> optionaly_space >>
-              // TODO: template can only occure if the next one has <> or ()
+              // TODO: template can only occure if the next one has <>
               -(lit("template") >> optionaly_space) >> name);
 
 x3::rule<class type_qualifiers, std::vector<ast::TypeQualifier>> const
@@ -240,7 +244,8 @@ auto const var_type_def = var_type_part >>
                           *(lit("::") >> optionaly_space >> var_type_part);
 
 auto const template_values_def = '<' >> optionaly_space >>
-                                 ((type | integral | string_literal) %
+                                 (((type >> -(pack_expension)) |
+                                   integral | string_literal) %
                                   arg_separator) >>
                                  '>';
 
@@ -444,10 +449,11 @@ x3::rule<class template_parameter, ast::TemplateParameter> const
     template_parameter = "template_parameter";
 
 // TODO: default template parameters are omited
-auto const template_parameter_def = type_ >> some_space >> name >>
-                                    -(optionaly_space >> '=' >>
-                                      optionaly_space >>
-                                      x3::omit[(type | number)]);
+auto const template_parameter_def =
+    type_ >>
+    ((pack_expension >> x3::attr(true)) | x3::attr(false)) >>
+    -(some_space >> name) >> -(optionaly_space >> '=' >> optionaly_space >>
+                               x3::omit[(type | number | string_literal)]);
 
 x3::rule<class template_parameters, ast::TemplateParameters> const
     template_parameters = "template_parameters";
@@ -569,6 +575,7 @@ BOOST_SPIRIT_DEFINE(some_space,
                     namespace_begin,
                     statement_end,
                     name,
+                    pack_expension,
                     type_,
                     type_qualifiers,
                     type,
@@ -612,11 +619,10 @@ BOOST_SPIRIT_DEFINE(some_space,
                     var_old,
                     var_with_init,
                     constructor_init,
-                    for_loop,
-                    while_loop
+                    for_loop
                     );
 
-BOOST_SPIRIT_DEFINE(if_expression, else_expression,
+BOOST_SPIRIT_DEFINE(while_loop, if_expression, else_expression,
                     user_class_template_deduction_guide, template_parameter,
                     template_parameters, is_noexcept, function_signature_old,
                     function_start, function_declaration, is_pure_virtual,

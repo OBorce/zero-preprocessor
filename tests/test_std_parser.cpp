@@ -190,6 +190,7 @@ TEST_CASE("Parse valid expression", "[expression]") {
                                "std::span{beg, end}"s,
                                "std::string(\"hello\")"s,
                                "baz(\"hello\", 3 + 2)"s,
+                               "foo(a...)"s,
                                "a - b"s,
                                "a && !b"s,
                                "a.foo()"s,

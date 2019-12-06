@@ -257,7 +257,7 @@ constexpr auto is_constexpr_v = is_constexpr<T>::value;
 template <class T>
 constexpr auto is_static_v = is_static<T>::value;
 template <class T>
-const auto get_pointer_v = get_pointer<T>::value;
+constexpr auto get_pointer_v = get_pointer<T>::value;
 
 // 21.11.4.11 Base operations
 template <class T>

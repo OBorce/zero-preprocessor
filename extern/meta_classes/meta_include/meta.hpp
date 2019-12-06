@@ -15,8 +15,8 @@ static struct {
   void require(bool b, std::string_view msg) {
     if (!b) {
       std::cout << -1 << std::endl;
-      std::cout << msg.size() << std::endl;
-      std::cout << msg << std::endl;
+      std::cout << msg.size() + 1 << std::endl;
+      std::cout << '\n' << msg << std::endl;
       std::exit(EXIT_FAILURE);
     }
   }
@@ -445,26 +445,26 @@ struct Type {
       content.pop_back();
     }
     content += " {\n";
-    if (not variables.empty()) {
-      for (auto& v : variables) {
-        content += v.to_string();
-        content += '\n';
-      }
-      content.pop_back();
-    }
-    if (not methods.empty()) {
-      for (auto& f : methods) {
-        content += f.to_string();
-        content += '\n';
-      }
-      content.pop_back();
-    }
+
     if (not sub_types.empty()) {
       for (auto& t : sub_types) {
         content += t.to_string();
         content += '\n';
       }
-      content.pop_back();
+    }
+
+    if (not variables.empty()) {
+      for (auto& v : variables) {
+        content += v.to_string();
+        content += '\n';
+      }
+    }
+
+    if (not methods.empty()) {
+      for (auto& f : methods) {
+        content += f.to_string();
+        content += '\n';
+      }
     }
     content += body;
     content += "\n};";
@@ -554,17 +554,17 @@ class type {
     return *this;
   }
 
-  auto& operator<<(detail::Function& f) {
+  auto& operator<<(detail::Function const& f) {
     internal->methods.push_back(f);
     return *this;
   }
 
-  auto& operator<<(detail::Base& b) {
+  auto& operator<<(detail::Base const& b) {
     internal->bases.push_back(b);
     return *this;
   }
 
-  auto& operator<<(detail::Object& b) {
+  auto& operator<<(detail::Object const& b) {
     if (std::holds_alternative<detail::Base>(b.data)) {
       internal->bases.push_back(std::get<detail::Base>(b.data));
     } else if (std::holds_alternative<detail::Var>(b.data)) {
