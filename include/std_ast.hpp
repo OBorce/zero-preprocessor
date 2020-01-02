@@ -3,13 +3,16 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <list>
 #include <map>
+#include <memory>
 #include <string>
 #include <type_traits>
 #include <unordered_map>
 #include <variant>
 #include <vector>
-#include <list>
+
+#include <heap_obj.hpp>
 
 #include <boost/fusion/include/adapt_struct.hpp>
 
@@ -42,7 +45,15 @@ struct Literal {
   std::variant<std::vector<int64_t>, double, char, std::string> lit;
 };
 
-enum class TypeQualifier { Inline, Static, Const, Constexpr, L_Ref, R_Ref, Pointer };
+enum class TypeQualifier {
+  Inline,
+  Static,
+  Const,
+  Constexpr,
+  L_Ref,
+  R_Ref,
+  Pointer
+};
 
 enum class MethodQualifier { NONE, L_REF, R_REF };
 
@@ -253,7 +264,9 @@ struct VariableExpression {
            expression.type.front().template_types.template_types.empty();
   }
 
-  std::string const& get_single_name() const { return expression.type.front().name.front(); }
+  std::string const& get_single_name() const {
+    return expression.type.front().name.front();
+  }
 };
 
 struct LiteralExpression {
@@ -303,8 +316,10 @@ class Scope;
 struct Statement;
 struct ReturnStatement;
 struct Vars;
+struct IfStatement;
 
-using StatementVariant = std::variant<Vars, Scope, Statement, ReturnStatement>;
+using StatementVariant =
+    std::variant<Vars, Scope, Statement, IfStatement, ReturnStatement>;
 
 enum class LambdaState { Capture, Template, Arguments, Body };
 struct Lambda {
@@ -397,13 +412,6 @@ struct Statement {
 
 struct ReturnStatement {
   Expression expression;
-
-  SourceLocation loc;
-};
-
-enum class IfExpressionState { Begin, Expression, Done };
-struct IfExpression {
-  IfExpressionState state = IfExpressionState::Begin;
 
   SourceLocation loc;
 };
@@ -658,9 +666,24 @@ class Scope {
   auto get_class(const std::string& name) const { return classes.at(name); }
 };
 
+struct IfStatement {
+  enum class State { Begin, IfExpression, CloseBracket, ElseIf, Done };
+
+  State state = State::Begin;
+
+  Vars if_init;
+  Expression if_expression;
+
+  HeapObj<StatementVariant> body;
+
+  std::vector<IfStatement> else_if_statements;
+
+  SourceLocation loc;
+};
+
 class Namespace {
-  using CodeFragment = std::variant<Class, Enumeration, Function, var,
-                                    Namespace, UserDeductionGuide>;
+  using CodeFragment = std::
+      variant<Class, Enumeration, Function, var, Namespace, UserDeductionGuide>;
 
   std::string name;
   std::vector<CodeFragment> code_fragments;
@@ -721,8 +744,7 @@ BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::TemplateTypes, template_types)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::unqulified_type,
                           name,
                           template_types)
-BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::UnqulifiedType,
-                          type)
+BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::UnqulifiedType, type)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::Type,
                           left_qualifiers,
                           type,
@@ -731,8 +753,10 @@ BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::Literal, lit)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::var, type, name)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::LiteralExpression, lit, type)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::params, parameters)
-BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::TemplateParameter, type,
-                          is_variadic, name)
+BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::TemplateParameter,
+                          type,
+                          is_variadic,
+                          name)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::ValueExpression, type, exp)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::function_signature_old,
                           template_parameters,
@@ -783,7 +807,11 @@ BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::constructor,
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::class_inheritance, modifier, type)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::class_bases, bases)
 BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::enum_, type, name, as)
-BOOST_FUSION_ADAPT_STRUCT(
-    std_parser::rules::ast::class_or_struct, template_parameters, type, name, specialization, bases)
+BOOST_FUSION_ADAPT_STRUCT(std_parser::rules::ast::class_or_struct,
+                          template_parameters,
+                          type,
+                          name,
+                          specialization,
+                          bases)
 
 #endif // STD_AST_H

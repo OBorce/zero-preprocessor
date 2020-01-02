@@ -14,14 +14,22 @@
 #include <string_utils.hpp>
 
 namespace std_parser {
-using CodeFragment =
-    std::variant<rules::ast::Namespace, rules::ast::Scope, rules::ast::Class,
-                 rules::ast::Enumeration, rules::ast::Function,
-                 rules::ast::FunctionDeclaration, rules::ast::Params,
-                 rules::ast::Vars, rules::ast::Expression, rules::ast::Lambda,
-                 rules::ast::RoundExpression, rules::ast::CurlyExpression,
-                 rules::ast::Statement, rules::ast::ReturnStatement,
-                 rules::ast::VarStatement, rules::ast::IfExpression>;
+using CodeFragment = std::variant<rules::ast::Namespace,
+                                  rules::ast::Scope,
+                                  rules::ast::Class,
+                                  rules::ast::Enumeration,
+                                  rules::ast::Function,
+                                  rules::ast::FunctionDeclaration,
+                                  rules::ast::Params,
+                                  rules::ast::Vars,
+                                  rules::ast::Expression,
+                                  rules::ast::Lambda,
+                                  rules::ast::RoundExpression,
+                                  rules::ast::CurlyExpression,
+                                  rules::ast::Statement,
+                                  rules::ast::ReturnStatement,
+                                  rules::ast::VarStatement,
+                                  rules::ast::IfStatement>;
 
 class StdParserState {
   class {
@@ -67,10 +75,10 @@ class StdParserState {
   // until we can recreate the body from our AST
   std::vector<std::any> function_begins;
 
-  template <class Source>
+  template<class Source>
   using ParseResult = PResult<Iter<Source>, std::string_view>;
 
-  template <class Source, class It>
+  template<class Source, class It>
   ParseResult<Source> makeResult(Source source, bool parsed, It begin) {
     if (parsed) {
       return Result{begin, make_string_view(source.begin(), begin)};
@@ -80,7 +88,7 @@ class StdParserState {
   };
   // parser methods
 
-  template <class Source>
+  template<class Source>
   ParseResult<Source> parse_inside_namespace(Source& source,
                                              rules::ast::Namespace& current) {
     auto begin = source.begin();
@@ -147,23 +155,23 @@ class StdParserState {
     };
 
     namespace x3 = boost::spirit::x3;
-    bool parsed = x3::parse(
-        begin, end,
-        // rules begin
-        rules::some_space |
-            ((rules::class_or_struct >> rules::scope_begin)[nest] |
-             (rules::class_or_struct >> rules::statement_end) |
-             (rules::function_declaration)[fun_decl] |
-             (rules::user_class_template_deduction_guide)[ded_guid] |
-             // TODO: change operator_signature as as function_declaration
-             (rules::operator_signature >> rules::scope_begin)[fun] |
-             (rules::operator_signature >> rules::statement_end) |
-             (rules::enumeration >> rules::scope_begin)[nest] |
-             (rules::enumeration >> rules::statement_end) |
-             rules::namespace_begin[sb] | rules::scope_end[se] |
-             rules::include[inc] | rules::comment | rules::param[var])
-        // rules end
-    );
+    bool parsed =
+        x3::parse(begin, end,
+                  // rules begin
+                  rules::some_space |
+                      ((rules::class_or_struct >> rules::scope_begin)[nest] |
+                       (rules::class_or_struct >> rules::statement_end) |
+                       (rules::function_declaration)[fun_decl] |
+                       (rules::user_class_template_deduction_guide)[ded_guid] |
+                       // TODO: change operator_signature as as function_declaration
+                       (rules::operator_signature >> rules::scope_begin)[fun] |
+                       (rules::operator_signature >> rules::statement_end) |
+                       (rules::enumeration >> rules::scope_begin)[nest] |
+                       (rules::enumeration >> rules::statement_end) |
+                       rules::namespace_begin[sb] | rules::scope_end[se] |
+                       rules::include[inc] | rules::comment | rules::param[var])
+                  // rules end
+        );
 
     // TODO: error msg
     if (parsed) {
@@ -173,7 +181,7 @@ class StdParserState {
     return Error{};
   }
 
-  template <class Source>
+  template<class Source>
   ParseResult<Source> parse_inside_class(Source& source,
                                          rules::ast::Class& current) {
     auto begin = source.begin();
@@ -216,24 +224,24 @@ class StdParserState {
     auto se = [&](auto&) { this->close_code_fragment<rules::ast::Class>(); };
 
     namespace x3 = boost::spirit::x3;
-    bool parsed = x3::parse(
-        begin, end,
-        // rules begin
-        rules::some_space |
-            ((rules::class_or_struct >> rules::scope_begin)[nest] |
-             (rules::class_or_struct >> rules::statement_end) |
-             (rules::method_signature >> rules::scope_begin)[fun] |
-             (rules::method_signature >> rules::statement_end)[funSig] |
-             (rules::operator_signature >> rules::scope_begin)[fun] |
-             (rules::operator_signature >> rules::statement_end)[funSig] |
-             (rules::constructor >> rules::scope_begin)[fun] |
-             (rules::constructor >> rules::statement_end)[funSig] |
-             (rules::enumeration >> rules::scope_begin)[nest] |
-             (rules::enumeration >> rules::statement_end) |
-             rules::scope_end[se] | rules::include[inc] | rules::comment |
-             rules::class_access_modifier[ac] | rules::param[var])
-        // rules end
-    );
+    bool parsed =
+        x3::parse(begin, end,
+                  // rules begin
+                  rules::some_space |
+                      ((rules::class_or_struct >> rules::scope_begin)[nest] |
+                       (rules::class_or_struct >> rules::statement_end) |
+                       (rules::method_signature >> rules::scope_begin)[fun] |
+                       (rules::method_signature >> rules::statement_end)[funSig] |
+                       (rules::operator_signature >> rules::scope_begin)[fun] |
+                       (rules::operator_signature >> rules::statement_end)[funSig] |
+                       (rules::constructor >> rules::scope_begin)[fun] |
+                       (rules::constructor >> rules::statement_end)[funSig] |
+                       (rules::enumeration >> rules::scope_begin)[nest] |
+                       (rules::enumeration >> rules::statement_end) |
+                       rules::scope_end[se] | rules::include[inc] | rules::comment |
+                       rules::class_access_modifier[ac] | rules::param[var])
+                  // rules end
+        );
 
     if (parsed) {
       return Result{begin, make_string_view(source.begin(), begin)};
@@ -242,7 +250,7 @@ class StdParserState {
     return Error{};
   }
 
-  template <class Source>
+  template<class Source>
   ParseResult<Source> parse_inside_enum(Source& source,
                                         rules::ast::Enumeration& current) {
     auto begin = source.begin();
@@ -253,18 +261,16 @@ class StdParserState {
       current.set_enumerators(std::move(rez));
     };
 
-    auto se = [&](auto&) {
-      this->close_code_fragment<rules::ast::Enumeration>();
-    };
+    auto se = [&](auto&) { this->close_code_fragment<rules::ast::Enumeration>(); };
 
     namespace x3 = boost::spirit::x3;
-    bool parsed = x3::parse(
-        begin, end,
-        // rules begin
-        rules::optionaly_space >>
-            (rules::enumerators[en] | rules::scope_end[se] | rules::comment)
-        // rules end
-    );
+    bool parsed =
+        x3::parse(begin, end,
+                  // rules begin
+                  rules::optionaly_space >> (rules::enumerators[en] |
+                                             rules::scope_end[se] | rules::comment)
+                  // rules end
+        );
 
     if (parsed) {
       return Result{begin, make_string_view(source.begin(), begin)};
@@ -273,7 +279,7 @@ class StdParserState {
     return Error{};
   }
 
-  template <class Source>
+  template<class Source>
   ParseResult<Source> parse_inside_expression(Source& source,
                                               rules::ast::Expression& current) {
     auto begin = source.begin();
@@ -328,15 +334,14 @@ class StdParserState {
     return Error{};
   }
 
-  template <class Source>
-  ParseResult<Source> parse_inside_round_expression(
-      Source& source, rules::ast::RoundExpression& current) {
+  template<class Source>
+  ParseResult<Source>
+  parse_inside_round_expression(Source& source,
+                                rules::ast::RoundExpression& current) {
     auto begin = source.begin();
     auto end = source.end();
 
-    auto se = [this](auto&) {
-      close_code_fragment<rules::ast::RoundExpression>();
-    };
+    auto se = [this](auto&) { close_code_fragment<rules::ast::RoundExpression>(); };
 
     auto exp = [this, &current](auto& ctx) {
       auto& rez = _attr(ctx);
@@ -360,22 +365,21 @@ class StdParserState {
     namespace x3 = boost::spirit::x3;
     bool parsed = false;
     if (current.is_begin()) {
+      parsed = x3::parse(
+          begin, end,
+          // rules begin
+          rules::optionaly_space >>
+              (rules::comment | rules::parenthesis_end[se] | rules::expression[exp])
+          // rules end
+      );
+    } else {
       parsed = x3::parse(begin, end,
                          // rules begin
                          rules::optionaly_space >>
-                             (rules::comment | rules::parenthesis_end[se] |
-                              rules::expression[exp])
+                             (rules::comment | rules::pack_expension |
+                              rules::parenthesis_end[se] | rules::operator_sep[beg])
                          // rules end
       );
-    } else {
-      parsed =
-          x3::parse(begin, end,
-                    // rules begin
-                    rules::optionaly_space >>
-                        (rules::comment | rules::pack_expension |
-                         rules::parenthesis_end[se] | rules::operator_sep[beg])
-                    // rules end
-          );
     }
 
     if (parsed) {
@@ -385,15 +389,14 @@ class StdParserState {
     return Error{};
   }
 
-  template <class Source>
-  ParseResult<Source> parse_inside_curly_expression(
-      Source& source, rules::ast::CurlyExpression& current) {
+  template<class Source>
+  ParseResult<Source>
+  parse_inside_curly_expression(Source& source,
+                                rules::ast::CurlyExpression& current) {
     auto begin = source.begin();
     auto end = source.end();
 
-    auto se = [this](auto&) {
-      close_code_fragment<rules::ast::CurlyExpression>();
-    };
+    auto se = [this](auto&) { close_code_fragment<rules::ast::CurlyExpression>(); };
 
     auto nest = [this](auto& ctx) {
       auto& rez = _attr(ctx);
@@ -422,12 +425,12 @@ class StdParserState {
     namespace x3 = boost::spirit::x3;
     bool parsed = false;
     if (current.is_begin()) {
-      parsed = x3::parse(begin, end,
-                         // rules begin
-                         rules::optionaly_space >>
-                             (rules::comment | rules::curly_begin[nest] |
-                              rules::curly_end[se] | rules::expression[exp])
-                         // rules end
+      parsed = x3::parse(
+          begin, end,
+          // rules begin
+          rules::optionaly_space >> (rules::comment | rules::curly_begin[nest] |
+                                     rules::curly_end[se] | rules::expression[exp])
+          // rules end
       );
     } else {
       parsed = x3::parse(
@@ -446,7 +449,7 @@ class StdParserState {
     return Error{};
   }
 
-  template <class Source>
+  template<class Source>
   ParseResult<Source> parse_inside_lambda(Source& source, rules::ast::Lambda&) {
     auto begin = source.begin();
     auto end = source.end();
@@ -486,24 +489,21 @@ class StdParserState {
     auto se = [this](auto&) { close_code_fragment<rules::ast::Lambda>(); };
 
     namespace x3 = boost::spirit::x3;
-    bool parsed =
-        x3::parse(begin, end,
-                  // rules begin
-                  rules::some_space |
-                      ((rules::class_or_struct >> rules::scope_begin)[nest] |
-                       (rules::class_or_struct >> rules::statement_end) |
-                       (rules::enumeration >> rules::scope_begin)[nest] |
-                       (rules::enumeration >> rules::statement_end) |
-                       rules::scope_begin[sb] |
-                       (rules::scope_end[se] >> rules::optionaly_space >>
-                        -(rules::parenthesis_begin[nest])) |
-                       rules::include[inc] | rules::comment |
-                       rules::return_statement[rstm] | rules::param[var] |
-                       rules::for_loop | rules::if_expression[nest] |
-                       rules::else_expression | rules::while_loop |
-                       rules::expression[stm])
-                  // rules end
-        );
+    bool parsed = x3::parse(
+        begin, end,
+        // rules begin
+        rules::some_space |
+            ((rules::class_or_struct >> rules::scope_begin)[nest] |
+             (rules::class_or_struct >> rules::statement_end) |
+             (rules::enumeration >> rules::scope_begin)[nest] |
+             (rules::enumeration >> rules::statement_end) | rules::scope_begin[sb] |
+             (rules::scope_end[se] >> rules::optionaly_space >>
+              -(rules::parenthesis_begin[nest])) |
+             rules::include[inc] | rules::comment | rules::return_statement[rstm] |
+             rules::param[var] | rules::for_loop | rules::if_statement[nest] |
+             rules::while_loop | rules::expression[stm])
+        // rules end
+    );
 
     if (parsed) {
       return Result{begin, make_string_view(source.begin(), begin)};
@@ -512,31 +512,81 @@ class StdParserState {
     return Error{};
   }
 
-  template <class Source>
-  ParseResult<Source> parse_inside_if_expression(
-      Source& source, rules::ast::IfExpression& current) {
+  template<class Source>
+  ParseResult<Source> parse_inside_if_statement(Source& source,
+                                                rules::ast::IfStatement& current) {
     auto begin = source.begin();
     auto end = source.end();
 
     auto exp = [this, &current](auto&) {
-      current.state = rules::ast::IfExpressionState::Done;
+      current.state = rules::ast::IfStatement::State::CloseBracket;
       ast_state.emplace_back(rules::ast::Expression{});
     };
 
-    auto close = [this](auto&) {
-      close_code_fragment<rules::ast::IfExpression>();
+    auto close_exp = [this, &current](auto& ctx) {
+      current.state = rules::ast::IfStatement::State::ElseIf;
+      ast_state.emplace_back(rules::ast::Statement{});
+      auto& rez = _attr(ctx);
+      std::visit([&](auto& state) { ast_state.emplace_back(std::move(state)); },
+                 rez);
+    };
+
+    auto close_ifstm = [this, &current](auto& ctx) {
+      current.state = rules::ast::IfStatement::State::ElseIf;
+      auto& rez = _attr(ctx);
+      ast_state.emplace_back(std::move(rez));
+    };
+
+    auto close_rstm = [this, &current](auto& ctx) {
+      current.state = rules::ast::IfStatement::State::ElseIf;
+      ast_state.emplace_back(rules::ast::ReturnStatement{});
+      auto& rez = _attr(ctx);
+      std::visit([&](auto& state) { ast_state.emplace_back(std::move(state)); },
+                 rez);
+    };
+
+    auto close_scope = [this, &current](auto&) {
+      current.state = rules::ast::IfStatement::State::ElseIf;
+      ast_state.emplace_back(rules::ast::Scope{});
+    };
+
+    auto else_if = [this, &current](auto& ctx) {
+      current.state = rules::ast::IfStatement::State::ElseIf;
+      auto& rez = _attr(ctx);
+      ast_state.emplace_back(std::move(rez));
+    };
+
+    auto else_exp = [this, &current](auto& ctx) {
+      current.state = rules::ast::IfStatement::State::Done;
+      ast_state.emplace_back(rules::ast::Statement{});
+      auto& rez = _attr(ctx);
+      std::visit([&](auto& state) { ast_state.emplace_back(std::move(state)); },
+                 rez);
+    };
+
+    auto else_rstm = [this, &current](auto& ctx) {
+      current.state = rules::ast::IfStatement::State::Done;
+      ast_state.emplace_back(rules::ast::ReturnStatement{});
+      auto& rez = _attr(ctx);
+      std::visit([&](auto& state) { ast_state.emplace_back(std::move(state)); },
+                 rez);
+    };
+
+    auto else_scope = [this, &current](auto&) {
+      current.state = rules::ast::IfStatement::State::Done;
+      ast_state.emplace_back(rules::ast::Scope{});
     };
 
     auto var = [this, &current](auto& ctx) {
       auto& rez = _attr(ctx);
-      current.state = rules::ast::IfExpressionState::Expression;
+      current.state = rules::ast::IfStatement::State::IfExpression;
       ast_state.emplace_back(rules::ast::Vars{std::move(rez)});
     };
 
     namespace x3 = boost::spirit::x3;
     bool parsed = false;
     switch (current.state) {
-      case rules::ast::IfExpressionState::Begin:
+      case rules::ast::IfStatement::State::Begin:
         parsed = x3::parse(begin, end,
                            // rules begin
                            '(' >> rules::optionaly_space >>
@@ -545,34 +595,58 @@ class StdParserState {
                            // rules end
         );
         break;
-      case rules::ast::IfExpressionState::Expression:
+      case rules::ast::IfStatement::State::IfExpression:
         parsed = x3::parse(
             begin, end,
             // rules begin
             rules::optionaly_space >>
                 ((';' >> rules::optionaly_space >> &rules::expression)[exp] |
-                 rules::parenthesis_end[close])
+                 (rules::parenthesis_end >> rules::optionaly_space >>
+                  (rules::return_statement[close_rstm] |
+                   rules::if_statement[close_ifstm] | rules::expression[close_exp] |
+                   rules::scope_begin[close_scope])))
             // rules end
         );
         break;
-      case rules::ast::IfExpressionState::Done:
-        parsed =
-            x3::parse(begin, end,
-                      // rules begin
-                      rules::optionaly_space >> rules::parenthesis_end[close]
-                      // rules end
-            );
+      case rules::ast::IfStatement::State::CloseBracket:
+        parsed = x3::parse(
+            begin, end,
+            // rules begin
+            rules::optionaly_space >> rules::parenthesis_end >>
+                rules::optionaly_space >>
+                (rules::return_statement[close_rstm] |
+                 rules::expression[close_exp] | rules::scope_begin[close_scope])
+            // rules end
+        );
         break;
+      case rules::ast::IfStatement::State::ElseIf:
+        parsed = x3::parse(
+            begin, end,
+            // rules begin
+            rules::optionaly_space >>
+                (rules::else_if_statement[else_if] |
+                 (rules::else_statement >> rules::optionaly_space >>
+                  (rules::return_statement[else_rstm] |
+                   rules::expression[else_exp] | rules::scope_begin[else_scope])))
+            // rules end
+        );
+        break;
+      case rules::ast::IfStatement::State::Done:
+        close_code_fragment<rules::ast::IfStatement>();
+        return Complate{};
     }
 
     if (parsed) {
       return Result{begin, make_string_view(source.begin(), begin)};
+    } else if (current.state == rules::ast::IfStatement::State::ElseIf) {
+      close_code_fragment<rules::ast::IfStatement>();
+      return Complate{};
     }
 
     return Error{};
   }
 
-  template <class Source, class Statement>
+  template<class Source, class Statement>
   ParseResult<Source> parse_inside_statement(Source& source, Statement&) {
     auto begin = source.begin();
     auto end = source.end();
@@ -593,7 +667,7 @@ class StdParserState {
     return Error{};
   }
 
-  template <class Source>
+  template<class Source>
   ParseResult<Source> parse_inside_var_definition(Source& source,
                                                   rules::ast::Vars& current) {
     auto begin = source.begin();
@@ -627,21 +701,19 @@ class StdParserState {
             rules::optionaly_space >>
                 (rules::comment |
                  (('=' >> rules::optionaly_space >> &rules::expression)[exp] |
-                  (-('=' >> rules::optionaly_space) >>
-                   rules::curly_begin)[init] |
+                  (-('=' >> rules::optionaly_space) >> rules::curly_begin)[init] |
                   (',' >> rules::optionaly_space >> rules::name)[var]))
             // rules end
         );
         break;
       case rules::ast::VarDefinition::Next:
-        parsed =
-            x3::parse(begin, end,
-                      // rules begin
-                      rules::optionaly_space >>
-                          (rules::comment |
-                           (',' >> rules::optionaly_space >> rules::name)[var])
-                      // rules end
-            );
+        parsed = x3::parse(begin, end,
+                           // rules begin
+                           rules::optionaly_space >>
+                               (rules::comment |
+                                (',' >> rules::optionaly_space >> rules::name)[var])
+                           // rules end
+        );
         break;
     }
 
@@ -657,9 +729,10 @@ class StdParserState {
     return Error{};
   }
 
-  template <class Source>
-  ParseResult<Source> parse_inside_function_declaration(
-      Source& source, rules::ast::FunctionDeclaration& current) {
+  template<class Source>
+  ParseResult<Source>
+  parse_inside_function_declaration(Source& source,
+                                    rules::ast::FunctionDeclaration& current) {
     auto begin = source.begin();
     auto end = source.end();
 
@@ -681,14 +754,13 @@ class StdParserState {
 
     // TODO: not finished
     namespace x3 = boost::spirit::x3;
-    bool parsed =
-        x3::parse(begin, end,
-                  // rules begin
-                  rules::optionaly_space >> ')' >> rules::optionaly_space >>
-                      -rules::is_noexcept[en] >>
-                      (rules::statement_end[se] | rules::scope_begin[sb])
-                  // rules end
-        );
+    bool parsed = x3::parse(begin, end,
+                            // rules begin
+                            rules::optionaly_space >> ')' >>
+                                rules::optionaly_space >> -rules::is_noexcept[en] >>
+                                (rules::statement_end[se] | rules::scope_begin[sb])
+                            // rules end
+    );
 
     if (parsed) {
       return Result{begin, make_string_view(source.begin(), begin)};
@@ -697,7 +769,7 @@ class StdParserState {
     return Error{};
   }
 
-  template <class Source>
+  template<class Source>
   ParseResult<Source> parse_inside_params(Source& source,
                                           rules::ast::Params& current) {
     auto begin = source.begin();
@@ -740,11 +812,11 @@ class StdParserState {
     bool first = current.parameters.empty();
 
     if (first) {
-      parsed = x3::parse(begin, end,
-                         // rules begin
-                         rules::optionaly_space >>
-                             (rules::comment | (rules::optional_param[var]))
-                         // rules end
+      parsed = x3::parse(
+          begin, end,
+          // rules begin
+          rules::optionaly_space >> (rules::comment | (rules::optional_param[var]))
+          // rules end
       );
     } else {
       auto& last = current.parameters.back().init;
@@ -797,7 +869,7 @@ class StdParserState {
     }
   }
 
-  template <class Source>
+  template<class Source>
   ParseResult<Source> parse_inside_function(Source& source,
                                             rules::ast::Function& current) {
     auto begin = source.begin();
@@ -846,40 +918,36 @@ class StdParserState {
       auto start = std::any_cast<decltype(end)>(current_functions_start);
       current.body = std::string(start, end) + '\n';
       auto& v = ast_state[ast_state.size() - 2];
-      std::visit(overloaded{
-                     [&](rules::ast::Namespace& arg) {
-                       arg.add_function(std::move(current));
-                     },
-                     [&](rules::ast::Class& arg) {
-                       arg.add_function(std::move(current));
-                     },
-                     [](auto&) {
-                       /* NOTE: Can't have a function inside a function or local
-                        * scope*/
-                     },
-                 },
-                 v);
+      std::visit(
+          overloaded{
+              [&](rules::ast::Namespace& arg) {
+                arg.add_function(std::move(current));
+              },
+              [&](rules::ast::Class& arg) { arg.add_function(std::move(current)); },
+              [](auto&) {
+                /* NOTE: Can't have a function inside a function or local
+                 * scope*/
+              },
+          },
+          v);
       ast_state.pop_back();
       function_begins.pop_back();
     };
 
     namespace x3 = boost::spirit::x3;
-    bool parsed =
-        x3::parse(begin, end,
-                  // rules begin
-                  rules::some_space |
-                      ((rules::class_or_struct >> rules::scope_begin)[nest] |
-                       (rules::class_or_struct >> rules::statement_end) |
-                       (rules::enumeration >> rules::scope_begin)[nest] |
-                       (rules::enumeration >> rules::statement_end) |
-                       rules::scope_begin[sb] | rules::scope_end[se] |
-                       rules::include[inc] | rules::comment |
-                       rules::return_statement[rstm] | rules::param[var] |
-                       rules::for_loop | rules::if_expression[nest] |
-                       rules::else_expression | rules::while_loop |
-                       rules::expression[stm])
-                  // rules end
-        );
+    bool parsed = x3::parse(
+        begin, end,
+        // rules begin
+        rules::some_space |
+            ((rules::class_or_struct >> rules::scope_begin)[nest] |
+             (rules::class_or_struct >> rules::statement_end) |
+             (rules::enumeration >> rules::scope_begin)[nest] |
+             (rules::enumeration >> rules::statement_end) | rules::scope_begin[sb] |
+             rules::scope_end[se] | rules::include[inc] | rules::comment |
+             rules::return_statement[rstm] | rules::param[var] | rules::for_loop |
+             rules::if_statement[nest] | rules::while_loop | rules::expression[stm])
+        // rules end
+    );
 
     if (parsed) {
       return Result{begin, make_string_view(source.begin(), begin)};
@@ -888,7 +956,7 @@ class StdParserState {
     return Error{};
   }
 
-  template <class Source>
+  template<class Source>
   ParseResult<Source> parse_inside_scope(Source& source, rules::ast::Scope&) {
     auto begin = source.begin();
     auto end = source.end();
@@ -928,22 +996,19 @@ class StdParserState {
     auto se = [&](auto&) { close_code_fragment<rules::ast::Scope>(); };
 
     namespace x3 = boost::spirit::x3;
-    bool parsed =
-        x3::parse(begin, end,
-                  // rules begin
-                  rules::some_space |
-                      ((rules::class_or_struct >> rules::scope_begin)[nest] |
-                       (rules::class_or_struct >> rules::statement_end) |
-                       (rules::enumeration >> rules::scope_begin)[nest] |
-                       (rules::enumeration >> rules::statement_end) |
-                       rules::scope_begin[sb] | rules::scope_end[se] |
-                       rules::include[inc] | rules::comment |
-                       rules::return_statement[rstm] | rules::param[var] |
-                       rules::for_loop | rules::if_expression[nest] |
-                       rules::else_expression | rules::while_loop |
-                       rules::expression[stm])
-                  // rules end
-        );
+    bool parsed = x3::parse(
+        begin, end,
+        // rules begin
+        rules::some_space |
+            ((rules::class_or_struct >> rules::scope_begin)[nest] |
+             (rules::class_or_struct >> rules::statement_end) |
+             (rules::enumeration >> rules::scope_begin)[nest] |
+             (rules::enumeration >> rules::statement_end) | rules::scope_begin[sb] |
+             rules::scope_end[se] | rules::include[inc] | rules::comment |
+             rules::return_statement[rstm] | rules::param[var] | rules::for_loop |
+             rules::if_statement[nest] | rules::while_loop | rules::expression[stm])
+        // rules end
+    );
 
     if (parsed) {
       return Result{begin, make_string_view(source.begin(), begin)};
@@ -955,44 +1020,44 @@ class StdParserState {
   void close_current_class() {
     auto& c = std::get<rules::ast::Class>(ast_state.back());
     auto& v = ast_state[ast_state.size() - 2];
-    std::visit(
-        overloaded{
-            [&](rules::ast::Namespace& arg) { arg.add_class(std::move(c)); },
-            [&](rules::ast::Class& arg) { arg.add_class(std::move(c)); },
-            [](auto&) {
-              /* TODO: local classes inside functions or local scopes*/
-            },
-        },
-        v);
+    std::visit(overloaded{
+                   [&](rules::ast::Namespace& arg) { arg.add_class(std::move(c)); },
+                   [&](rules::ast::Class& arg) { arg.add_class(std::move(c)); },
+                   [](auto&) {
+                     /* TODO: local classes inside functions or local scopes*/
+                   },
+               },
+               v);
   }
 
   void close_current_enum() {
     auto& c = std::get<rules::ast::Enumeration>(ast_state.back());
     auto& v = ast_state[ast_state.size() - 2];
-    std::visit(
-        overloaded{
-            [&](rules::ast::Namespace& arg) { arg.add_enum(std::move(c)); },
-            [&](rules::ast::Class& arg) { arg.add_enum(std::move(c)); },
-            [](auto&) {
-              /* TODO: local enums inside functions or local scopes*/
-            },
-        },
-        v);
+    std::visit(overloaded{
+                   [&](rules::ast::Namespace& arg) { arg.add_enum(std::move(c)); },
+                   [&](rules::ast::Class& arg) { arg.add_enum(std::move(c)); },
+                   [](auto&) {
+                     /* TODO: local enums inside functions or local scopes*/
+                   },
+               },
+               v);
   }
 
   void close_current_var_declaration() {
     auto& c = std::get<rules::ast::Vars>(ast_state.back());
     auto& v = ast_state[ast_state.size() - 2];
-    std::visit(overloaded{
-                   [&](rules::ast::VarStatement& arg) {
-                     arg.variables = std::move(c.variables);
-                     arg.loc = std::move(c.loc);
-                   },
-                   [](auto&) {
-                     /* other can't have variables*/
-                   },
-               },
-               v);
+    std::visit(
+        overloaded{
+            [&](rules::ast::VarStatement& arg) {
+              arg.variables = std::move(c.variables);
+              arg.loc = std::move(c.loc);
+            },
+            [&](rules::ast::IfStatement& arg) { arg.if_init = std::move(c); },
+            [](auto&) {
+              /* other can't have variables*/
+            },
+        },
+        v);
   }
 
   void close_current_scope() {
@@ -1005,6 +1070,7 @@ class StdParserState {
                    [&](rules::ast::Scope& arg) {
                      arg.statements.emplace_back(std::move(c));
                    },
+                   [&](rules::ast::IfStatement& arg) { arg.body = std::move(c); },
                    [](auto&) {
                      /* other can't have local scopes*/
                    },
@@ -1012,7 +1078,7 @@ class StdParserState {
                v);
   }
 
-  template <class Expression>
+  template<class Expression>
   void move_expression(CodeFragment& cf, Expression&& e) {
     std::visit(
         overloaded{
@@ -1034,8 +1100,7 @@ class StdParserState {
             [&](rules::ast::Vars& arg) {
               if constexpr (std::is_same_v<std::remove_reference_t<Expression>,
                                            rules::ast::CurlyExpression>) {
-                arg.variables.back().init =
-                    rules::ast::Expression(std::move(e));
+                arg.variables.back().init = rules::ast::Expression(std::move(e));
               }
             },
             [&](rules::ast::Params& arg) {
@@ -1048,7 +1113,7 @@ class StdParserState {
         cf);
   }
 
-  template <class Expression>
+  template<class Expression>
   void close_current_expression() {
     auto& expression = std::get<Expression>(ast_state.back());
     auto& variant_code_fragment = ast_state[ast_state.size() - 2];
@@ -1068,6 +1133,9 @@ class StdParserState {
                    [&](rules::ast::Vars& arg) {
                      arg.variables.back().init = std::move(expression);
                    },
+                   [&](rules::ast::IfStatement& arg) {
+                     arg.if_expression = std::move(expression);
+                   },
                    [](auto&) {
                      /* other can't have expressions*/
                    },
@@ -1081,9 +1149,7 @@ class StdParserState {
     std::visit(
         overloaded{
             [&](rules::ast::Class& arg) { arg.add_variables(vs.variables); },
-            [&](rules::ast::Namespace& arg) {
-              arg.add_variables(vs.variables);
-            },
+            [&](rules::ast::Namespace& arg) { arg.add_variables(vs.variables); },
             [&](rules::ast::Function& arg) {
               arg.statements.emplace_back(std::move(vs));
             },
@@ -1100,40 +1166,69 @@ class StdParserState {
   void close_current_params() {
     auto& params = std::get<rules::ast::Params>(ast_state.back());
     auto& variant_code_fragment = ast_state[ast_state.size() - 2];
-    std::visit(
-        overloaded{
-            [&](rules::ast::FunctionDeclaration& arg) {
-              arg.parameters.parameters = std::move(params.parameters);
-            },
-            [](auto&) {
-              /* other can't have params*/
-            },
-        },
-        variant_code_fragment);
-  }
-
-  template <class Statement>
-  void close_current_statement() {
-    auto& statement = std::get<Statement>(ast_state.back());
-    auto& variant_code_fragment = ast_state[ast_state.size() - 2];
     std::visit(overloaded{
-                   [&](rules::ast::Function& arg) {
-                     arg.statements.emplace_back(std::move(statement));
-                   },
-                   [&](rules::ast::Scope& arg) {
-                     arg.statements.emplace_back(std::move(statement));
-                   },
-                   [&](rules::ast::Lambda& arg) {
-                     arg.statements.emplace_back(std::move(statement));
+                   [&](rules::ast::FunctionDeclaration& arg) {
+                     arg.parameters.parameters = std::move(params.parameters);
                    },
                    [](auto&) {
-                     /* other can't have statements*/
+                     /* other can't have params*/
                    },
                },
                variant_code_fragment);
   }
 
-  template <class T>
+  void close_current_if_statement() {
+    auto& statement = std::get<rules::ast::IfStatement>(ast_state.back());
+    auto& variant_code_fragment = ast_state[ast_state.size() - 2];
+    std::visit(
+        overloaded{
+            [&](rules::ast::Function& arg) {
+              arg.statements.emplace_back(std::move(statement));
+            },
+            [&](rules::ast::Scope& arg) {
+              arg.statements.emplace_back(std::move(statement));
+            },
+            [&](rules::ast::Lambda& arg) {
+              arg.statements.emplace_back(std::move(statement));
+            },
+            [&](rules::ast::IfStatement& arg) {
+              if (arg.state == rules::ast::IfStatement::State::CloseBracket) {
+                arg.body = std::move(statement);
+              } else if (arg.state == rules::ast::IfStatement::State::ElseIf) {
+                arg.else_if_statements.push_back(std::move(statement));
+              }
+            },
+            [](auto&) {
+              /* other can't have statements*/
+            },
+        },
+        variant_code_fragment);
+  }
+
+  template<class Statement>
+  void close_current_statement() {
+    auto& statement = std::get<Statement>(ast_state.back());
+    auto& variant_code_fragment = ast_state[ast_state.size() - 2];
+    std::visit(
+        overloaded{
+            [&](rules::ast::Function& arg) {
+              arg.statements.emplace_back(std::move(statement));
+            },
+            [&](rules::ast::Scope& arg) {
+              arg.statements.emplace_back(std::move(statement));
+            },
+            [&](rules::ast::Lambda& arg) {
+              arg.statements.emplace_back(std::move(statement));
+            },
+            [&](rules::ast::IfStatement& arg) { arg.body = std::move(statement); },
+            [](auto&) {
+              /* other can't have statements*/
+            },
+        },
+        variant_code_fragment);
+  }
+
+  template<class T>
   using Iter = decltype(std::declval<T>().begin());
 
  public:
@@ -1144,7 +1239,7 @@ class StdParserState {
    * to the end of the parsed statement in the source and the result to be
    * outputed, else empty
    */
-  template <class Source>
+  template<class Source>
   std::optional<Result<Iter<Source>, std::string_view>> parse(Source& source) {
     ast_state.set_location({source.get_row(), source.get_column()});
 
@@ -1162,8 +1257,7 @@ class StdParserState {
                              return parse_inside_function(source, arg);
                            },
                            [&](rules::ast::FunctionDeclaration& arg) {
-                             return parse_inside_function_declaration(source,
-                                                                      arg);
+                             return parse_inside_function_declaration(source, arg);
                            },
                            [&](rules::ast::Params& arg) {
                              return parse_inside_params(source, arg);
@@ -1198,8 +1292,8 @@ class StdParserState {
                            [&](rules::ast::Vars& arg) {
                              return parse_inside_var_definition(source, arg);
                            },
-                           [&](rules::ast::IfExpression& arg) {
-                             return parse_inside_if_expression(source, arg);
+                           [&](rules::ast::IfStatement& arg) {
+                             return parse_inside_if_statement(source, arg);
                            },
                        },
                        current_code_fragment);
@@ -1235,7 +1329,7 @@ class StdParserState {
   }
 
   // TODO add SFINAE for CodeFragment
-  template <class Fragment>
+  template<class Fragment>
   void close_code_fragment() {
     if (ast_state.size() < 2) {
       // NOTE: more closing brackets than opened
@@ -1263,6 +1357,8 @@ class StdParserState {
       close_current_varstatement();
     } else if constexpr (std::is_same<Fragment, rules::ast::Params>()) {
       close_current_params();
+    } else if constexpr (std::is_same<Fragment, rules::ast::IfStatement>()) {
+      close_current_if_statement();
     } else {
       // TODO: implement
     }
@@ -1270,7 +1366,7 @@ class StdParserState {
     ast_state.pop_back();
   }
 
-  template <class Source>
+  template<class Source>
   auto get_includes(Source& source) {
     auto begin = source.begin();
     auto end = source.end();
@@ -1309,11 +1405,16 @@ class StdParserState {
    * Return all the includes in the parsed file
    */
   auto& get_all_includes() { return includes; }
-};  // namespace std_parser
+}; // namespace std_parser
 
 class StdParser {
-  template <class Iter, class Id, class T, bool B,
-            template <class, class, bool> class Rule, class Out = T>
+  template<class Iter,
+           class Id,
+           class T,
+           bool B,
+           template<class, class, bool>
+           class Rule,
+           class Out = T>
   auto try_parse_T(Iter begin, Iter end, Rule<Id, T, B> rule) {
     Out tmp;
     namespace x3 = boost::spirit::x3;
@@ -1323,15 +1424,19 @@ class StdParser {
                             // rules end
                             tmp);
 
-    return parsed ? std::optional{ResultT{begin, std::move(tmp)}}
-                  : std::nullopt;
+    return parsed ? std::optional{ResultT{begin, std::move(tmp)}} : std::nullopt;
   }
 
   /**
    * Used as a helper when we want to specify a different out type
    */
-  template <class Out, class Iter, class Id, class T, bool B,
-            template <class, class, bool> class Rule>
+  template<class Out,
+           class Iter,
+           class Id,
+           class T,
+           bool B,
+           template<class, class, bool>
+           class Rule>
   auto try_parse_T(Iter begin, Iter end, Rule<Id, T, B> rule) {
     return try_parse_T<Iter, Id, T, B, Rule, Out>(begin, end, rule);
   }
@@ -1342,34 +1447,34 @@ class StdParser {
   // TODO: when supported in std=c++2a change to fixed length string
   constexpr static int id = 's' + 't' + 'd';
 
-  template <class Iter>
+  template<class Iter>
   auto try_parse_function(Iter begin, Iter end) {
     return try_parse_T<rules::ast::Function>(begin, end, rules::function_start);
   }
 
-  template <class Iter>
+  template<class Iter>
   auto try_parse_templates_params(Iter begin, Iter end) {
     return try_parse_T(begin, end, rules::template_parameters);
   }
 
-  template <class Iter>
+  template<class Iter>
   auto try_parse_name(Iter begin, Iter end) {
     return try_parse_T(begin, end, rules::name);
   }
 
-  template <class Iter>
+  template<class Iter>
   auto try_parse_class_bases(Iter begin, Iter end) {
     return try_parse_T(begin, end, rules::class_inheritances);
   }
 
-  template <class Iter>
+  template<class Iter>
   auto try_parse_scope_begin(Iter begin, Iter end) {
     return try_parse_T(begin, end, rules::scope_begin);
   }
 
-  template <class Iter>
-  ResultT<Iter, std::optional<rules::ast::Class>> try_parse_entire_class(
-      Iter begin, Iter end) {
+  template<class Iter>
+  ResultT<Iter, std::optional<rules::ast::Class>> try_parse_entire_class(Iter begin,
+                                                                         Iter end) {
     StdParserState parser;
 
     struct {
@@ -1411,12 +1516,12 @@ class StdParser {
     return {begin, std::nullopt};
   }
 
-  template <class Source>
+  template<class Source>
   auto parse(Source& source) {
     return parser.parse(source);
   }
 
-  template <class Source>
+  template<class Source>
   auto parse_include(Source& source) {
     auto begin = source.begin();
     auto end = source.end();
@@ -1428,8 +1533,8 @@ class StdParser {
                             // rules end
     );
 
-    return parsed ? std::optional{Result{
-                        begin, make_string_view(source.begin(), begin)}}
+    return parsed ? std::optional{Result{begin,
+                                         make_string_view(source.begin(), begin)}}
                   : std::nullopt;
   }
 
@@ -1437,7 +1542,7 @@ class StdParser {
   // INCLUDES
   // ========
 
-  template <class Source>
+  template<class Source>
   auto get_includes(Source& source) {
     return parser.get_includes(source);
   }
@@ -1470,19 +1575,19 @@ class StdParser {
   }
 
   // TODO: constrain Types as the types in the variant of CodeFragment
-  template <class... Types>
+  template<class... Types>
   bool is_current_code_fragment() {
     auto& current = parser.get_current_code_fragment();
     return (std::holds_alternative<Types>(current) || ...);
   }
 
   // TODO: Constraint Fragment to CodeFragment
-  template <class Fragment>
+  template<class Fragment>
   void close_code_fragment() {
     parser.close_code_fragment<Fragment>();
   }
 };
 
-}  // namespace std_parser
+} // namespace std_parser
 
-#endif  //! STD_PARSER_H
+#endif //! STD_PARSER_H
