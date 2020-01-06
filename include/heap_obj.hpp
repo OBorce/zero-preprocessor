@@ -41,6 +41,9 @@ struct HeapObj : private std::unique_ptr<T> {
     }
     return *this;
   }
+
+  using std::unique_ptr<T>::operator*;
+  using std::unique_ptr<T>::operator bool;
 };
 
 #endif  //! HEAP_OBJ_HPP

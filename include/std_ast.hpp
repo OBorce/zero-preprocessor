@@ -678,6 +678,8 @@ struct IfStatement {
 
   std::vector<IfStatement> else_if_statements;
 
+  HeapObj<StatementVariant> else_body;
+
   SourceLocation loc;
 };
 

@@ -1070,7 +1070,13 @@ class StdParserState {
                    [&](rules::ast::Scope& arg) {
                      arg.statements.emplace_back(std::move(c));
                    },
-                   [&](rules::ast::IfStatement& arg) { arg.body = std::move(c); },
+                   [&](rules::ast::IfStatement& arg) {
+                     if (arg.state == rules::ast::IfStatement::State::ElseIf) {
+                       arg.body = std::move(c);
+                     } else if (arg.state == rules::ast::IfStatement::State::Done) {
+                       arg.else_body = std::move(c);
+                     }
+                   },
                    [](auto&) {
                      /* other can't have local scopes*/
                    },
@@ -1196,6 +1202,8 @@ class StdParserState {
                 arg.body = std::move(statement);
               } else if (arg.state == rules::ast::IfStatement::State::ElseIf) {
                 arg.else_if_statements.push_back(std::move(statement));
+              } else if (arg.state == rules::ast::IfStatement::State::Done) {
+                arg.else_body = std::move(statement);
               }
             },
             [](auto&) {
@@ -1209,23 +1217,28 @@ class StdParserState {
   void close_current_statement() {
     auto& statement = std::get<Statement>(ast_state.back());
     auto& variant_code_fragment = ast_state[ast_state.size() - 2];
-    std::visit(
-        overloaded{
-            [&](rules::ast::Function& arg) {
-              arg.statements.emplace_back(std::move(statement));
-            },
-            [&](rules::ast::Scope& arg) {
-              arg.statements.emplace_back(std::move(statement));
-            },
-            [&](rules::ast::Lambda& arg) {
-              arg.statements.emplace_back(std::move(statement));
-            },
-            [&](rules::ast::IfStatement& arg) { arg.body = std::move(statement); },
-            [](auto&) {
-              /* other can't have statements*/
-            },
-        },
-        variant_code_fragment);
+    std::visit(overloaded{
+                   [&](rules::ast::Function& arg) {
+                     arg.statements.emplace_back(std::move(statement));
+                   },
+                   [&](rules::ast::Scope& arg) {
+                     arg.statements.emplace_back(std::move(statement));
+                   },
+                   [&](rules::ast::Lambda& arg) {
+                     arg.statements.emplace_back(std::move(statement));
+                   },
+                   [&](rules::ast::IfStatement& arg) {
+                     if (arg.state == rules::ast::IfStatement::State::ElseIf) {
+                       arg.body = std::move(statement);
+                     } else if (arg.state == rules::ast::IfStatement::State::Done) {
+                       arg.else_body = std::move(statement);
+                     }
+                   },
+                   [](auto&) {
+                     /* other can't have statements*/
+                   },
+               },
+               variant_code_fragment);
   }
 
   template<class T>
